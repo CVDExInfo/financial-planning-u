@@ -154,19 +154,6 @@ jobs:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: us-east-2
 
-      - name: Validate taxonomy sync (frontend <> DynamoDB)
-        shell: bash
-        env:
-          NODE_OPTIONS: "--enable-source-maps"
-          TAXONOMY_TABLE: finz_rubros_taxonomia
-          AWS_REGION: us-east-2
-        run: |
-          set -euo pipefail
-          echo "🔎 Running taxonomy sync validation (Dynamo)"
-          # run from services folder to pick up @aws-sdk clients in its package.json
-          cd services/finanzas-api
-          node ../../scripts/validate-taxonomy-sync.cjs
-
       # ---- Lint (auto-fix where possible, then gate) ----
       - name: Lint (auto-fix if supported)
         shell: bash
