@@ -491,93 +491,6 @@ export function SDMTForecast() {
     }
   }, [currentProject?.baselineId, isPortfolioView]);
 
-  const loadForecastData = useCallback(async () => {
-    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
-    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
-    if (!isPortfolioView && !selectedProjectId) {
-      console.log("❌ No project selected and not portfolio view, skipping forecast load");
-      return;
-    }
-
-    // Create a new abort controller for this request
-    abortControllerRef.current = new AbortController();
-
-    // Generate unique request key to identify this specific request
-    const requestKey = `${selectedProjectId}__${
-      currentProject?.baselineId || ""
-    }__${Date.now()}`;
-    latestRequestKeyRef.current = requestKey;
-
-    try {
-      setLoading(true);
-      setIsLoadingForecast(true);
-      setForecastError(null);
-      setDirtyActuals({});
-      setDirtyForecasts({});
-
-      // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
-      const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
-      const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
-
-      if (import.meta.env.DEV) {
-        console.debug("[Forecast] Loading data", {
-          projectId: selectedProjectId,
-          months,
-          isCurrentMonthMode,
-          selectedPeriod,
-          requestKey,
-        });
-      }
-
-      if (isPortfolioView) {
-        await loadPortfolioForecast(months, requestKey);
-      } else {
-        await loadSingleProjectForecast(selectedProjectId, months, requestKey);
-      }
-
-      // Verify this is still the latest request before applying results
-      if (latestRequestKeyRef.current !== requestKey) {
-        if (import.meta.env.DEV) {
-          console.debug("[Forecast] Discarding stale response", {
-            requestKey,
-            latest: latestRequestKeyRef.current,
-          });
-        }
-        return; // Stale response, ignore it
-      }
-    } catch (error) {
-      // Ignore aborted requests
-      if (error instanceof Error && error.name === "AbortError") {
-        if (import.meta.env.DEV) {
-          console.debug("[Forecast] Request aborted", { requestKey });
-        }
-        return;
-      }
-
-      console.error(
-        "❌ Failed to load forecast data for project:",
-        selectedProjectId,
-        error
-      );
-      const message = handleFinanzasApiError(error, {
-        onAuthError: login,
-        fallback: "No se pudo cargar el forecast.",
-      });
-
-      // Only set error if this is still the latest request
-      if (latestRequestKeyRef.current === requestKey) {
-        setForecastError(message);
-        setForecastData([]); // Clear data on error
-      }
-    } finally {
-      // Only clear loading if this is still the latest request
-      if (latestRequestKeyRef.current === requestKey) {
-        setLoading(false);
-        setIsLoadingForecast(false);
-      }
-    }
-  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
-
   const transformLineItemsToForecast = (
     lineItems: LineItemLike[],
     months: number,
@@ -1094,6 +1007,94 @@ export function SDMTForecast() {
       });
     }
   };
+
+  const loadForecastData = useCallback(async () => {
+    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
+    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
+    if (!isPortfolioView && !selectedProjectId) {
+      console.log("❌ No project selected and not portfolio view, skipping forecast load");
+      return;
+    }
+
+    // Create a new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
+    // Generate unique request key to identify this specific request
+    const requestKey = `${selectedProjectId}__${
+      currentProject?.baselineId || ""
+    }__${Date.now()}`;
+    latestRequestKeyRef.current = requestKey;
+
+    try {
+      setLoading(true);
+      setIsLoadingForecast(true);
+      setForecastError(null);
+      setDirtyActuals({});
+      setDirtyForecasts({});
+
+      // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
+      const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
+      const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
+
+      if (import.meta.env.DEV) {
+        console.debug("[Forecast] Loading data", {
+          projectId: selectedProjectId,
+          months,
+          isCurrentMonthMode,
+          selectedPeriod,
+          requestKey,
+        });
+      }
+
+      if (isPortfolioView) {
+        await loadPortfolioForecast(months, requestKey);
+      } else {
+        await loadSingleProjectForecast(selectedProjectId, months, requestKey);
+      }
+
+      // Verify this is still the latest request before applying results
+      if (latestRequestKeyRef.current !== requestKey) {
+        if (import.meta.env.DEV) {
+          console.debug("[Forecast] Discarding stale response", {
+            requestKey,
+            latest: latestRequestKeyRef.current,
+          });
+        }
+        return; // Stale response, ignore it
+      }
+    } catch (error) {
+      // Ignore aborted requests
+      if (error instanceof Error && error.name === "AbortError") {
+        if (import.meta.env.DEV) {
+          console.debug("[Forecast] Request aborted", { requestKey });
+        }
+        return;
+      }
+
+      console.error(
+        "❌ Failed to load forecast data for project:",
+        selectedProjectId,
+        error
+      );
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: "No se pudo cargar el forecast.",
+      });
+
+      // Only set error if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setForecastError(message);
+        setForecastData([]); // Clear data on error
+      }
+    } finally {
+      // Only clear loading if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setLoading(false);
+        setIsLoadingForecast(false);
+      }
+    }
+  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
+
 
   // Consolidated data loading effect: handles initial load, route changes, and event-driven refreshes
   // This ensures forecast loads on:

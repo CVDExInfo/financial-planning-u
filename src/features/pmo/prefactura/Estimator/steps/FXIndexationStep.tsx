@@ -70,6 +70,21 @@ export function FXIndexationStep({
     console.log("📈 Indexation Data updated:", field, "=", value);
   };
 
+  const getHedgingDescription = (strategy: string) => {
+    switch (strategy) {
+      case "none":
+        return "Sin cobertura - exposición FX completa";
+      case "forward_80":
+        return "80% cubierto con contratos forward";
+      case "forward_100":
+        return "100% cubierto con contratos forward";
+      case "options":
+        return "Estrategia de opciones para protección a la baja";
+      default:
+        return "";
+    }
+  };
+
   const handleNext = () => {
     console.log("💱📈 FX & Indexation configuration submitted:", {
       fx: {
@@ -89,21 +104,6 @@ export function FXIndexationStep({
     });
     setData({ fx: fxData, indexation: indexationData });
     onNext();
-  };
-
-  const getHedgingDescription = (strategy: string) => {
-    switch (strategy) {
-      case "none":
-        return "Sin cobertura - exposición FX completa";
-      case "forward_80":
-        return "80% cubierto con contratos forward";
-      case "forward_100":
-        return "100% cubierto con contratos forward";
-      case "options":
-        return "Estrategia de opciones para protección a la baja";
-      default:
-        return "";
-    }
   };
 
   const calculateIndexationImpact = () => {

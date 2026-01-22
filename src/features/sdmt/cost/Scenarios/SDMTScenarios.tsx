@@ -47,15 +47,6 @@ export function SDMTScenarios() {
   });
 
   // Load data when project changes
-  useEffect(() => {
-    if (!hasPremiumFinanzasFeatures) return;
-
-    if (selectedProjectId) {
-      console.log('🎯 Scenarios: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
-      loadScenarios();
-    }
-  }, [hasPremiumFinanzasFeatures, projectChangeCount, selectedPeriod, selectedProjectId]);
-
   const loadScenarios = async () => {
     try {
       setLoading(true);
@@ -107,6 +98,16 @@ export function SDMTScenarios() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!hasPremiumFinanzasFeatures) return;
+
+    if (selectedProjectId) {
+      console.log('🎯 Scenarios: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      loadScenarios();
+    }
+  }, [hasPremiumFinanzasFeatures, projectChangeCount, selectedPeriod, selectedProjectId]);
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
