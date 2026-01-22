@@ -37,6 +37,15 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
+      // Prevent Temporal Dead Zone (TDZ) errors by detecting use-before-define
+      // - Allow function declarations (hoisted)
+      // - Disallow variables/classes used before definition
+      '@typescript-eslint/no-use-before-define': ['error', {
+        functions: false,  // Function declarations are hoisted, so allow them
+        classes: true,     // Class declarations must be defined before use
+        variables: true,   // Variables (const/let) must be defined before use
+        allowNamedExports: false
+      }],
       // Prevent accidental backend imports in frontend code
       'no-restricted-imports': ['error', {
         paths: [
