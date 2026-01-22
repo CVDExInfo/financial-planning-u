@@ -24,6 +24,18 @@ jest.mock("../src/lib/dynamo", () => ({
       this.input = input;
     }
   },
+  QueryCommand: class QueryCommand {
+    input: any;
+    constructor(input: any) {
+      this.input = input;
+    }
+  },
+  BatchWriteCommand: class BatchWriteCommand {
+    input: any;
+    constructor(input: any) {
+      this.input = input;
+    }
+  },
 }));
 
 // Must import after mocking
@@ -48,22 +60,31 @@ describe("Materializer Canonical ID Consistency", () => {
 
       // Mock DynamoDB responses
       mockDdbSend.mockImplementation((command) => {
-        if (command.constructor.name === "GetCommand") {
-          // Return baseline with rubros (primary path)
+        if (command.constructor.name === "QueryCommand") {
+          // Return rubros query result (used by materializer to check existing rubros)
+          return Promise.resolve({
+            Items: [
+              {
+                pk: `PROJECT#${baseline.projectId}`,
+                sk: "RUBRO#MOD-ING",
+                rubroId: "RB0001",
+                linea_codigo: "MOD-ING",
+                descripcion: "Ingeniero",
+                unit_cost: 5000,
+                start_month: 1,
+                end_month: 12,
+                metadata: {
+                  baseline_id: baseline.baselineId,
+                },
+              },
+            ],
+          });
+        } else if (command.constructor.name === "GetCommand") {
+          // Return baseline metadata (not needed for rubros path, but may be called)
           return Promise.resolve({
             Item: {
               ...baseline,
-              rubros: [
-                {
-                  rubroId: "RB0001",
-                  linea_codigo: "MOD-ING",
-                  sk: "RUBRO#MOD-ING",
-                  descripcion: "Ingeniero",
-                  unit_cost: 5000,
-                  start_month: 1,
-                  end_month: 12,
-                },
-              ],
+              rubros: [],
             },
           });
         } else if (command.constructor.name === "ScanCommand") {
@@ -133,7 +154,10 @@ describe("Materializer Canonical ID Consistency", () => {
 
       // Mock DynamoDB to return baseline without rubros (triggers fallback)
       mockDdbSend.mockImplementation((command) => {
-        if (command.constructor.name === "GetCommand") {
+        if (command.constructor.name === "QueryCommand") {
+          // Return empty rubros (triggers fallback to labor_estimates)
+          return Promise.resolve({ Items: [] });
+        } else if (command.constructor.name === "GetCommand") {
           return Promise.resolve({
             Item: {
               ...baseline,
@@ -200,21 +224,30 @@ describe("Materializer Canonical ID Consistency", () => {
       };
 
       mockDdbSend.mockImplementation((command) => {
-        if (command.constructor.name === "GetCommand") {
+        if (command.constructor.name === "QueryCommand") {
+          // Return rubros that match the baseline
+          return Promise.resolve({
+            Items: [
+              {
+                pk: `PROJECT#${baseline.projectId}`,
+                sk: "RUBRO#MOD-ING",
+                rubroId: "RB0001",
+                linea_codigo: "MOD-ING",
+                descripcion: "Ingeniero",
+                unit_cost: 5000,
+                start_month: 1,
+                end_month: 12,
+                metadata: {
+                  baseline_id: baseline.baselineId,
+                },
+              },
+            ],
+          });
+        } else if (command.constructor.name === "GetCommand") {
           return Promise.resolve({
             Item: {
               ...baseline,
-              rubros: [
-                {
-                  rubroId: "RB0001",
-                  linea_codigo: "MOD-ING",
-                  sk: "RUBRO#MOD-ING",
-                  descripcion: "Ingeniero",
-                  unit_cost: 5000,
-                  start_month: 1,
-                  end_month: 12,
-                },
-              ],
+              rubros: [],
             },
           });
         } else if (command.constructor.name === "ScanCommand") {
@@ -272,7 +305,10 @@ describe("Materializer Canonical ID Consistency", () => {
       };
 
       mockDdbSend.mockImplementation((command) => {
-        if (command.constructor.name === "GetCommand") {
+        if (command.constructor.name === "QueryCommand") {
+          // Return empty rubros (triggers fallback)
+          return Promise.resolve({ Items: [] });
+        } else if (command.constructor.name === "GetCommand") {
           return Promise.resolve({
             Item: {
               ...baseline,
@@ -281,6 +317,8 @@ describe("Materializer Canonical ID Consistency", () => {
           });
         } else if (command.constructor.name === "ScanCommand") {
           return Promise.resolve({ Items: [] });
+        } else if (command.constructor.name === "BatchWriteCommand") {
+          return Promise.resolve({ UnprocessedItems: {} });
         }
         return Promise.resolve({});
       });
@@ -314,7 +352,10 @@ describe("Materializer Canonical ID Consistency", () => {
       };
 
       mockDdbSend.mockImplementation((command) => {
-        if (command.constructor.name === "GetCommand") {
+        if (command.constructor.name === "QueryCommand") {
+          // Return empty rubros (triggers fallback)
+          return Promise.resolve({ Items: [] });
+        } else if (command.constructor.name === "GetCommand") {
           return Promise.resolve({
             Item: {
               ...baseline,
