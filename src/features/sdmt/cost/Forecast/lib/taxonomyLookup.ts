@@ -11,7 +11,7 @@
  */
 
 import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET, CANONICAL_ALIASES } from '@/lib/rubros/canonical-taxonomy';
-import { normalizeKey } from '@/lib/strings/normalizeKey';
+import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 /**
  * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET

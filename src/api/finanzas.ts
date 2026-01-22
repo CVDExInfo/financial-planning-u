@@ -32,6 +32,13 @@ function requireApiBase(): string {
   return API_BASE;
 }
 
+export class FinanzasApiError extends Error {
+  constructor(message: string, public status?: number) {
+    super(message);
+    this.name = "FinanzasApiError";
+  }
+}
+
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, {
     // Default to CORS-friendly settings so CloudFront/API Gateway consistently allow requests
@@ -67,13 +74,6 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
 
   // Some POSTs legitimately return empty bodies; guard it.
   return text ? (JSON.parse(text) as T) : ({} as T);
-}
-
-export class FinanzasApiError extends Error {
-  constructor(message: string, public status?: number) {
-    super(message);
-    this.name = "FinanzasApiError";
-  }
 }
 
 function ensureApiBase(): void {
@@ -116,6 +116,23 @@ const logApiDebug = (
   if (isDevEnv) {
     console.info(`[finanzas-api] ${message}`, payload ?? "");
   }
+};
+
+const validateArrayResponse = (value: unknown, label: string): any[] => {
+  // Handle direct array response
+  if (Array.isArray(value)) return value;
+  
+  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
+  if (value && typeof value === "object") {
+    const candidate = value as Record<string, unknown>;
+    if (Array.isArray(candidate.data)) return candidate.data;
+    if (Array.isArray(candidate.items)) return candidate.items;
+    if (Array.isArray(candidate.Data)) return candidate.Data;
+  }
+  
+  // Log warning but return empty array instead of throwing
+  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
+  return [];
 };
 
 // ---------- MOD sources ----------
@@ -436,23 +453,6 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
     throw toFinanzasError(err, "Unable to load adjustments rows");
   }
 }
-
-const validateArrayResponse = (value: unknown, label: string): any[] => {
-  // Handle direct array response
-  if (Array.isArray(value)) return value;
-  
-  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
-  if (value && typeof value === "object") {
-    const candidate = value as Record<string, unknown>;
-    if (Array.isArray(candidate.data)) return candidate.data;
-    if (Array.isArray(candidate.items)) return candidate.items;
-    if (Array.isArray(candidate.Data)) return candidate.Data;
-  }
-  
-  // Log warning but return empty array instead of throwing
-  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
-  return [];
-};
 
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed" | "PendingDeletionApproval" | "PendingCorrectionApproval";
@@ -1156,6 +1156,44 @@ export async function deleteProjectRubro(
   }
 }
 
+const applyTaxonomy = (
+  item: LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+  },
+):
+  | LineItem
+  | (LineItem & {
+      linea_codigo?: string;
+      categoria?: string;
+      tipo_costo?: string;
+    }) => {
+  const taxonomy =
+    taxonomyByRubroId.get(item.id) ||
+    taxonomyByLineaCodigo.get(item.linea_codigo || item.id);
+
+  if (!taxonomy) return item;
+
+  const lineaCodigo = taxonomy.linea_codigo || item.linea_codigo;
+  const categoria = taxonomy.categoria || item.category;
+  const tipo_costo = taxonomy.tipo_costo || item.tipo_costo;
+  const description =
+    item.description ||
+    taxonomy.linea_gasto ||
+    taxonomy.descripcion ||
+    item.id;
+
+  return {
+    ...item,
+    linea_codigo: lineaCodigo || item.id,
+    categoria: categoria || item.category,
+    tipo_costo,
+    category: categoria || item.category,
+    description,
+  };
+};
+
 /* ──────────────────────────────────────────────────────────
    Catalog: fetch project rubros / line items
    Used by: src/hooks/useProjectLineItems.ts
@@ -1323,44 +1361,6 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
   };
 
   return applyTaxonomy(ensureCategory(base));
-};
-
-const applyTaxonomy = (
-  item: LineItem & {
-    linea_codigo?: string;
-    categoria?: string;
-    tipo_costo?: string;
-  },
-):
-  | LineItem
-  | (LineItem & {
-      linea_codigo?: string;
-      categoria?: string;
-      tipo_costo?: string;
-    }) => {
-  const taxonomy =
-    taxonomyByRubroId.get(item.id) ||
-    taxonomyByLineaCodigo.get(item.linea_codigo || item.id);
-
-  if (!taxonomy) return item;
-
-  const lineaCodigo = taxonomy.linea_codigo || item.linea_codigo;
-  const categoria = taxonomy.categoria || item.category;
-  const tipo_costo = taxonomy.tipo_costo || item.tipo_costo;
-  const description =
-    item.description ||
-    taxonomy.linea_gasto ||
-    taxonomy.descripcion ||
-    item.id;
-
-  return {
-    ...item,
-    linea_codigo: lineaCodigo || item.id,
-    categoria: categoria || item.category,
-    tipo_costo,
-    category: categoria || item.category,
-    description,
-  };
 };
 
 const coerceLineItemList = (input: unknown): LineItemDTO[] => {

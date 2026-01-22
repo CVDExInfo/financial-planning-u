@@ -94,6 +94,39 @@ function normalizeDataArray<T>(payload: unknown): T[] {
   return [];
 }
 
+/**
+ * Normalizes a rubro item to ensure canonical fields are present.
+ * 
+ * This is a defensive normalization helper that handles various backend response formats
+ * and ensures consistent field naming across the application.
+ * 
+ * **Field Fallback Priority:**
+ * - `rubro_id`: rubro_id → linea_codigo → id → code → linea_id
+ * - `linea_codigo`: linea_codigo → rubro_id → id → code → linea_id
+ * - `description`/`descripcion`: descripcion → description → linea_gasto → name → nombre → ''
+ * 
+ * **Expected Input Variations:**
+ * - Standard: `{ rubro_id, descripcion, linea_codigo }`
+ * - Legacy: `{ id, description }` or `{ code, name }`
+ * - Accounting: `{ linea_id, linea_gasto }`
+ * 
+ * @param r - Raw rubro object from backend with any field combination
+ * @returns Normalized rubro with guaranteed canonical fields plus all original fields
+ * 
+ * @example
+ * normalizeRubroItem({ id: 'MOD-ING', name: 'Engineer' })
+ * // Returns: { rubro_id: 'MOD-ING', linea_codigo: 'MOD-ING', description: 'Engineer', descripcion: 'Engineer', id: 'MOD-ING', name: 'Engineer' }
+ */
+export function normalizeRubroItem(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    rubro_id: r.rubro_id || r.linea_codigo || r.id || r.code || r.linea_id,
+    linea_codigo: r.linea_codigo || r.rubro_id || r.id || r.code || r.linea_id,
+    description: r.descripcion || r.description || r.linea_gasto || r.name || r.nombre || '',
+    descripcion: r.descripcion || r.description || r.linea_gasto || r.name || r.nombre || '',
+    ...r
+  };
+}
+
 const logBudgetMonthlyFailure = (path: string, error: unknown) => {
   if (!import.meta.env.DEV) return;
 
@@ -187,6 +220,16 @@ function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
   return [];
 }
 
+const ProjectRubroRequestSchema = z.object({
+  rubroIds: z.array(z.string()).min(1),
+  monto_total: z.number().min(0).optional(),
+  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
+  meses_programados: z.array(z.string()).optional(),
+  notas: z.string().max(1000).optional(),
+});
+
+type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
+
 function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
   const normalized: ProjectRubroRequest = {
     rubroIds: payload.rubro_id ? [payload.rubro_id] : [],
@@ -267,16 +310,6 @@ export const RubroCreateSchema = z.object({
 });
 
 export type RubroCreate = z.infer<typeof RubroCreateSchema>;
-
-const ProjectRubroRequestSchema = z.object({
-  rubroIds: z.array(z.string()).min(1),
-  monto_total: z.number().min(0).optional(),
-  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
-  meses_programados: z.array(z.string()).optional(),
-  notas: z.string().max(1000).optional(),
-});
-
-type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
 
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({

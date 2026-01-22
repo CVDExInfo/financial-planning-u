@@ -54,11 +54,6 @@ export function AnnualBudgetWidget({
   // Only EXEC_RO can edit (not PMO or other roles)
   const canEdit = user?.current_role === 'EXEC_RO';
 
-  // Load existing budget for the selected year
-  useEffect(() => {
-    loadBudget();
-  }, [year]);
-
   const loadBudget = async () => {
     setLoading(true);
     try {
@@ -78,6 +73,11 @@ export function AnnualBudgetWidget({
       setLoading(false);
     }
   };
+
+  // Load existing budget for the selected year
+  useEffect(() => {
+    loadBudget();
+  }, [year]);
 
   const handleSave = async () => {
     const amount = parseFloat(budgetAmount);

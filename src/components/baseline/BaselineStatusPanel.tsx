@@ -263,6 +263,9 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
     }
   };
 
+  const status = (currentProject.baseline_status || "pending") as BaselineStatus;
+  const normalizedStatus = status.toLowerCase() as BaselineStatus;
+
   const renderBaselineDetails = () => {
     if (!baselineDetail || loadingBaseline) return null;
 
@@ -417,9 +420,6 @@ export function BaselineStatusPanel({ className }: BaselineStatusPanelProps) {
       </div>
     );
   };
-
-  const status = (currentProject.baseline_status || "pending") as BaselineStatus;
-  const normalizedStatus = status.toLowerCase() as BaselineStatus;
 
   const getStatusBadge = (status: BaselineStatus) => {
     const normalized = status.toLowerCase();

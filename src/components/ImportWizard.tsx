@@ -82,33 +82,27 @@ export const ImportWizard: FC<ImportWizardProps> = ({
 
   const currentSchema = schemas[targetSchema];
 
-  // File upload handler
-  const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const rows = text.split('\n').map(row => row.split(','));
-        
-        if (rows.length > 0) {
-          setHeaders(rows[0].map(h => h.trim().replace(/"/g, '')));
-          setRawData(rows.slice(1).filter(row => row.some(cell => cell.trim())));
-          setStep('mapping');
-          
-          // Auto-suggest mappings based on column names
-          const suggestedMappings = autoSuggestMappings(rows[0], currentSchema);
-          setFieldMappings(suggestedMappings);
-        }
-      } catch (error) {
-        toast.error('Failed to parse CSV file. Please check the format.');
-      }
-    };
-    
-    reader.readAsText(file);
-  }, [currentSchema]);
+  // Get transform function for different field types
+  const getFieldTransform = (field: string) => {
+    switch (field) {
+      case 'qty':
+      case 'unit_cost':
+      case 'planned':
+      case 'forecast':
+      case 'actual':
+        return (value: any) => parseFloat(value) || 0;
+      case 'start_month':
+      case 'end_month':
+      case 'month':
+        return (value: any) => parseInt(value) || 1;
+      case 'one_time':
+      case 'recurring':
+      case 'capex_flag':
+        return (value: any) => value?.toLowerCase() === 'true' || value === '1';
+      default:
+        return (value: any) => value?.toString() || '';
+    }
+  };
 
   // Auto-suggest field mappings based on column names
   const autoSuggestMappings = (headers: string[], schema: any): FieldMapping[] => {
@@ -140,27 +134,104 @@ export const ImportWizard: FC<ImportWizardProps> = ({
     return mappings;
   };
 
-  // Get transform function for different field types
-  const getFieldTransform = (field: string) => {
-    switch (field) {
-      case 'qty':
-      case 'unit_cost':
-      case 'planned':
-      case 'forecast':
-      case 'actual':
-        return (value: any) => parseFloat(value) || 0;
-      case 'start_month':
-      case 'end_month':
-      case 'month':
-        return (value: any) => parseInt(value) || 1;
-      case 'one_time':
-      case 'recurring':
-      case 'capex_flag':
-        return (value: any) => value?.toLowerCase() === 'true' || value === '1';
-      default:
-        return (value: any) => value?.toString() || '';
-    }
+  // Validate and transform imported data
+  const validateAndTransformData = async (
+    data: any[][],
+    mappings: FieldMapping[],
+    schema: any
+  ): Promise<ImportValidationResult> => {
+    const errors: ImportValidationResult['errors'] = [];
+    const warnings: ImportValidationResult['warnings'] = [];
+    const mappedData: any[] = [];
+
+    // Create column index map
+    const columnMap = new Map<string, number>();
+    headers.forEach((header, index) => {
+      columnMap.set(header, index);
+    });
+
+    // Process each row
+    data.forEach((row, rowIndex) => {
+      const record: any = {};
+      let hasErrors = false;
+
+      mappings.forEach(mapping => {
+        if (!mapping.sourceColumn && mapping.required) {
+          errors.push({
+            row: rowIndex + 1,
+            column: mapping.targetField,
+            message: 'Required field not mapped',
+            severity: 'error'
+          });
+          hasErrors = true;
+          return;
+        }
+
+        const colIndex = columnMap.get(mapping.sourceColumn);
+        if (colIndex === undefined) return;
+
+        const rawValue = row[colIndex];
+        
+        try {
+          const transformedValue = mapping.transform ? mapping.transform(rawValue) : rawValue;
+          record[mapping.targetField] = transformedValue;
+        } catch (error) {
+          errors.push({
+            row: rowIndex + 1,
+            column: mapping.targetField,
+            message: 'Failed to transform value',
+            severity: 'error'
+          });
+          hasErrors = true;
+        }
+      });
+
+      if (!hasErrors) {
+        mappedData.push(record);
+      }
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      mappedData,
+      stats: {
+        totalRows: data.length,
+        validRows: mappedData.length,
+        errorRows: data.length - mappedData.length,
+        warningRows: warnings.length
+      }
+    };
   };
+
+  // File upload handler
+  const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const rows = text.split('\n').map(row => row.split(','));
+        
+        if (rows.length > 0) {
+          setHeaders(rows[0].map(h => h.trim().replace(/"/g, '')));
+          setRawData(rows.slice(1).filter(row => row.some(cell => cell.trim())));
+          setStep('mapping');
+          
+          // Auto-suggest mappings based on column names
+          const suggestedMappings = autoSuggestMappings(rows[0], currentSchema);
+          setFieldMappings(suggestedMappings);
+        }
+      } catch (error) {
+        toast.error('Failed to parse CSV file. Please check the format.');
+      }
+    };
+    
+    reader.readAsText(file);
+  }, [currentSchema]);
 
   // Update field mapping
   const updateFieldMapping = (index: number, updates: Partial<FieldMapping>) => {
@@ -182,116 +253,6 @@ export const ImportWizard: FC<ImportWizardProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  // Validate and transform imported data
-  const validateAndTransformData = async (
-    data: any[][],
-    mappings: FieldMapping[],
-    schema: any
-  ): Promise<ImportValidationResult> => {
-    const errors: ImportValidationResult['errors'] = [];
-    const warnings: ImportValidationResult['warnings'] = [];
-    const mappedData: any[] = [];
-
-    // Create column index map
-    const columnMap = new Map<string, number>();
-    headers.forEach((header, index) => {
-      columnMap.set(header, index);
-    });
-
-    // Process each row
-    data.forEach((row, rowIndex) => {
-      const mappedRow: any = { id: `import_${Date.now()}_${rowIndex}` };
-      let hasErrors = false;
-
-      // Map each field
-      mappings.forEach(mapping => {
-        if (!mapping.sourceColumn && mapping.required) {
-          errors.push({
-            row: rowIndex + 1,
-            column: mapping.targetField,
-            message: `Required field '${mapping.targetField}' is not mapped`,
-            severity: 'error'
-          });
-          hasErrors = true;
-          return;
-        }
-
-        if (mapping.sourceColumn) {
-          const columnIndex = columnMap.get(mapping.sourceColumn);
-          if (columnIndex !== undefined && row[columnIndex] !== undefined) {
-            try {
-              const rawValue = row[columnIndex]?.toString().trim();
-              const transformedValue = mapping.transform ? 
-                mapping.transform(rawValue) : rawValue;
-              
-              mappedRow[mapping.targetField] = transformedValue;
-
-              // Validate required fields
-              if (mapping.required && (!rawValue || rawValue === '')) {
-                errors.push({
-                  row: rowIndex + 1,
-                  column: mapping.targetField,
-                  message: `Required field '${mapping.targetField}' is empty`,
-                  severity: 'error'
-                });
-                hasErrors = true;
-              }
-
-              // Field-specific validations
-              if (mapping.targetField === 'currency' && rawValue) {
-                const validCurrencies = ['USD', 'COP', 'EUR', 'GBP'];
-                if (!validCurrencies.includes(rawValue.toUpperCase())) {
-                  warnings.push({
-                    row: rowIndex + 1,
-                    column: mapping.targetField,
-                    message: `Currency '${rawValue}' may not be supported`
-                  });
-                }
-              }
-
-              if (mapping.targetField === 'category' && rawValue) {
-                const validCategories = ['Labor', 'Software', 'Hardware', 'Services', 'Infrastructure', 'Other'];
-                if (!validCategories.includes(rawValue)) {
-                  warnings.push({
-                    row: rowIndex + 1,
-                    column: mapping.targetField,
-                    message: `Category '${rawValue}' may need verification`
-                  });
-                }
-              }
-
-            } catch (error) {
-              errors.push({
-                row: rowIndex + 1,
-                column: mapping.targetField,
-                message: `Failed to transform value: ${error}`,
-                severity: 'error'
-              });
-              hasErrors = true;
-            }
-          }
-        }
-      });
-
-      if (!hasErrors) {
-        mappedData.push(mappedRow);
-      }
-    });
-
-    return {
-      isValid: errors.filter(e => e.severity === 'error').length === 0,
-      errors,
-      warnings,
-      mappedData,
-      stats: {
-        totalRows: data.length,
-        validRows: mappedData.length,
-        errorRows: data.length - mappedData.length,
-        warningRows: warnings.length
-      }
-    };
   };
 
   // Complete import process

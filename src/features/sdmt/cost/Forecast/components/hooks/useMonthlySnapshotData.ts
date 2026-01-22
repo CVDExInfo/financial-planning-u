@@ -54,6 +54,98 @@ export interface MonthlySnapshotDataResult {
   costBreakdown: CostBreakdown;
 }
 
+const filterRowByCostType = (row: SnapshotRow, costTypeFilter: CostTypeFilter): SnapshotRow | null => {
+  if (row.children && row.children.length > 0) {
+    const filteredChildren = row.children
+      .map((child) => filterRowByCostType(child, costTypeFilter))
+      .filter((child): child is SnapshotRow => child !== null);
+
+    if (filteredChildren.length > 0) {
+      return { ...row, children: filteredChildren };
+    }
+    return null;
+  }
+
+  if (row.costType === undefined) {
+    // Try to infer from name/code using same labor heuristics
+    const inferredLabor = isLabor(undefined, row.name) || isLabor(undefined, row.code);
+    if (costTypeFilter === 'labor' && inferredLabor) return row;
+    if (costTypeFilter === 'non-labor' && !inferredLabor) return row;
+    return costTypeFilter === 'all' ? row : null;
+  }
+
+  if (costTypeFilter === 'labor' && row.costType === 'labor') return row;
+  if (costTypeFilter === 'non-labor' && row.costType === 'non-labor') return row;
+
+  return null;
+};
+
+export const determineStatus = (
+  budget: number,
+  forecast: number,
+  actual: number,
+  useMonthlyBudget: boolean,
+): SnapshotRow['status'] => {
+  if (!useMonthlyBudget || budget === 0) {
+    if (forecast === 0 && actual === 0) return 'Sin Datos';
+    return 'Sin Presupuesto';
+  }
+
+  const consumptionPercent = (actual / budget) * 100;
+  const forecastOverBudget = forecast > budget;
+
+  if (forecastOverBudget || consumptionPercent > 100) {
+    return 'Sobre Presupuesto';
+  }
+
+  if (consumptionPercent > 90) {
+    return 'En Riesgo';
+  }
+
+  return 'En Meta';
+};
+
+const calculateSummaryTotals = (rows: SnapshotRow[]) => {
+  const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0);
+  const totalForecast = rows.reduce((sum, row) => sum + row.forecast, 0);
+  const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
+  return { totalBudget, totalForecast, totalActual };
+};
+
+const calculateSummaryForMonth = ({ totalBudget, totalForecast, totalActual }: MonthlySnapshotDataResult['summaryTotals']) => {
+  const consumoPct = totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0;
+  const varianceAbs = totalActual - totalBudget;
+  const variancePct = totalBudget > 0 ? (varianceAbs / totalBudget) * 100 : 0;
+  return { budget: totalBudget, forecast: totalForecast, actual: totalActual, consumoPct, varianceAbs, variancePct };
+};
+
+const calculateCostBreakdown = (rows: SnapshotRow[]): CostBreakdown => {
+  let laborTotal = 0;
+  let nonLaborTotal = 0;
+
+  rows.forEach((row) => {
+    const targets = row.children && row.children.length > 0 ? row.children : [row];
+    targets.forEach((item) => {
+      if (item.costType === 'labor') {
+        laborTotal += item.forecast;
+      } else if (item.costType === 'non-labor') {
+        nonLaborTotal += item.forecast;
+      }
+    });
+  });
+
+  const total = laborTotal + nonLaborTotal;
+  const laborPct = total > 0 ? (laborTotal / total) * 100 : 0;
+  const nonLaborPct = total > 0 ? (nonLaborTotal / total) * 100 : 0;
+
+  return {
+    laborTotal,
+    nonLaborTotal,
+    laborPct,
+    nonLaborPct,
+  };
+};
+
 export function useMonthlySnapshotData({
   forecastData,
   lineItems,
@@ -340,94 +432,3 @@ export function filterSnapshotRows({ rows, costTypeFilter, searchQuery, showOnly
   return workingRows;
 }
 
-const filterRowByCostType = (row: SnapshotRow, costTypeFilter: CostTypeFilter): SnapshotRow | null => {
-  if (row.children && row.children.length > 0) {
-    const filteredChildren = row.children
-      .map((child) => filterRowByCostType(child, costTypeFilter))
-      .filter((child): child is SnapshotRow => child !== null);
-
-    if (filteredChildren.length > 0) {
-      return { ...row, children: filteredChildren };
-    }
-    return null;
-  }
-
-  if (row.costType === undefined) {
-    // Try to infer from name/code using same labor heuristics
-    const inferredLabor = isLabor(undefined, row.name) || isLabor(undefined, row.code);
-    if (costTypeFilter === 'labor' && inferredLabor) return row;
-    if (costTypeFilter === 'non-labor' && !inferredLabor) return row;
-    return costTypeFilter === 'all' ? row : null;
-  }
-
-  if (costTypeFilter === 'labor' && row.costType === 'labor') return row;
-  if (costTypeFilter === 'non-labor' && row.costType === 'non-labor') return row;
-
-  return null;
-};
-
-export const determineStatus = (
-  budget: number,
-  forecast: number,
-  actual: number,
-  useMonthlyBudget: boolean,
-): SnapshotRow['status'] => {
-  if (!useMonthlyBudget || budget === 0) {
-    if (forecast === 0 && actual === 0) return 'Sin Datos';
-    return 'Sin Presupuesto';
-  }
-
-  const consumptionPercent = (actual / budget) * 100;
-  const forecastOverBudget = forecast > budget;
-
-  if (forecastOverBudget || consumptionPercent > 100) {
-    return 'Sobre Presupuesto';
-  }
-
-  if (consumptionPercent > 90) {
-    return 'En Riesgo';
-  }
-
-  return 'En Meta';
-};
-
-const calculateSummaryTotals = (rows: SnapshotRow[]) => {
-  const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0);
-  const totalForecast = rows.reduce((sum, row) => sum + row.forecast, 0);
-  const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
-  return { totalBudget, totalForecast, totalActual };
-};
-
-const calculateSummaryForMonth = ({ totalBudget, totalForecast, totalActual }: MonthlySnapshotDataResult['summaryTotals']) => {
-  const consumoPct = totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0;
-  const varianceAbs = totalActual - totalBudget;
-  const variancePct = totalBudget > 0 ? (varianceAbs / totalBudget) * 100 : 0;
-  return { budget: totalBudget, forecast: totalForecast, actual: totalActual, consumoPct, varianceAbs, variancePct };
-};
-
-const calculateCostBreakdown = (rows: SnapshotRow[]): CostBreakdown => {
-  let laborTotal = 0;
-  let nonLaborTotal = 0;
-
-  rows.forEach((row) => {
-    const targets = row.children && row.children.length > 0 ? row.children : [row];
-    targets.forEach((item) => {
-      if (item.costType === 'labor') {
-        laborTotal += item.forecast;
-      } else if (item.costType === 'non-labor') {
-        nonLaborTotal += item.forecast;
-      }
-    });
-  });
-
-  const total = laborTotal + nonLaborTotal;
-  const laborPct = total > 0 ? (laborTotal / total) * 100 : 0;
-  const nonLaborPct = total > 0 ? (nonLaborTotal / total) * 100 : 0;
-
-  return {
-    laborTotal,
-    nonLaborTotal,
-    laborPct,
-    nonLaborPct,
-  };
-};

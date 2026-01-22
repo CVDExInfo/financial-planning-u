@@ -1,9 +1,10 @@
  import {
   BatchWriteCommand,
   BatchWriteCommandInput,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { ddb, tableName, GetCommand, ScanCommand, QueryCommand } from "./dynamo";
+import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
 import {
@@ -11,7 +12,6 @@ import {
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
-import { LEGACY_RUBRO_ID_MAP } from "./canonical-taxonomy";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -130,9 +130,6 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
 
   const byCategoryDescription = new Map<string, RubroTaxonomyEntry>();
   const byDescription = new Map<string, RubroTaxonomyEntry>();
-  
-  // Build index by linea_codigo for efficient lookup during alias seeding
-  const byLineaCodigo = new Map<string, RubroTaxonomyEntry>();
 
   for (const entry of entries) {
     const description =
@@ -145,31 +142,6 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     }
     if (description) {
       byDescription.set(normalizeKeyPart(description), entry);
-    }
-    
-    // Also index by linea_gasto if different from descripcion
-    if (entry.linea_gasto && entry.linea_gasto !== description) {
-      byDescription.set(normalizeKeyPart(entry.linea_gasto), entry);
-    }
-    
-    // Index by linea_codigo for O(1) lookup during alias seeding
-    if (entry.linea_codigo) {
-      byLineaCodigo.set(entry.linea_codigo, entry);
-    }
-  }
-  
-  // Seed with canonical aliases from LEGACY_RUBRO_ID_MAP for consistent server-side lookup
-  // This ensures aliases like "Service Delivery Manager" → MOD-SDM work on the server
-  // Using byLineaCodigo map for O(1) lookup instead of entries.find() for O(n*m) → O(n) complexity
-  for (const [alias, canonicalId] of Object.entries(LEGACY_RUBRO_ID_MAP)) {
-    const normalizedAlias = normalizeKeyPart(alias);
-    // Only add if not already in the map (avoid overwriting actual taxonomy entries)
-    if (!byDescription.has(normalizedAlias)) {
-      // Find the canonical entry for this ID using O(1) map lookup
-      const canonicalEntry = byLineaCodigo.get(canonicalId);
-      if (canonicalEntry) {
-        byDescription.set(normalizedAlias, canonicalEntry);
-      }
     }
   }
 

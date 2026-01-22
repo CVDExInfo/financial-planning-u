@@ -484,78 +484,6 @@ export const listBaselines = async (
   }
 };
 
-export const handler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
-  const method =
-    event.httpMethod?.toUpperCase() ||
-    (event as { requestContext?: { http?: { method?: string } } }).requestContext
-      ?.http?.method?.toUpperCase() ||
-    "";
-
-  if (method === "OPTIONS") {
-    return noContent(event);
-  }
-
-  const routeKey =
-    (event as { requestContext?: { routeKey?: string } }).requestContext
-      ?.routeKey || "";
-  const rawPath =
-    (event as { rawPath?: string }).rawPath || event.path || event.resource || "";
-
-  if (routeKey === "POST /baseline" || (method === "POST" && rawPath === "/baseline")) {
-    return createBaseline(event);
-  }
-
-  if (
-    routeKey === "GET /baseline/{baseline_id}" ||
-    (method === "GET" && rawPath.startsWith("/baseline/"))
-  ) {
-    return getBaseline(event);
-  }
-
-  if (
-    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}" ||
-    (method === "GET" &&
-      /^\/projects\/[^/]+\/baselines\/[^/]+$/i.test(rawPath))
-  ) {
-    return getProjectBaseline(event);
-  }
-
-  if (
-    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/rubros" ||
-    (method === "GET" &&
-      /^\/projects\/[^/]+\/baselines\/[^/]+\/rubros$/i.test(rawPath))
-  ) {
-    return getBaselineRubros(event);
-  }
-
-  if (
-    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/allocations" ||
-    (method === "GET" &&
-      /^\/projects\/[^/]+\/baselines\/[^/]+\/allocations$/i.test(rawPath))
-  ) {
-    return getBaselineAllocations(event);
-  }
-
-  if (
-    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/prefacturas" ||
-    (method === "GET" &&
-      /^\/projects\/[^/]+\/baselines\/[^/]+\/prefacturas$/i.test(rawPath))
-  ) {
-    return getBaselinePrefacturas(event);
-  }
-
-  if (
-    routeKey === "GET /prefacturas/baselines" ||
-    (method === "GET" && rawPath.startsWith("/prefacturas/baselines"))
-  ) {
-    return listBaselines(event);
-  }
-
-  return bad(event, "Ruta no encontrada", 404);
-};
-
 /**
  * GET /baseline/{baseline_id}
  * Retrieves a baseline by ID from the prefacturas store
@@ -810,4 +738,76 @@ export const getBaselinePrefacturas = async (
       error instanceof Error ? error.message : "Failed to get baseline prefacturas"
     );
   }
+};
+
+export const handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  const method =
+    event.httpMethod?.toUpperCase() ||
+    (event as { requestContext?: { http?: { method?: string } } }).requestContext
+      ?.http?.method?.toUpperCase() ||
+    "";
+
+  if (method === "OPTIONS") {
+    return noContent(event);
+  }
+
+  const routeKey =
+    (event as { requestContext?: { routeKey?: string } }).requestContext
+      ?.routeKey || "";
+  const rawPath =
+    (event as { rawPath?: string }).rawPath || event.path || event.resource || "";
+
+  if (routeKey === "POST /baseline" || (method === "POST" && rawPath === "/baseline")) {
+    return createBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /baseline/{baseline_id}" ||
+    (method === "GET" && rawPath.startsWith("/baseline/"))
+  ) {
+    return getBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+$/i.test(rawPath))
+  ) {
+    return getProjectBaseline(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/rubros" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/rubros$/i.test(rawPath))
+  ) {
+    return getBaselineRubros(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/allocations" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/allocations$/i.test(rawPath))
+  ) {
+    return getBaselineAllocations(event);
+  }
+
+  if (
+    routeKey === "GET /projects/{projectId}/baselines/{baseline_id}/prefacturas" ||
+    (method === "GET" &&
+      /^\/projects\/[^/]+\/baselines\/[^/]+\/prefacturas$/i.test(rawPath))
+  ) {
+    return getBaselinePrefacturas(event);
+  }
+
+  if (
+    routeKey === "GET /prefacturas/baselines" ||
+    (method === "GET" && rawPath.startsWith("/prefacturas/baselines"))
+  ) {
+    return listBaselines(event);
+  }
+
+  return bad(event, "Ruta no encontrada", 404);
 };
