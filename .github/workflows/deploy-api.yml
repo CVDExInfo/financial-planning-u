@@ -118,6 +118,12 @@ jobs:
           set -euo pipefail
           sam validate --lint
 
+      - name: Copy canonical taxonomy (pre-build)
+        run: |
+          set -euo pipefail
+          echo "📋 Copying canonical taxonomy from client to server..."
+          node scripts/copy-canonical-taxonomy.cjs
+
       - name: Build
         working-directory: services/finanzas-api
         run: |

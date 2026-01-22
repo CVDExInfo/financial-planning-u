@@ -41,6 +41,9 @@ jobs:
           cd services/finanzas-api && rm -rf node_modules && pnpm install --frozen-lockfile
           cd ../planview-ingestor && rm -rf node_modules && pnpm install --frozen-lockfile
 
+      - name: Copy canonical taxonomy
+        run: node scripts/copy-canonical-taxonomy.cjs
+
       - name: Run unit tests
         env:
           VITE_API_BASE_URL: http://localhost
