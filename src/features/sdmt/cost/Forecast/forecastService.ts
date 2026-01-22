@@ -79,13 +79,19 @@ export async function getProjectInvoices(projectId: string): Promise<InvoiceDoc[
       // Annotate invoice with canonical rubro ID for improved matching
       // This ensures invoices can be matched to forecast rows using canonical taxonomy
       const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
-      const canonicalRubroId = rubroId ? getCanonicalRubroId(rubroId) : null;
+      if (rubroId) {
+        const canonicalRubroId = getCanonicalRubroId(rubroId);
+        return {
+          ...invoice,
+          line_item_id: normalizedLineItemId,
+          // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
+          rubro_canonical: canonicalRubroId,
+        };
+      }
       
       return {
         ...invoice,
         line_item_id: normalizedLineItemId,
-        // Add canonical rubro ID if available (for taxonomy-aligned matching)
-        ...(canonicalRubroId && { rubro_canonical: canonicalRubroId }),
       };
     });
   }
@@ -97,13 +103,19 @@ export async function getProjectInvoices(projectId: string): Promise<InvoiceDoc[
     // Annotate invoice with canonical rubro ID for improved matching
     // This ensures invoices can be matched to forecast rows using canonical taxonomy
     const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
-    const canonicalRubroId = rubroId ? getCanonicalRubroId(rubroId) : null;
+    if (rubroId) {
+      const canonicalRubroId = getCanonicalRubroId(rubroId);
+      return {
+        ...invoice,
+        line_item_id: normalizedLineItemId,
+        // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
+        rubro_canonical: canonicalRubroId,
+      };
+    }
     
     return {
       ...invoice,
       line_item_id: normalizedLineItemId,
-      // Add canonical rubro ID if available (for taxonomy-aligned matching)
-      ...(canonicalRubroId && { rubro_canonical: canonicalRubroId }),
     };
   });
 }
