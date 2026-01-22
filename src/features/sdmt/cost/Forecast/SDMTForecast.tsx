@@ -81,6 +81,7 @@ import {
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
 import { normalizeInvoiceMonth } from "./useSDMTForecastData";
+import { computeForecastFromAllocations, type Allocation } from "./computeForecastFromAllocations";
 import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
@@ -852,7 +853,7 @@ export function SDMTForecast() {
             getForecastPayload(project.id, months),
             getProjectInvoices(project.id),
             getProjectRubros(project.id).catch(() => [] as LineItem[]),
-            getAllocations(project.id, project.baselineId).catch(() => []),
+            getAllocations(project.id, project.baselineId).catch(() => [] as Allocation[]),
           ]);
 
           // Check if request is still valid after async operations
@@ -882,6 +883,9 @@ export function SDMTForecast() {
             );
           }
 
+          // Fallback hierarchy (matching single-project view in useSDMTForecastData):
+          // 1. Try allocations if forecast is empty and allocations exist
+          // 2. Else try lineItems if available
           if (
             (!normalized || normalized.length === 0) &&
             hasAcceptedBaseline

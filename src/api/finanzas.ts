@@ -412,6 +412,7 @@ export interface BaselineDetail {
     materialization_failed?: boolean;
     materializedAt?: string;
     materialized_at?: string;
+    [key: string]: unknown;
   };
   materializedAt?: string;
 }
