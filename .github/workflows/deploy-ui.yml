@@ -619,11 +619,18 @@ jobs:
           echo "✅ S3 verification complete"
 
 
-      - name: Verify Finanzas S3 manifest matches local build
+      - name: Prepare local Finanzas manifest
+        shell: bash
+        env:
+          FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
         run: |
           set -euo pipefail
 
-          # Compare only the SPA assets we actually sync (exclude source maps, legacy docx, and docs/ bundles managed elsewhere)
+          echo "🔧 Cleaning local build of non-production helpers..."
+          # Ensure test-helper.html is not included in the manifest (we don't deploy it)
+          rm -f dist-finanzas/test-helper.html || true
+
+          echo "📄 Generating local manifest (excluding .map/.docx and docs folder)..."
           find dist-finanzas -type f \
             ! -name '*.map' \
             ! -name '*.docx' \
@@ -631,6 +638,13 @@ jobs:
             -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
+
+          echo "🔍 Local manifest generated (first lines):"
+          head -n 30 /tmp/local-finanzas-manifest.txt || true
+
+      - name: Verify Finanzas S3 manifest matches local build
+        run: |
+          set -euo pipefail
 
           aws s3api list-objects-v2 \
             --bucket "${FINANZAS_BUCKET_NAME}" \
