@@ -77,7 +77,11 @@ async function scanDynamo() {
 function indexByLinea(items) {
   const map = {};
   for (const it of items) {
-    const linea = it.linea_codigo || it.lineaCodigo || null;
+    // Extract linea_codigo from sk (format: RUBRO#<linea_codigo>)
+    let linea = it.linea_codigo || it.lineaCodigo || null;
+    if (!linea && it.sk && typeof it.sk === 'string' && it.sk.startsWith('RUBRO#')) {
+      linea = it.sk.substring(6); // Extract after 'RUBRO#'
+    }
     if (!linea) continue;
     if (!map[linea]) map[linea] = [];
     map[linea].push(it);
@@ -130,7 +134,9 @@ function indexByLinea(items) {
         if ((f.fuente_referencia || '').trim() && tableFuente && f.fuente_referencia !== tableFuente) diffs.push({ attr: 'fuente_referencia', frontend: f.fuente_referencia, table: tableFuente });
         else if ((f.fuente_referencia || '').trim() && !tableFuente) diffs.push({ attr: 'fuente_referencia', frontend: f.fuente_referencia, table: null });
         const pk = sample.pk || null;
-        if (pk && String(pk) !== `LINEA#${id}`) diffs.push({ attr: 'pk', note: `pk is "${pk}" but expected LINEA#${id}` });
+        const sk = sample.sk || null;
+        if (pk && String(pk) !== 'TAXONOMY') diffs.push({ attr: 'pk', note: `pk is "${pk}" but expected TAXONOMY` });
+        if (sk && String(sk) !== `RUBRO#${id}`) diffs.push({ attr: 'sk', note: `sk is "${sk}" but expected RUBRO#${id}` });
         if (diffs.length) {
           if (!attributeMismatches[id]) attributeMismatches[id] = [];
           attributeMismatches[id].push({ sampleKey: `${sample.pk || 'nopk'}|${sample.sk || 'nosk'}`, diffs, sample });

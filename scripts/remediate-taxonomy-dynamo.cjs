@@ -35,20 +35,18 @@ async function backupItem(client, pk, sk) {
     console.log('PK mismatches to consider (priority 1):');
     for (const [id, entries] of Object.entries(report.attributeMismatches || {})) {
       for (const ent of entries) {
-        const pkDiff = ent.diffs.find(d => d.attr === 'pk');
+        const pkDiff = ent.diffs.find(d => d.attr === 'pk' || d.attr === 'sk');
         if (!pkDiff) continue;
-        console.log(`ID ${id} has pk mismatch: ${JSON.stringify(ent.diffs, null, 2)}; sample: ${ent.sampleKey}`);
-        const confirm = (await ask(`Fix PK for ${id} (copy->put->delete)? (y/N): `));
+        console.log(`ID ${id} has key mismatch: ${JSON.stringify(ent.diffs, null, 2)}; sample: ${ent.sampleKey}`);
+        const confirm = (await ask(`Fix keys for ${id} (copy->put->delete)? (y/N): `));
         if (confirm.toLowerCase() !== 'y') continue;
         // backup old item(s) that have this id
         const sample = ent.sample;
         const oldPk = sample.pk; const oldSk = sample.sk;
         const bfile = await backupItem(client, oldPk, oldSk);
         log.push({ action: 'backup', pk: oldPk, sk: oldSk, backupFile: bfile });
-        // prepare new item with pk LINEA#id
-        const newItem = Object.assign({}, sample, { pk: `LINEA#${id}`, linea_codigo: id });
-        // ensure sk exists
-        if (!newItem.sk) newItem.sk = `CATEGORIA#${newItem.categoria_codigo || 'MOD'}`;
+        // prepare new item with correct pk/sk: TAXONOMY / RUBRO#id
+        const newItem = Object.assign({}, sample, { pk: 'TAXONOMY', sk: `RUBRO#${id}`, linea_codigo: id });
         // put new item
         const put = new PutItemCommand({ TableName: TABLE, Item: marshall(newItem) });
         await client.send(put);
@@ -57,7 +55,7 @@ async function backupItem(client, pk, sk) {
         const del = new DeleteItemCommand({ TableName: TABLE, Key: marshall({ pk: oldPk, sk: oldSk }) });
         await client.send(del);
         log.push({ action: 'delete', pk: oldPk, sk: oldSk });
-        console.log(`Fixed pk for ${id}: created ${newItem.pk}|${newItem.sk}, deleted ${oldPk}|${oldSk}`);
+        console.log(`Fixed keys for ${id}: created ${newItem.pk}|${newItem.sk}, deleted ${oldPk}|${oldSk}`);
       }
     }
 
@@ -71,8 +69,8 @@ async function backupItem(client, pk, sk) {
         const fsample = (report.samples && report.samples.frontendSample && report.samples.frontendSample.find(x => x[0] === id));
         const fobj = fsample ? fsample[1] : null;
         const item = {
-          pk: `LINEA#${id}`,
-          sk: `CATEGORIA#${(fobj && fobj.categoria_codigo) || 'MOD'}`,
+          pk: 'TAXONOMY',
+          sk: `RUBRO#${id}`,
           linea_codigo: id,
           linea_gasto: (fobj && fobj.linea_gasto) || id,
           descripcion: (fobj && fobj.descripcion) || (fobj && fobj.linea_gasto) || id,

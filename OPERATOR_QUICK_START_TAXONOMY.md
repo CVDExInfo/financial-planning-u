@@ -67,11 +67,15 @@ cat tmp/taxonomy_report_full.json | jq '.attributeMismatches'  # Attributes to f
 
 Review the report and identify priorities:
 
-### Priority 1: PK Mismatches (CRITICAL)
+### Priority 1: Key Mismatches (CRITICAL)
 **Risk**: Query failures, data corruption
 **Action**: MUST FIX before production deployment
 
-Look for items in `attributeMismatches` with `"attr": "pk"` diffs.
+Look for items in `attributeMismatches` with `"attr": "pk"` or `"attr": "sk"` diffs.
+
+**Expected Keys**:
+- `pk`: `"TAXONOMY"` (static for all taxonomy items)
+- `sk`: `"RUBRO#<linea_codigo>"` (e.g., `"RUBRO#MOD-ING"`)
 
 ### Priority 2: Missing Canonical IDs (HIGH)
 **Risk**: Frontend errors when referencing these IDs
@@ -226,21 +230,21 @@ If critical issues occur:
 ```
 $ node scripts/remediate-taxonomy-dynamo.cjs tmp/taxonomy_report_full.json
 
-PK mismatches to consider (priority 1):
-ID MOD-IN2 has pk mismatch: pk is "LINEA#MOD-EXT" but expected LINEA#MOD-IN2
-Fix PK for MOD-IN2 (copy->put->delete)? (y/N): y
-✅ Backup created: tmp/backups/backup_LINEA-MOD-EXT_CATEGORIA-MOD.json
-✅ Created LINEA#MOD-IN2|CATEGORIA#MOD
-✅ Deleted LINEA#MOD-EXT|CATEGORIA#MOD
+Key mismatches to consider (priority 1):
+ID MOD-IN2 has key mismatch: pk is "WRONG_PK" but expected TAXONOMY, sk is "WRONG_SK" but expected RUBRO#MOD-IN2
+Fix keys for MOD-IN2 (copy->put->delete)? (y/N): y
+✅ Backup created: tmp/backups/backup_WRONG_PK_WRONG_SK.json
+✅ Created TAXONOMY|RUBRO#MOD-IN2
+✅ Deleted WRONG_PK|WRONG_SK
 
 Missing canonical IDs to create (priority 2): 3
 Create minimal item for MOD-XYZ? (y/N): y
-✅ Created LINEA#MOD-XYZ|CATEGORIA#MOD
+✅ Created TAXONOMY|RUBRO#MOD-XYZ
 
-Attribute mismatches for MOD-ING sample LINEA#MOD-ING|CATEGORIA#MOD:
-Update attributes for MOD-ING on LINEA#MOD-ING|CATEGORIA#MOD? (y/N): y
-✅ Backup created: tmp/backups/backup_LINEA-MOD-ING_CATEGORIA-MOD.json
-✅ Updated attributes for LINEA#MOD-ING CATEGORIA#MOD
+Attribute mismatches for MOD-ING sample TAXONOMY|RUBRO#MOD-ING:
+Update attributes for MOD-ING on TAXONOMY|RUBRO#MOD-ING? (y/N): y
+✅ Backup created: tmp/backups/backup_TAXONOMY_RUBRO-MOD-ING.json
+✅ Updated attributes for TAXONOMY RUBRO#MOD-ING
 
 Extra IDs in Dynamo not present in frontend: 5
 First 50 extras: ["OLD-RUBRO-1", "DEPRECATED-2", "LEGACY-3"]

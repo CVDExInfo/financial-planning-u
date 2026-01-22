@@ -17,13 +17,13 @@ This PR implements a comprehensive taxonomy validation and reconciliation workfl
      - IDs present in Dynamo but not in frontend
      - Backend-derived IDs missing in frontend and vice versa
      - Attribute mismatches (descripcion, categoria, fuente_referencia, etc.)
-     - PK mismatches (items where pk ≠ `LINEA#<linea_codigo>`)
+     - Key mismatches (items where pk ≠ 'TAXONOMY' or sk ≠ 'RUBRO#<linea_codigo>')
      - Duplicate entries
 
 2. **Remediation Script** (`scripts/remediate-taxonomy-dynamo.cjs`)
    - Interactive CLI tool for applying fixes with operator approval
    - Implements prioritized remediation:
-     - **P1**: PK mismatches (copy→put→delete with backups)
+     - **P1**: Key mismatches (copy→put→delete with backups)
      - **P2**: Missing canonical IDs (create minimal items)
      - **P3**: Attribute mismatches (update existing items)
      - **P4**: Extra/legacy items (manual review)
@@ -84,7 +84,7 @@ The remediation script requires:
 
 ### Example: Fixing a Single Item (MOD-IN2)
 
-If the validator identifies that `MOD-IN2` has a PK mismatch (e.g., stored as `LINEA#MOD-EXT`):
+If the validator identifies that `MOD-IN2` has a key mismatch (e.g., stored with wrong pk/sk):
 
 #### Option 1: Use the Interactive Script
 
@@ -96,19 +96,19 @@ AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia node scripts/remediate
 #### Option 2: Manual CLI Commands
 
 ```bash
-# 1. Backup old item
+# 1. Backup old item (if it exists with wrong keys)
 aws dynamodb get-item \
   --table-name finz_rubros_taxonomia \
-  --key '{"pk":{"S":"LINEA#MOD-EXT"},"sk":{"S":"CATEGORIA#MOD"}}' \
-  --region us-east-2 > tmp/backups/backup_LINEA-MOD-EXT_CATEGORIA-MOD.json
+  --key '{"pk":{"S":"WRONG_PK"},"sk":{"S":"WRONG_SK"}}' \
+  --region us-east-2 > tmp/backups/backup_OLD_ITEM.json
 
-# 2. Create corrected item
+# 2. Create corrected item with proper key schema
 aws dynamodb put-item \
   --table-name finz_rubros_taxonomia \
   --region us-east-2 \
   --item '{
-    "pk": {"S":"LINEA#MOD-IN2"},
-    "sk": {"S":"CATEGORIA#MOD"},
+    "pk": {"S":"TAXONOMY"},
+    "sk": {"S":"RUBRO#MOD-IN2"},
     "linea_codigo": {"S":"MOD-IN2"},
     "linea_gasto": {"S":"Ingeniero Soporte N2"},
     "descripcion": {"S":"Ingeniero Soporte N2"},
@@ -119,15 +119,19 @@ aws dynamodb put-item \
     "tipo_ejecucion": {"S":"mensual"}
   }'
 
-# 3. Delete old item
+# 3. Delete old item (if it had wrong keys)
 aws dynamodb delete-item \
   --table-name finz_rubros_taxonomia \
-  --key '{"pk":{"S":"LINEA#MOD-EXT"},"sk":{"S":"CATEGORIA#MOD"}}' \
+  --key '{"pk":{"S":"WRONG_PK"},"sk":{"S":"WRONG_SK"}}' \
   --region us-east-2
 
 # 4. Verify fix
 AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia node scripts/validate-taxonomy-dynamo-full.cjs
 ```
+
+**Note**: The correct key schema per `services/finanzas-api/src/lib/dynamo.ts:getRubroTaxonomy()` is:
+- `pk`: `"TAXONOMY"` (static value for all taxonomy items)
+- `sk`: `"RUBRO#<linea_codigo>"` (e.g., `"RUBRO#MOD-IN2"`)
 
 ## CI/CD Integration
 
@@ -177,7 +181,7 @@ The validator produces `tmp/taxonomy_report_full.json` with this structure:
   "attributeMismatches": {
     "MOD-ING": [
       {
-        "sampleKey": "LINEA#MOD-ING|CATEGORIA#MOD",
+        "sampleKey": "TAXONOMY|RUBRO#MOD-ING",
         "diffs": [
           {
             "attr": "descripcion/linea_gasto",
