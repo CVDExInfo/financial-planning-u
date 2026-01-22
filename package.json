@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "kill": "fuser -k 5000/tcp",
+    "prebuild": "node scripts/copy-canonical-taxonomy.cjs",
     "build": "tsc -b --noCheck && vite build",
     "build:pmo": "tsc -b --noCheck && BUILD_TARGET=pmo vite build",
     "build:finanzas": "bash scripts/pre-build-validate.sh && tsc -b --noCheck && BUILD_TARGET=finanzas vite build",
@@ -32,6 +33,7 @@
     "smoke:api": "bash scripts/finanzas-e2e-smoke.sh",
     "qa:finanzas:auth": "TS_NODE_PROJECT=tsconfig.node.json node --loader ts-node/esm scripts/qa/verify-finanzas-auth-config.ts",
     "cognito:update-hosted-ui": "bash infra/cognito/update-hosted-ui-css.sh",
+    "copy-canonical-taxonomy": "node scripts/copy-canonical-taxonomy.cjs",
     "generate-docs-pdf": "node scripts/generate-docs-pdf.cjs",
     "generate-testing-report-pdf": "bash scripts/generate-testing-report-pdf.sh",
     "render-docs": "node --loader ts-node/esm scripts/docs/render-docs.ts",
