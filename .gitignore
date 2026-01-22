@@ -66,3 +66,7 @@ package-lock.json
 
 # Test artifacts
 artifacts-*.txt
+
+# Taxonomy validation temporary files
+tmp/
+!tmp/.gitkeep

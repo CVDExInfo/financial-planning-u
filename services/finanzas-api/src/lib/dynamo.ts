@@ -76,6 +76,11 @@ const FALLBACKS: Record<TableKey, string> = {
 };
 
 export const tableName = (key: TableKey): string => {
+  // Special handling for taxonomy table to support TAXONOMY_TABLE env var
+  if (key === 'rubros_taxonomia' && env.TAXONOMY_TABLE) {
+    return env.TAXONOMY_TABLE;
+  }
+  
   const envKey = `TABLE_${key.toUpperCase()}`;
   const name = env[envKey] || FALLBACKS[key];
   if (!name) {
