@@ -33,6 +33,40 @@ import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/ta
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
 
+/**
+ * Helper to normalize monthly budget data from API response to a monthlyMap
+ * Converts months array [{month: "2026-01", amount: 1000000}, ...] to { 1: 1000000, 2: 6000000, ... }
+ * 
+ * @param budgetData - Budget response from API with months array
+ * @returns Object mapping month index (1-12) to budget amount
+ */
+function normalizeBudgetMonths(budgetData: {
+  months: Array<{ month: string; amount: number }>;
+} | null): Record<number, number> {
+  if (!budgetData || !Array.isArray(budgetData.months)) {
+    return {};
+  }
+
+  const monthlyMap: Record<number, number> = {};
+  
+  for (const entry of budgetData.months) {
+    if (!entry || typeof entry.month !== 'string' || typeof entry.amount !== 'number') {
+      continue;
+    }
+
+    // Parse month string (format: YYYY-MM)
+    const match = entry.month.match(/^(\d{4})-(\d{2})$/);
+    if (match) {
+      const monthNum = parseInt(match[2], 10);
+      if (monthNum >= 1 && monthNum <= 12) {
+        monthlyMap[monthNum] = entry.amount;
+      }
+    }
+  }
+
+  return monthlyMap;
+}
+
 
 /**
  * Helper to normalize strings for comparison (case-insensitive, whitespace-normalized)
@@ -815,6 +849,45 @@ export function useSDMTForecastData({
             return;
           }
         }
+      }
+
+      // Load and merge monthly budgets (budget values populate "P" - Presupuesto column)
+      // Budget loading is best-effort: if it fails, we continue without budget data
+      let budgetMonthlyMap: Record<number, number> = {};
+      try {
+        const currentYear = new Date().getFullYear();
+        const budgetData = await finanzasClient.getAllInBudgetMonthly(currentYear);
+        if (latestRequestKey.current !== requestKey) return; // stale
+        
+        if (budgetData) {
+          budgetMonthlyMap = normalizeBudgetMonths(budgetData);
+          console.log(
+            `[useSDMTForecastData] ✅ Loaded monthly budgets for ${currentYear}:`,
+            { monthCount: Object.keys(budgetMonthlyMap).length, budgetMonthlyMap }
+          );
+          
+          // Merge budget amounts into forecast rows
+          // Budget is a portfolio-level total, so we need to distribute it or show it at summary level
+          // For now, we'll add a budget field to each row for the corresponding month
+          // The UI can then aggregate these for portfolio totals
+          for (const row of rows) {
+            const monthBudget = budgetMonthlyMap[row.month];
+            if (monthBudget !== undefined) {
+              // Add budget to row - UI will aggregate these for portfolio-level budget display
+              (row as any).budget = monthBudget;
+            }
+          }
+        } else {
+          console.log(
+            `[useSDMTForecastData] No monthly budgets found for ${currentYear}`
+          );
+        }
+      } catch (budgetError: any) {
+        // Budget loading is optional - continue if it fails
+        console.warn(
+          "[useSDMTForecastData] Failed to load budgets (continuing without):",
+          budgetError.message
+        );
       }
 
       // Load and merge invoices as actuals

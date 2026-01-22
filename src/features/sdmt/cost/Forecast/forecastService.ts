@@ -7,6 +7,7 @@ import invoicesDefault from "@/mocks/invoices.json" assert { type: "json" };
 import invoicesFintech from "@/mocks/invoices-fintech.json" assert { type: "json" };
 import invoicesRetail from "@/mocks/invoices-retail.json" assert { type: "json" };
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 export type ForecastPayload = {
   data: ForecastCell[];
@@ -72,15 +73,37 @@ export async function getForecastPayload(
 export async function getProjectInvoices(projectId: string): Promise<InvoiceDoc[]> {
   if (isMockEnabled()) {
     const invoices = pickInvoiceMock(projectId);
-    return (invoices as InvoiceDoc[]).map((invoice) => ({
-      ...invoice,
-      line_item_id: normalizeRubroId(invoice.line_item_id),
-    }));
+    return (invoices as InvoiceDoc[]).map((invoice) => {
+      const normalizedLineItemId = normalizeRubroId(invoice.line_item_id);
+      
+      // Annotate invoice with canonical rubro ID for improved matching
+      // This ensures invoices can be matched to forecast rows using canonical taxonomy
+      const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
+      const canonicalRubroId = rubroId ? getCanonicalRubroId(rubroId) : null;
+      
+      return {
+        ...invoice,
+        line_item_id: normalizedLineItemId,
+        // Add canonical rubro ID if available (for taxonomy-aligned matching)
+        ...(canonicalRubroId && { rubro_canonical: canonicalRubroId }),
+      };
+    });
   }
 
   const invoices = await ApiService.getInvoices(projectId);
-  return invoices.map((invoice) => ({
-    ...invoice,
-    line_item_id: normalizeRubroId(invoice.line_item_id),
-  }));
+  return invoices.map((invoice) => {
+    const normalizedLineItemId = normalizeRubroId(invoice.line_item_id);
+    
+    // Annotate invoice with canonical rubro ID for improved matching
+    // This ensures invoices can be matched to forecast rows using canonical taxonomy
+    const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
+    const canonicalRubroId = rubroId ? getCanonicalRubroId(rubroId) : null;
+    
+    return {
+      ...invoice,
+      line_item_id: normalizedLineItemId,
+      // Add canonical rubro ID if available (for taxonomy-aligned matching)
+      ...(canonicalRubroId && { rubro_canonical: canonicalRubroId }),
+    };
+  });
 }
