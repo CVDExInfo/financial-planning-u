@@ -1,5 +1,3 @@
-import { jest } from "@jest/globals";
-
 /**
  * Test suite for normalization helpers and taxonomy index building
  * 
