@@ -405,6 +405,15 @@ export interface BaselineDetail {
   signed_at?: string;
   sdm_manager_name?: string;
   sdm_manager_email?: string;
+  // Materialization metadata
+  metadata?: {
+    materialization_queued_at?: string;
+    materialization_status?: string;
+    materialization_failed?: boolean;
+    materializedAt?: string;
+    materialized_at?: string;
+  };
+  materializedAt?: string;
 }
 
 /**
