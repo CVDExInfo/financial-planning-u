@@ -20,11 +20,12 @@ const { marshall } = require('@aws-sdk/util-dynamodb');
 const REGION = process.env.AWS_REGION || 'us-east-2';
 const TABLE = process.env.TAXONOMY_TABLE || 'finz_rubros_taxonomia';
 const FRONTEND_PATH = path.resolve(__dirname, '..', 'src', 'lib', 'rubros', 'canonical-taxonomy.ts');
+const DEFAULT_CATEGORY = 'UNASSIGNED';
 
 function parseCanonicalFile(content) {
-  // Look for array definition like { id: 'MOD-ING', name: '...' }, crudely parse ids
+  // Extract IDs from patterns like: id: 'MOD-ING' or id: "MOD-ING"
   const ids = [];
-  const re = /id:\s*'([^']+)'/g;
+  const re = /id:\s*['"]([^'"]+)['"]/g;
   let m;
   while ((m = re.exec(content)) !== null) {
     ids.push(m[1]);
@@ -48,7 +49,7 @@ function parseCanonicalFile(content) {
       linea_codigo: id,
       // minimal seed — operators should enrich these rows via proper tooling
       descripcion: id,
-      categoria: 'UNASSIGNED',
+      categoria: DEFAULT_CATEGORY,
       createdAt: new Date().toISOString(),
     };
 

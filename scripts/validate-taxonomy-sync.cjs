@@ -19,9 +19,9 @@ const TAXONOMY_TABLE = process.env.TAXONOMY_TABLE || 'finz_rubros_taxonomia';
 const FRONTEND_TAXONOMY_PATH = path.resolve(__dirname, '..', 'src', 'lib', 'rubros', 'canonical-taxonomy.ts');
 
 function extractIdsFromFrontend(fileContent) {
-  // same regex we used previously
+  // Extract IDs from patterns like: id: 'MOD-XXX' or id: "MOD-XXX"
   const ids = new Set();
-  const re = /id:\s*'([^']+)'/g;
+  const re = /id:\s*['"]([^'"]+)['"]/g;
   let m;
   while ((m = re.exec(fileContent)) !== null) {
     ids.add(m[1]);
