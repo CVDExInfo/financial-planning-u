@@ -64,6 +64,12 @@ export function ForecastChartsPanel({
 }: ForecastChartsPanelProps) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'category' | 'cumulative'>('monthly');
 
+  // Helper function to ensure all values are valid numbers (not NaN, null, or undefined)
+  const safeNumber = (value: unknown): number => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
   // Build monthly trend data with defensive checks for undefined/null values
   const monthlyTrendData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
@@ -76,12 +82,6 @@ export function ForecastChartsPanel({
     const budgetData = monthlyBudgets.find(b => b.month === month);
     const projectCount = projectsPerMonth.find(p => p.month === month)?.count || 0;
     
-    // Ensure all values are valid numbers (not NaN, null, or undefined)
-    const safeNumber = (value: unknown): number => {
-      const num = Number(value);
-      return Number.isFinite(num) ? num : 0;
-    };
-    
     return {
       month,
       Forecast: safeNumber(monthData.forecast),
@@ -93,11 +93,6 @@ export function ForecastChartsPanel({
 
   // Build category data (total for the year) with defensive checks
   const categoryData = Array.from(categoryTotals.entries()).map(([category, totals]) => {
-    const safeNumber = (value: unknown): number => {
-      const num = Number(value);
-      return Number.isFinite(num) ? num : 0;
-    };
-    
     return {
       name: category || 'Unknown',
       Forecast: safeNumber(totals.overall.forecast),
@@ -106,11 +101,6 @@ export function ForecastChartsPanel({
   });
 
   // Build cumulative data with defensive checks
-  const safeNumber = (value: unknown): number => {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : 0;
-  };
-  
   const cumulativeData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     let cumForecast = 0;
