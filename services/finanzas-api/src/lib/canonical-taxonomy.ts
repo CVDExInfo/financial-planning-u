@@ -7,7 +7,7 @@
  * To update this file, modify the source file and run:
  *   node scripts/copy-canonical-taxonomy.cjs
  * 
- * Last updated: 2026-01-22T01:01:43.627Z
+ * Last updated: 2026-01-22T01:18:59.795Z
  */
 
 /**
@@ -22,6 +22,8 @@
  * Source: Client-approved taxonomy from R1 Modelo & Gobierno
  * Generated from: src/modules/rubros.taxonomia.ts (CATALOGO_RUBROS)
  */
+
+import { normalizeKey } from './normalize-key';
 
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
@@ -1177,7 +1179,6 @@ export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
  * Used by taxonomy lookup functions to ensure consistent labor classification
  * across SDMT Forecast, PMO Estimator, and other modules.
  */
-import { normalizeKey } from './normalize-key';
 
 // Re-export normalizeKey for convenience
 export { normalizeKey } from './normalize-key';

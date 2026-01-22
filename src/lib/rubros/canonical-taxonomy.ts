@@ -11,6 +11,8 @@
  * Generated from: src/modules/rubros.taxonomia.ts (CATALOGO_RUBROS)
  */
 
+import { normalizeKey } from './normalize-key';
+
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
 
@@ -1165,7 +1167,6 @@ export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
  * Used by taxonomy lookup functions to ensure consistent labor classification
  * across SDMT Forecast, PMO Estimator, and other modules.
  */
-import { normalizeKey } from './normalize-key';
 
 // Re-export normalizeKey for convenience
 export { normalizeKey } from './normalize-key';
