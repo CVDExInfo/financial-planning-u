@@ -175,7 +175,7 @@ type LineItemLike = Record<string, unknown>;
 
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
-const PORTFOLIO_PROJECTS_WAIT_MS = 500; // Wait time for projects to populate (race condition mitigation)
+const PORTFOLIO_PROJECTS_WAIT_MS = Number(import.meta.env.VITE_FINZ_PORTFOLIO_WAIT_MS || 500); // Wait time for projects to populate (race condition mitigation)
 
 // Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';

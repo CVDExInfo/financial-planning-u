@@ -39,11 +39,14 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
       // Prevent accidental backend imports in frontend code
       'no-restricted-imports': ['error', {
-        patterns: [
+        paths: [
           {
-            group: ['services/finanzas-api/*', 'services/finanzas-api'],
+            name: 'services/finanzas-api',
             message: 'Front-end must not import services/finanzas-api. Use src/api/finanzasClient.ts or shared packages instead.'
           }
+        ],
+        patterns: [
+          'services/finanzas-api/*'
         ]
       }]
     },
