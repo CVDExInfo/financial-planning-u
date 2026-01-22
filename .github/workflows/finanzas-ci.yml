@@ -37,6 +37,12 @@ jobs:
           rm -rf node_modules
           pnpm install --frozen-lockfile
 
+      - name: Copy canonical taxonomy (pre-test)
+        run: |
+          set -euo pipefail
+          echo "📋 Copying canonical taxonomy from client to server..."
+          node scripts/copy-canonical-taxonomy.cjs
+
       - name: Run unit tests
         working-directory: services/finanzas-api
         env:

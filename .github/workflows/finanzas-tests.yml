@@ -49,6 +49,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
+      - name: Setup Node (for copy script)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Copy canonical taxonomy (pre-test)
+        run: |
+          set -euo pipefail
+          echo "📋 Copying canonical taxonomy from client to server..."
+          node scripts/copy-canonical-taxonomy.cjs
+
       - name: Finanzas – Projects API contract tests
         env:
           # Base URL used by the tests script; we also expose it as FINZ_API_BASE
