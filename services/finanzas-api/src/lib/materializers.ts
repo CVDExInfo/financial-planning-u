@@ -12,6 +12,9 @@ import {
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
 import { LEGACY_RUBRO_ID_MAP } from "./canonical-taxonomy";
+// Import server-specific normalization (preserves spaces/underscores for backward compatibility)
+// This differs from the client's normalize-key.ts which converts spaces to hyphens
+import { normalizeKey, normalizeKeyPart, normalizeKeyPartLegacy } from "./normalize-server";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -101,45 +104,6 @@ type TaxonomyIndex = {
 };
 
 let taxonomyIndexCache: TaxonomyIndex | null = null;
-
-// ---------- safe, robust normalization helpers (declare BEFORE any use) ----------
-/**
- * Normalize a string to a stable key:
- *  - normalize Unicode
- *  - remove diacritics
- *  - remove punctuation (except hyphen/underscore)
- *  - collapse whitespace
- *  - lowercase
- */
-function normalizeKey(input: any): string {
-  if (input === null || input === undefined) return "";
-  let s = String(input);
-  // Normalize and remove diacritics (Unicode)
-  // NFD = Canonical Decomposition (splits accented chars into base + combining marks)
-  // \p{Diacritic} matches Unicode diacritical marks (requires 'u' flag for Unicode property escapes)
-  s = s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
-  // Remove punctuation except hyphen/underscore, keep letters/numbers/space
-  // \p{L} = all Unicode letters, \p{N} = all Unicode numbers (requires 'u' flag)
-  s = s.replace(/[^\p{L}\p{N}\s\-_]/gu, "");
-  // Collapse whitespace, trim, lowercase
-  s = s.replace(/\s+/g, " ").trim().toLowerCase();
-  return s;
-}
-
-/**
- * Normalize shorter key parts (linea_gasto or descripcion)
- * Keep as abstraction in case we want slightly different rules later.
- */
-function normalizeKeyPart(input: any): string {
-  return normalizeKey(input);
-}
-
-/**
- * Legacy normalizeKeyPart for backward compatibility with existing code
- * that expects simple whitespace normalization only.
- */
-const normalizeKeyPartLegacy = (value?: string | null) =>
-  (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 
 const taxonomyKey = (category?: string | null, description?: string | null) =>
   `${normalizeKeyPartLegacy(category)}|${normalizeKeyPartLegacy(description)}`;

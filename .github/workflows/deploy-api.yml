@@ -87,6 +87,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Verify Node version (require >= 16 for Unicode property escapes)
+        run: |
+          set -euo pipefail
+          NODE_VERSION=$(node --version | sed 's/v//' | cut -d'.' -f1)
+          echo "Node version: $(node --version)"
+          if [ "$NODE_VERSION" -lt 16 ]; then
+            echo "❌ Node version must be >= 16 (current: $(node --version))"
+            echo "Unicode property escapes (\\p{}) require Node 16+"
+            exit 1
+          fi
+          echo "✅ Node version check passed"
+
       - uses: pnpm/action-setup@v2
         with:
           version: 9

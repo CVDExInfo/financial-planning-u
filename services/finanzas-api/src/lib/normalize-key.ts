@@ -7,7 +7,7 @@
  * To update this file, modify the source file and run:
  *   node scripts/copy-canonical-taxonomy.cjs
  * 
- * Last updated: 2026-01-22T00:33:11.141Z
+ * Last updated: 2026-01-22T01:01:43.628Z
  */
 
 /**
