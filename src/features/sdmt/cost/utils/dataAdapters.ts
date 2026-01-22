@@ -276,11 +276,11 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
         });
       }
       
-      // Sum numeric values from duplicates
+      // Sum numeric values from duplicates (defensive null checks)
       existing.planned = (existing.planned || 0) + (cell.planned || 0);
       existing.forecast = (existing.forecast || 0) + (cell.forecast || 0);
       existing.actual = (existing.actual || 0) + (cell.actual || 0);
-      existing.variance = existing.forecast - existing.planned;
+      existing.variance = (existing.forecast || 0) - (existing.planned || 0);
       
       // Prefer non-empty values for other fields
       if (cell.variance_reason && !existing.variance_reason) {
@@ -289,7 +289,8 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       if (cell.notes && !existing.notes) {
         existing.notes = cell.notes;
       }
-      if (cell.last_updated && (!existing.last_updated || cell.last_updated > existing.last_updated)) {
+      // Prefer more recent timestamp (using Date objects for proper comparison)
+      if (cell.last_updated && (!existing.last_updated || new Date(cell.last_updated) > new Date(existing.last_updated))) {
         existing.last_updated = cell.last_updated;
         existing.updated_by = cell.updated_by || existing.updated_by;
       }
