@@ -2,6 +2,16 @@ import { jest } from "@jest/globals";
 import { materializeAllocationsForBaseline, materializeRubrosForBaseline } from "../src/lib/materializers";
 import { ddb } from "../src/lib/dynamo";
 
+// Mock the AWS SDK commands
+jest.mock("@aws-sdk/lib-dynamodb", () => {
+  const actual = jest.requireActual("@aws-sdk/lib-dynamodb");
+  return {
+    ...actual,
+    QueryCommand: jest.fn().mockImplementation((input) => ({ input, constructor: { name: 'QueryCommand' } })),
+    BatchWriteCommand: jest.fn().mockImplementation((input) => ({ input, constructor: { name: 'BatchWriteCommand' } })),
+  };
+});
+
 jest.mock("../src/lib/dynamo", () => {
   return {
     ddb: { send: jest.fn() },
