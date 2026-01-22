@@ -117,17 +117,14 @@ async function backupItem(client, pk, sk){
               values[`:v${i}`] = { S: newVal };
             }
           } else if(d.attr==='categoria_codigo'){
-            i++;
             updates.push(`#n${i} = :v${i}`);
             names[`#n${i}`]='categoria_codigo';
             values[`:v${i}`] = { S: (report.samples && report.samples.frontendSample.find(x=>x[0]===id)||[null,null])[1].categoria_codigo || 'MOD' };
           } else if(d.attr==='categoria'){
-            i++;
             updates.push(`#n${i} = :v${i}`);
             names[`#n${i}`]='categoria';
             values[`:v${i}`] = { S: (report.samples && report.samples.frontendSample.find(x=>x[0]===id)||[null,null])[1].categoria || 'Mano de Obra Directa' };
           } else if(d.attr==='fuente_referencia'){
-            i++;
             updates.push(`#n${i} = :v${i}`);
             names[`#n${i}`]='fuente_referencia';
             values[`:v${i}`] = { S: (report.samples && report.samples.frontendSample.find(x=>x[0]===id)||[null,null])[1].fuente_referencia || 'MSP' };
