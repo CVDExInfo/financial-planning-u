@@ -222,6 +222,83 @@ npm run generate-docs-pdf
 
 ---
 
+## DynamoDB Taxonomy Validation & Remediation
+
+### validate-taxonomy-dynamo.cjs
+
+**Purpose**: Validates the frontend canonical taxonomy (`src/lib/rubros/canonical-taxonomy.ts`) against the live DynamoDB table `finz_rubros_taxonomia`.
+
+**What it reports**:
+- ✅ Missing IDs in DynamoDB
+- ✅ Extra IDs in DynamoDB (not in canonical file)
+- ✅ Attribute mismatches (descripcion, linea_gasto, categoria_codigo)
+- ✅ PK mismatches (pk refers to another linea)
+
+**Prerequisites**:
+```bash
+export AWS_REGION="us-east-2"
+export TAXONOMY_TABLE="finz_rubros_taxonomia"
+```
+
+**Usage**:
+```bash
+# Run validation and save report
+AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia \
+  node scripts/validate-taxonomy-dynamo.cjs > taxonomy_report.json
+
+# Or run directly
+./scripts/validate-taxonomy-dynamo.cjs > taxonomy_report.json
+```
+
+**Output**: JSON report with detailed validation results.
+
+**Note**: Requires AWS credentials with DynamoDB read permissions.
+
+### remediate-taxonomy-dynamo.cjs
+
+**Purpose**: Interactively applies fixes to DynamoDB based on a validation report.
+
+**What it can fix**:
+- ✅ Update attribute mismatches (descripcion, linea_gasto, categoria_codigo)
+- ✅ Create missing items with sensible defaults
+- ✅ Fix PK mismatches by copy-put-delete (DynamoDB cannot change PK directly)
+
+**Prerequisites**:
+```bash
+export AWS_REGION="us-east-2"
+export TAXONOMY_TABLE="finz_rubros_taxonomia"
+```
+
+**Usage**:
+```bash
+# Run remediation interactively
+AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia \
+  node scripts/remediate-taxonomy-dynamo.cjs taxonomy_report.json
+
+# Or run directly
+./scripts/remediate-taxonomy-dynamo.cjs taxonomy_report.json
+```
+
+**Safety features**:
+- ✅ Prompts for confirmation before each change
+- ✅ Safe-by-default (requires explicit 'y' to proceed)
+- ✅ Extra items are reported but not deleted (manual review recommended)
+
+**Warning**: This script makes changes to DynamoDB. Test against a staging table first!
+
+**Note**: Requires AWS credentials with DynamoDB read/write permissions.
+
+### validate-taxonomy-sync.cjs
+
+**Purpose**: Validates that frontend and backend taxonomy IDs are in sync.
+
+**Usage**:
+```bash
+node scripts/validate-taxonomy-sync.cjs
+```
+
+---
+
 ## Data & Mocks
 
 ### generate-mock-data.js
@@ -268,6 +345,11 @@ node scripts/generate-mock-data.js
 - `deploy-check.sh`
 - `verify-deployment.sh`
 - `validate-prod-deployment.sh`
+
+### Taxonomy & Data Management
+- `validate-taxonomy-dynamo.cjs` - Validate taxonomy against DynamoDB
+- `remediate-taxonomy-dynamo.cjs` - Fix taxonomy mismatches in DynamoDB
+- `validate-taxonomy-sync.cjs` - Validate frontend/backend taxonomy sync
 
 ### Utilities
 - `configure-cognito-hosted-ui.sh`
@@ -331,4 +413,4 @@ For questions about scripts:
 
 ---
 
-**Last Updated**: 2025-11-10
+**Last Updated**: 2026-01-22
