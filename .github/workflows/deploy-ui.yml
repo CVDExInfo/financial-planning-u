@@ -439,7 +439,7 @@ jobs:
           set -euo pipefail
           echo "Using OIDC role from secret OIDC_AWS_ROLE_ARN"
           # Secret validated in previous step
-          echo "role-session-name=preflight-${GITHUB_RUN_ID}"
+          echo "role-session-name=preflight-${{ github.run_id }}"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
