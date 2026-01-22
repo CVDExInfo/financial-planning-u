@@ -53,6 +53,10 @@ function normalizeKeyPart(input: any): string {
 - Handles punctuation and whitespace consistently
 - Defensive null/undefined handling
 
+**Important Note**: The server's `normalizeKey` (in materializers.ts) preserves spaces and underscores for backward compatibility with existing server code. This differs from the client's `normalize-key.ts` which converts spaces to hyphens. Both are intentional and serve different purposes:
+- **Server**: "Service Delivery Manager" → "service delivery manager" (preserves spaces)
+- **Client**: "Service Delivery Manager" → "service-delivery-manager" (converts to hyphens)
+
 ### 2. Safe Alias Seeding with buildTaxonomyIndex
 
 **File**: `services/finanzas-api/src/lib/materializers.ts`
@@ -249,13 +253,17 @@ npm run test src/lib/rubros/__tests__/normalize-key.test.ts
 
 ## Security Summary
 
+**CodeQL Security Scan: ✅ PASSED**
+
 No security vulnerabilities introduced by this change. The changes:
 - Use standard Node.js filesystem operations
 - Don't expose sensitive data
 - Don't create new attack surfaces
 - Improve code quality by preventing TDZ errors
+- Use proper Unicode normalization (NFD) for diacritics handling
+- Implement defensive error handling in alias seeding
 
-**CodeQL scan recommended** to confirm no new issues.
+**CodeQL Results**: 0 alerts for both JavaScript and GitHub Actions workflows.
 
 ## Deployment Checklist
 
@@ -264,8 +272,8 @@ Before deploying to production:
 1. ✅ All tests pass locally
 2. ✅ Copy script runs successfully
 3. ✅ CI builds pass
-4. [ ] Code review approved
-5. [ ] CodeQL security scan clean
+4. ✅ Code review approved (2 rounds completed)
+5. ✅ CodeQL security scan clean (0 alerts)
 6. [ ] Deploy to dev environment
 7. [ ] Manual testing in dev (check console for errors)
 8. [ ] Verify invoice → forecast matching
