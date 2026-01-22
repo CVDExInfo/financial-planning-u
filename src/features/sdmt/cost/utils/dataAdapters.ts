@@ -1,4 +1,5 @@
 import type { ForecastCell, LineItem } from "@/types/domain";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 const normalizeRubroId = (id?: string): string => {
   if (!id) return "";
@@ -145,7 +146,10 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     return [];
   }
 
-  const normalized = cells.map((cell, index) => {
+  // Deduplication map: key = <canonicalRubroId>||<month>, value = merged cell
+  const deduplicationMap: Record<string, ForecastCell> = {};
+
+  cells.forEach((cell, index) => {
     const planned = toNumber(
       cell?.planned ?? cell?.amount_planned ?? cell?.planned_amount ?? cell?.plan
     );
@@ -180,10 +184,24 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     const matchingIds: string[] = [];
     if (lineItemId) matchingIds.push(lineItemId);
     
+    // Add canonical ID for matching (if different from lineItemId)
+    const canonicalId = getCanonicalRubroId(lineItemId);
+    if (canonicalId && canonicalId !== lineItemId && !matchingIds.includes(canonicalId)) {
+      matchingIds.push(canonicalId);
+    }
+    
     // Add all potential ID variations for matching
     const rubroId = cell?.rubroId || cell?.rubro_id;
     if (rubroId && !matchingIds.includes(normalizeRubroId(rubroId))) {
       matchingIds.push(normalizeRubroId(rubroId));
+    }
+    
+    // Add canonical version of rubroId
+    if (rubroId) {
+      const canonicalRubroId = getCanonicalRubroId(normalizeRubroId(rubroId));
+      if (canonicalRubroId && !matchingIds.includes(canonicalRubroId)) {
+        matchingIds.push(canonicalRubroId);
+      }
     }
     
     // Add original IDs before normalization for backend compatibility
@@ -237,19 +255,74 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       );
     }
 
-    return normalizedCell;
+    // Deduplication logic: merge cells with same canonical rubroId + month
+    // Skip cells with invalid line_item_id or month
+    if (!lineItemId || month < 1 || month > 60) {
+      return; // Skip invalid cells
+    }
+
+    // Use canonical ID for deduplication to merge legacy and canonical IDs
+    // (already computed above for matchingIds)
+    const deduplicationKey = `${canonicalId}||${month}`;
+    
+    if (deduplicationMap[deduplicationKey]) {
+      // Merge duplicate: sum numeric values
+      const existing = deduplicationMap[deduplicationKey];
+      existing.planned += normalizedCell.planned;
+      existing.forecast += normalizedCell.forecast;
+      existing.actual += normalizedCell.actual;
+      existing.variance = existing.forecast - existing.planned;
+      
+      // Merge matchingIds arrays (dedupe)
+      if (normalizedCell.matchingIds) {
+        const existingIds = new Set(existing.matchingIds || []);
+        normalizedCell.matchingIds.forEach(id => existingIds.add(id));
+        existing.matchingIds = Array.from(existingIds);
+      }
+      
+      // Keep most recent update timestamp
+      if (normalizedCell.last_updated && normalizedCell.last_updated > (existing.last_updated || '')) {
+        existing.last_updated = normalizedCell.last_updated;
+        existing.updated_by = normalizedCell.updated_by;
+      }
+      
+      // Merge notes (concatenate if both exist)
+      if (normalizedCell.notes && existing.notes !== normalizedCell.notes) {
+        existing.notes = existing.notes 
+          ? `${existing.notes}; ${normalizedCell.notes}`
+          : normalizedCell.notes;
+      }
+      
+      if (options?.debugMode) {
+        console.debug(`[normalizeForecastCells] Merged duplicate cell: ${deduplicationKey}`, {
+          canonicalId,
+          lineItemId,
+          merged: existing,
+          original: normalizedCell,
+        });
+      }
+    } else {
+      // First occurrence of this canonical rubro + month combination
+      // Use canonical ID as the line_item_id for consistency
+      normalizedCell.line_item_id = canonicalId;
+      deduplicationMap[deduplicationKey] = normalizedCell;
+    }
   });
+
+  const normalized = Object.values(deduplicationMap);
 
   // Defensive check: log summary of normalization
   if (options?.debugMode) {
     const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
-    const invalidCells = normalized.length - validCells.length;
+    const invalidCells = cells.length - validCells.length;
+    const duplicatesRemoved = cells.length - normalized.length;
     
     console.log('[normalizeForecastCells] Summary:', {
       inputCount: cells.length,
       normalizedCount: normalized.length,
       validCells: validCells.length,
       invalidCells,
+      duplicatesRemoved,
       baselineId: options?.baselineId,
       sampleMatchingIds: normalized.slice(0, 3).map(c => ({ 
         line_item_id: c.line_item_id, 

@@ -191,3 +191,143 @@ describe("normalizeLineItemFromApi - category canonicalization", () => {
     assert.strictEqual(result.category, "Labor");
   });
 });
+
+describe("normalizeForecastCells - deduplication", () => {
+  it("should deduplicate cells with same canonical rubro ID and month", async () => {
+    const { normalizeForecastCells } = await import("../dataAdapters");
+    
+    const cells = [
+      {
+        line_item_id: "RB0001", // Legacy ID for MOD-ING
+        month: 1,
+        planned: 1000,
+        forecast: 1100,
+        actual: 900,
+      },
+      {
+        line_item_id: "MOD-ING", // Canonical ID
+        month: 1,
+        planned: 2000,
+        forecast: 2200,
+        actual: 1800,
+      },
+    ];
+    
+    const result = normalizeForecastCells(cells);
+    
+    // Should merge into single cell
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].line_item_id, "MOD-ING");
+    assert.strictEqual(result[0].month, 1);
+    assert.strictEqual(result[0].planned, 3000); // 1000 + 2000
+    assert.strictEqual(result[0].forecast, 3300); // 1100 + 2200
+    assert.strictEqual(result[0].actual, 2700); // 900 + 1800
+  });
+
+  it("should not deduplicate cells with same rubro but different months", async () => {
+    const { normalizeForecastCells } = await import("../dataAdapters");
+    
+    const cells = [
+      {
+        line_item_id: "MOD-ING",
+        month: 1,
+        planned: 1000,
+        forecast: 1100,
+        actual: 900,
+      },
+      {
+        line_item_id: "MOD-ING",
+        month: 2,
+        planned: 2000,
+        forecast: 2200,
+        actual: 1800,
+      },
+    ];
+    
+    const result = normalizeForecastCells(cells);
+    
+    // Should NOT merge - different months
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].month, 1);
+    assert.strictEqual(result[1].month, 2);
+  });
+
+  it("should merge matchingIds arrays when deduplicating", async () => {
+    const { normalizeForecastCells } = await import("../dataAdapters");
+    
+    const cells = [
+      {
+        line_item_id: "RB0001",
+        rubro_id: "RUBRO-001",
+        month: 3,
+        planned: 500,
+        forecast: 600,
+      },
+      {
+        line_item_id: "MOD-ING",
+        linea_codigo: "MOD-ING",
+        month: 3,
+        planned: 1500,
+        forecast: 1600,
+      },
+    ];
+    
+    const result = normalizeForecastCells(cells);
+    
+    assert.strictEqual(result.length, 1);
+    assert.ok(Array.isArray(result[0].matchingIds));
+    // Should contain all variations
+    assert.ok(result[0].matchingIds!.includes("MOD-ING"));
+    // Should have multiple matching IDs from both cells
+    assert.ok(result[0].matchingIds!.length >= 3);
+  });
+
+  it("should skip cells with invalid month values", async () => {
+    const { normalizeForecastCells } = await import("../dataAdapters");
+    
+    const cells = [
+      {
+        line_item_id: "MOD-ING",
+        month: 0, // Invalid
+        planned: 1000,
+      },
+      {
+        line_item_id: "MOD-ING",
+        month: 61, // Invalid (> 60)
+        planned: 2000,
+      },
+      {
+        line_item_id: "MOD-ING",
+        month: 5, // Valid
+        planned: 3000,
+      },
+    ];
+    
+    const result = normalizeForecastCells(cells);
+    
+    // Should only keep the valid cell
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].month, 5);
+    assert.strictEqual(result[0].planned, 3000);
+  });
+
+  it("should include canonical ID in matchingIds for better invoice matching", async () => {
+    const { normalizeForecastCells } = await import("../dataAdapters");
+    
+    const cells = [
+      {
+        line_item_id: "RB0003", // Legacy ID for MOD-SDM
+        month: 6,
+        planned: 5000,
+        forecast: 5500,
+      },
+    ];
+    
+    const result = normalizeForecastCells(cells);
+    
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].line_item_id, "MOD-SDM"); // Canonicalized
+    assert.ok(result[0].matchingIds!.includes("MOD-SDM")); // Canonical ID
+    assert.ok(result[0].matchingIds!.includes("RB0003")); // Original legacy ID
+  });
+});
