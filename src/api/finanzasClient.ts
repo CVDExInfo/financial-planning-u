@@ -94,6 +94,20 @@ function normalizeDataArray<T>(payload: unknown): T[] {
   return [];
 }
 
+/**
+ * Normalizes a rubro item to ensure canonical fields are present.
+ * This is a defensive normalization to handle various backend response formats.
+ */
+export function normalizeRubroItem(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    rubro_id: r.rubro_id || r.linea_codigo || r.id || r.code || r.linea_id,
+    linea_codigo: r.linea_codigo || r.rubro_id || r.id || r.code || r.linea_id,
+    description: r.descripcion || r.description || r.linea_gasto || r.name || r.nombre || '',
+    descripcion: r.descripcion || r.description || r.linea_gasto || r.name || r.nombre || '',
+    ...r
+  };
+}
+
 const logBudgetMonthlyFailure = (path: string, error: unknown) => {
   if (!import.meta.env.DEV) return;
 

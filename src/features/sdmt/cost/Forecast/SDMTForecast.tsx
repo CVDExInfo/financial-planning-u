@@ -895,7 +895,7 @@ export function SDMTForecast() {
       );
     }
     
-    const candidateProjects = projects.filter(
+    let candidateProjects = projects.filter(
       (project) => project.id && project.id !== ALL_PROJECTS_ID
     );
     // TODO(SDMT): Replace per-project fan-out with aggregate portfolio endpoints when available.
@@ -911,13 +911,23 @@ export function SDMTForecast() {
             "[Forecast] Portfolio: Waiting for projects to load..."
           );
         }
+        // Short wait to avoid spurious empty projects on initial load / race conditions
+        await new Promise((res) => setTimeout(res, 500)); // 500ms
+        candidateProjects = projects.filter((p) => p.id && p.id !== ALL_PROJECTS_ID);
+        if (candidateProjects.length === 0) {
+          if (import.meta.env.DEV) {
+            console.debug("[Forecast] Portfolio: still no candidate projects after waiting");
+          }
+          setForecastData([]);
+          return;
+        }
+        // If we now have candidates after waiting, proceed with them below
+      } else {
+        // If we have projects but they're all filtered out, that's a real empty state
+        setForecastError("No hay proyectos disponibles para consolidar.");
         setForecastData([]);
         return;
       }
-      // If we have projects but they're all filtered out, that's a real empty state
-      setForecastError("No hay proyectos disponibles para consolidar.");
-      setForecastData([]);
-      return;
     }
 
     const portfolioResults = await Promise.all(
@@ -2698,6 +2708,15 @@ export function SDMTForecast() {
                     Ver Rubros →
                   </Button>
                 )}
+              </div>
+            )}
+            {/* Debug flag banner (dev only) */}
+            {import.meta.env.DEV && (
+              <div className="text-xs text-muted-foreground mt-1">
+                Debug Flags:
+                <span className="ml-2 font-mono bg-muted/10 px-2 py-1 rounded">
+                  NEW_FORECAST_LAYOUT={String(NEW_FORECAST_LAYOUT_ENABLED)}
+                </span>
               </div>
             )}
           </div>

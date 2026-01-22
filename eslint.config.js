@@ -37,6 +37,15 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
+      // Prevent accidental backend imports in frontend code
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['services/finanzas-api/*', 'services/finanzas-api'],
+            message: 'Front-end must not import services/finanzas-api. Use src/api/finanzasClient.ts or shared packages instead.'
+          }
+        ]
+      }]
     },
   },
   // Node.js/script files configuration
