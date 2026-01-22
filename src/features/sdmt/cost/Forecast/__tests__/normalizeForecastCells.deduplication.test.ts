@@ -252,7 +252,7 @@ describe("normalizeForecastCells - matchingIds Merging", () => {
  * Test: Edge cases
  */
 describe("normalizeForecastCells - Edge Cases", () => {
-  it("should skip cells with invalid month during deduplication", () => {
+  it("should skip cells with invalid month during deduplication but preserve them in output", () => {
     const cells = [
       {
         line_item_id: "RB0001",
@@ -273,12 +273,18 @@ describe("normalizeForecastCells - Edge Cases", () => {
       debugMode: false,
     });
 
-    // Should only have the valid cell
-    assert.strictEqual(result.length, 1, "Should skip invalid month during deduplication");
-    assert.strictEqual(result[0].line_item_id, "RB0002");
+    // Should have both cells - invalid cells are preserved
+    assert.strictEqual(result.length, 2, "Should preserve invalid cells");
+    
+    // Find the cells
+    const invalidCell = result.find(c => c.month === 0);
+    const validCell = result.find(c => c.month === 1);
+    
+    assert.ok(invalidCell, "Should have invalid month cell");
+    assert.ok(validCell, "Should have valid month cell");
   });
 
-  it("should skip cells with no line_item_id during deduplication", () => {
+  it("should skip cells with no line_item_id during deduplication but preserve them in output", () => {
     const cells = [
       {
         line_item_id: "",
@@ -299,9 +305,8 @@ describe("normalizeForecastCells - Edge Cases", () => {
       debugMode: false,
     });
 
-    // Should only have the valid cell
-    assert.strictEqual(result.length, 1, "Should skip empty line_item_id during deduplication");
-    assert.strictEqual(result[0].line_item_id, "RB0001");
+    // Should have both cells - invalid cells are preserved
+    assert.strictEqual(result.length, 2, "Should preserve cells with empty line_item_id");
   });
 
   it("should handle zero values correctly in summation", () => {

@@ -244,17 +244,20 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
   // This prevents duplicate forecast cells from appearing in the UI and causing
   // incorrect totals. Uses a Map with composite key for O(n) performance.
   const deduplicationMap = new Map<string, ForecastCell>();
+  const invalidCells: ForecastCell[] = [];
   const projectId = options?.projectId || 'UNKNOWN';
   
   for (const cell of normalized) {
-    // Skip cells with invalid data
+    // Track invalid cells separately (they're normalized but not deduplicated)
+    // This maintains backward compatibility with existing tests
     if (!cell.line_item_id || cell.month < 1 || cell.month > 60) {
       if (options?.debugMode) {
-        console.warn('[normalizeForecastCells] Skipping invalid cell during deduplication:', {
+        console.warn('[normalizeForecastCells] Tracking invalid cell separately (not deduplicated):', {
           line_item_id: cell.line_item_id,
           month: cell.month
         });
       }
+      invalidCells.push(cell);
       continue;
     }
     
@@ -304,19 +307,20 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     }
   }
   
-  const deduplicated = Array.from(deduplicationMap.values());
+  // Combine deduplicated cells with invalid cells (preserved for backward compatibility)
+  const deduplicated = [...Array.from(deduplicationMap.values()), ...invalidCells];
 
   // Defensive check: log summary of normalization and deduplication
   if (options?.debugMode) {
     const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
-    const invalidCells = normalized.length - validCells.length;
-    const duplicatesRemoved = normalized.length - deduplicated.length;
+    const invalidCellsCount = normalized.length - validCells.length;
+    const duplicatesRemoved = validCells.length - deduplicationMap.size;
     
     console.log('[normalizeForecastCells] Summary:', {
       inputCount: cells.length,
       normalizedCount: normalized.length,
       validCells: validCells.length,
-      invalidCells,
+      invalidCells: invalidCellsCount,
       deduplicatedCount: deduplicated.length,
       duplicatesRemoved,
       baselineId: options?.baselineId,
