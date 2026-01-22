@@ -425,7 +425,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${{ secrets.OIDC_AWS_ROLE_ARN || '' }}" ]; then
+          if [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
             echo "❌ Required secret OIDC_AWS_ROLE_ARN is not set."
             echo "Please add the secret (Repository Settings → Secrets → Actions) with the role ARN:"
             echo "  arn:aws:iam::<ACCOUNT_ID>:role/<role-name>"
@@ -438,8 +438,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Using OIDC role from secret OIDC_AWS_ROLE_ARN"
-          # Do not print the secret value itself — only its presence and masked info
-          echo "OIDC_AWS_ROLE_ARN present: ${{ secrets.OIDC_AWS_ROLE_ARN && 'yes' || 'no' }}"
+          # Secret validated in previous step
           echo "role-session-name=preflight-${GITHUB_RUN_ID}"
 
       - name: Configure AWS credentials (OIDC)
