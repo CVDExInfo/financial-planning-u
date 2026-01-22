@@ -9,6 +9,35 @@ import invoicesRetail from "@/mocks/invoices-retail.json" assert { type: "json" 
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
+/**
+ * Annotate invoice with canonical rubro ID for improved matching
+ * This ensures invoices can be matched to forecast rows using canonical taxonomy
+ * 
+ * @param invoice - Raw invoice object
+ * @returns Invoice with normalized line_item_id and canonical rubro_id
+ */
+function annotateInvoiceWithCanonicalRubro(invoice: InvoiceDoc): InvoiceDoc {
+  const normalizedLineItemId = normalizeRubroId(invoice.line_item_id);
+  
+  // Get rubro ID from available fields (rubroId, rubro_id, or line_item_id)
+  const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
+  
+  if (rubroId) {
+    const canonicalRubroId = getCanonicalRubroId(rubroId);
+    return {
+      ...invoice,
+      line_item_id: normalizedLineItemId,
+      // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
+      rubro_canonical: canonicalRubroId,
+    };
+  }
+  
+  return {
+    ...invoice,
+    line_item_id: normalizedLineItemId,
+  };
+}
+
 export type ForecastPayload = {
   data: ForecastCell[];
   projectId: string;
@@ -73,49 +102,9 @@ export async function getForecastPayload(
 export async function getProjectInvoices(projectId: string): Promise<InvoiceDoc[]> {
   if (isMockEnabled()) {
     const invoices = pickInvoiceMock(projectId);
-    return (invoices as InvoiceDoc[]).map((invoice) => {
-      const normalizedLineItemId = normalizeRubroId(invoice.line_item_id);
-      
-      // Annotate invoice with canonical rubro ID for improved matching
-      // This ensures invoices can be matched to forecast rows using canonical taxonomy
-      const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
-      if (rubroId) {
-        const canonicalRubroId = getCanonicalRubroId(rubroId);
-        return {
-          ...invoice,
-          line_item_id: normalizedLineItemId,
-          // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
-          rubro_canonical: canonicalRubroId,
-        };
-      }
-      
-      return {
-        ...invoice,
-        line_item_id: normalizedLineItemId,
-      };
-    });
+    return (invoices as InvoiceDoc[]).map(annotateInvoiceWithCanonicalRubro);
   }
 
   const invoices = await ApiService.getInvoices(projectId);
-  return invoices.map((invoice) => {
-    const normalizedLineItemId = normalizeRubroId(invoice.line_item_id);
-    
-    // Annotate invoice with canonical rubro ID for improved matching
-    // This ensures invoices can be matched to forecast rows using canonical taxonomy
-    const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
-    if (rubroId) {
-      const canonicalRubroId = getCanonicalRubroId(rubroId);
-      return {
-        ...invoice,
-        line_item_id: normalizedLineItemId,
-        // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
-        rubro_canonical: canonicalRubroId,
-      };
-    }
-    
-    return {
-      ...invoice,
-      line_item_id: normalizedLineItemId,
-    };
-  });
+  return invoices.map(annotateInvoiceWithCanonicalRubro);
 }

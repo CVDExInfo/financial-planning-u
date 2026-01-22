@@ -874,7 +874,7 @@ export function useSDMTForecastData({
             const monthBudget = budgetMonthlyMap[row.month];
             if (monthBudget !== undefined) {
               // Add budget to row - UI will aggregate these for portfolio-level budget display
-              (row as any).budget = monthBudget;
+              row.budget = monthBudget;
             }
           }
         } else {
