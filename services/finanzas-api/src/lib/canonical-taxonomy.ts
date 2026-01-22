@@ -7,7 +7,7 @@
  * To update this file, modify the source file and run:
  *   node scripts/copy-canonical-taxonomy.cjs
  * 
- * Last updated: 2026-01-22T01:18:59.795Z
+ * Last updated: 2026-01-22T03:19:24.275Z
  */
 
 /**
@@ -1182,6 +1182,44 @@ export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
 
 // Re-export normalizeKey for convenience
 export { normalizeKey } from './normalize-key';
+
+/**
+ * Check if a rubro_id is a legacy ID that needs mapping
+ */
+export function isLegacyRubroId(rubroId: string): boolean {
+  return !!LEGACY_RUBRO_ID_MAP[rubroId];
+}
+
+/**
+ * Normalize a rubro_id to canonical format with validation
+ * Returns an object with canonical ID and any warnings
+ * 
+ * This function is used by server handlers to validate and normalize rubro IDs
+ */
+export function normalizeRubroId(rubroId: string): {
+  canonicalId: string;
+  isLegacy: boolean;
+  isValid: boolean;
+  warning?: string;
+} {
+  const isLegacy = isLegacyRubroId(rubroId);
+  const canonicalId = getCanonicalRubroId(rubroId);
+  const isValid = isValidRubroId(rubroId);
+  
+  let warning: string | undefined;
+  if (isLegacy) {
+    warning = `Legacy rubro_id '${rubroId}' mapped to canonical '${canonicalId}'`;
+  } else if (!isValid) {
+    warning = `Unknown rubro_id '${rubroId}' - not in canonical taxonomy`;
+  }
+  
+  return {
+    canonicalId,
+    isLegacy,
+    isValid,
+    warning,
+  };
+}
 
 export const LABOR_CANONICAL_KEYS = [
   'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
