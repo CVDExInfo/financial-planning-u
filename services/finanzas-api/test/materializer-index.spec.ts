@@ -7,21 +7,26 @@ import { jest } from "@jest/globals";
  * 1. Normalization helpers are declared as functions (not const arrows) to avoid TDZ errors
  * 2. Legacy alias seeding works correctly with normalized keys
  * 3. Unicode diacritics and punctuation are handled properly
+ * 
+ * NOTE: The server's normalizeKey (in materializers.ts) preserves spaces and is different
+ * from the client's normalize-key.ts which converts spaces to hyphens. This is intentional
+ * for backward compatibility with existing server code.
  */
 
 // We need to access the internal functions for testing
 // Since they're not exported, we'll test them indirectly through the materializer behavior
-// For now, we'll create standalone test versions based on the implementation
+// For now, we'll create standalone test versions based on the server implementation
 
 /**
- * Normalize a string to a stable key (test version)
+ * Normalize a string to a stable key (server version - preserves spaces)
+ * This matches the materializers.ts implementation
  */
 function normalizeKey(input: any): string {
   if (input === null || input === undefined) return "";
   let s = String(input);
   // Normalize and remove diacritics (Unicode)
   s = s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
-  // Remove punctuation except hyphen/underscore, keep letters/numbers/space
+  // Remove punctuation except hyphen/underscore, keep letters/numbers/SPACE
   s = s.replace(/[^\p{L}\p{N}\s\-_]/gu, "");
   // Collapse whitespace, trim, lowercase
   s = s.replace(/\s+/g, " ").trim().toLowerCase();

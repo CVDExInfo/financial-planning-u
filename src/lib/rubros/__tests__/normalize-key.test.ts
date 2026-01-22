@@ -148,12 +148,9 @@ describe('normalizeKey - TDZ Fix Validation', () => {
       expect(normalizeKey('-both-')).toBe('both');
     });
 
-    it('should handle underscores (keep them)', () => {
-      // Note: Current implementation converts underscores to hyphens via regex
-      // Check actual behavior
+    it('should convert underscores to hyphens', () => {
+      // The client normalizeKey converts underscores to hyphens (only keeps a-z0-9-)
       const result = normalizeKey('test_underscore');
-      // Based on the normalize-key.ts implementation, underscores are NOT in the keep list
-      // So they should be removed or converted
       expect(result).toBe('test-underscore');
     });
   });
