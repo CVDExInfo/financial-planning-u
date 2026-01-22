@@ -1,65 +1,93 @@
 #!/usr/bin/env node
-// scripts/validate-taxonomy-sync.cjs
-// Validates that frontend and backend taxonomy IDs are in sync
+/**
+ * scripts/validate-taxonomy-sync.cjs
+ *
+ * Compares frontend canonical taxonomy ids against the DynamoDB table (finz_rubros_taxonomia).
+ * Exit code 0 = OK, 2 = mismatch
+ *
+ * Requires AWS credentials in the environment (or GH action configure-aws-credentials)
+ * Usage: node scripts/validate-taxonomy-sync.cjs
+ */
+
 const fs = require('fs');
 const path = require('path');
+const { DynamoDBClient, ScanCommand } = require('@aws-sdk/client-dynamodb');
+const { unmarshall } = require('@aws-sdk/util-dynamodb');
 
-const frontendPath = path.resolve(__dirname, '..', 'src', 'lib', 'rubros', 'canonical-taxonomy.ts');
-const backendPath = path.resolve(__dirname, '..', 'services', 'finanzas-api', 'src', 'lib', 'canonical-taxonomy.ts');
+const REGION = process.env.AWS_REGION || 'us-east-2';
+const TAXONOMY_TABLE = process.env.TAXONOMY_TABLE || 'finz_rubros_taxonomia';
+const FRONTEND_TAXONOMY_PATH = path.resolve(__dirname, '..', 'src', 'lib', 'rubros', 'canonical-taxonomy.ts');
 
-if (!fs.existsSync(frontendPath) || !fs.existsSync(backendPath)) {
-  console.log('⚠️  One or both taxonomy files missing; skipping validation');
-  console.log(`  Frontend: ${fs.existsSync(frontendPath) ? 'exists' : 'missing'}`);
-  console.log(`  Backend: ${fs.existsSync(backendPath) ? 'exists' : 'missing'}`);
-  process.exit(0);
-}
-
-/**
- * Extracts canonical taxonomy IDs from TypeScript files.
- * 
- * This function looks for TypeScript object properties with an 'id' field.
- * Pattern matches: id: 'MOD-XXX' or id: "MOD-XXX"
- * 
- * The pattern specifically targets the canonical ID format used in both
- * frontend and backend taxonomy definitions where each taxonomy entry
- * has an 'id' field with the canonical taxonomy identifier (e.g., 'MOD-LEAD').
- * 
- * @param {string} text - TypeScript source code
- * @returns {Set<string>} Set of unique taxonomy IDs found
- */
-const extractIds = (text) => {
+function extractIdsFromFrontend(fileContent) {
+  // same regex we used previously
   const ids = new Set();
-  // Match patterns like: id: 'MOD-XXX' or id: "MOD-XXX"
-  // This specifically targets the 'id' field in taxonomy objects
-  const re = /id:\s*['"]([^'"]+)['"]/g;
+  const re = /id:\s*'([^']+)'/g;
   let m;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = re.exec(fileContent)) !== null) {
     ids.add(m[1]);
   }
   return ids;
-};
-
-const f = fs.readFileSync(frontendPath, 'utf8');
-const b = fs.readFileSync(backendPath, 'utf8');
-
-const fIds = extractIds(f);
-const bIds = extractIds(b);
-
-const onlyF = [...fIds].filter(i => !bIds.has(i));
-const onlyB = [...bIds].filter(i => !fIds.has(i));
-
-if (onlyF.length || onlyB.length) {
-  console.error('❌ Taxonomy mismatch detected between frontend and backend');
-  if (onlyF.length) {
-    console.error('\n📍 Only in frontend:', onlyF);
-  }
-  if (onlyB.length) {
-    console.error('\n📍 Only in backend:', onlyB);
-  }
-  console.error('\n💡 Fix: Ensure both files have the same canonical taxonomy IDs');
-  process.exit(2);
 }
 
-console.log('✅ Taxonomy sync validation passed');
-console.log(`   Found ${fIds.size} taxonomy IDs in sync`);
-process.exit(0);
+async function scanTaxonomyTable() {
+  const client = new DynamoDBClient({ region: REGION });
+  const items = [];
+  let ExclusiveStartKey = undefined;
+  do {
+    const cmd = new ScanCommand({
+      TableName: TAXONOMY_TABLE,
+      ProjectionExpression: 'linea_codigo, id, code, linea_codigo_alias, categoria, descripcion',
+      ExclusiveStartKey,
+    });
+    const out = await client.send(cmd);
+    (out.Items || []).forEach(i => items.push(unmarshall(i)));
+    ExclusiveStartKey = out.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+(async () => {
+  try {
+    if (!fs.existsSync(FRONTEND_TAXONOMY_PATH)) {
+      console.error('Frontend taxonomy file not found at:', FRONTEND_TAXONOMY_PATH);
+      process.exit(1);
+    }
+
+    const frontendFile = fs.readFileSync(FRONTEND_TAXONOMY_PATH, 'utf8');
+    const frontIds = extractIdsFromFrontend(frontendFile);
+
+    console.log(`Frontend taxonomy IDs found: ${frontIds.size}`);
+
+    const tableItems = await scanTaxonomyTable();
+    const tableIds = new Set();
+
+    tableItems.forEach(item => {
+      // Try several possible attribute names
+      const cand = item.linea_codigo || item.id || item.code || item.linea_codigo_alias || item.LineaCodigo;
+      if (cand && typeof cand === 'string') tableIds.add(cand);
+    });
+
+    console.log(`Dynamo taxonomy IDs found: ${tableIds.size}`);
+
+    const onlyFrontend = [...frontIds].filter(x => !tableIds.has(x));
+    const onlyTable = [...tableIds].filter(x => !frontIds.has(x));
+
+    if (onlyFrontend.length || onlyTable.length) {
+      console.error('❌ Taxonomy mismatch detected between frontend and DynamoDB');
+      if (onlyFrontend.length) {
+        console.error('\n📍 Only in frontend:', onlyFrontend);
+      }
+      if (onlyTable.length) {
+        console.error('\n📍 Only in DynamoDB:', onlyTable.slice(0, 200));
+      }
+      console.error('\n💡 Fix: ensure the Dynamo table (finz_rubros_taxonomia) contains the canonical IDs or update frontend taxonomy.');
+      process.exit(2);
+    }
+
+    console.log('✅ Taxonomy sync: OK (frontend <-> DynamoDB)');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error validating taxonomy sync:', err);
+    process.exit(3);
+  }
+})();
