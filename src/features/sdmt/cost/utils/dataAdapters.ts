@@ -137,7 +137,7 @@ export const normalizeLineItemFromApi = (raw: any, options?: { debugMode?: boole
   } satisfies LineItem;
 };
 
-export const normalizeForecastCells = (cells: any[], options?: { baselineId?: string; debugMode?: boolean }): ForecastCell[] => {
+export const normalizeForecastCells = (cells: any[], options?: { baselineId?: string; debugMode?: boolean; projectId?: string }): ForecastCell[] => {
   if (!Array.isArray(cells)) {
     if (options?.debugMode) {
       console.warn('[normalizeForecastCells] Input is not an array:', cells);
@@ -240,25 +240,95 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     return normalizedCell;
   });
 
-  // Defensive check: log summary of normalization
+  // Deduplication logic: Merge cells with same projectId, rubroId, and month
+  // This prevents duplicate forecast cells from appearing in the UI and causing
+  // incorrect totals. Uses a Map with composite key for O(n) performance.
+  const deduplicationMap = new Map<string, ForecastCell>();
+  const projectId = options?.projectId || 'UNKNOWN';
+  
+  for (const cell of normalized) {
+    // Skip cells with invalid data
+    if (!cell.line_item_id || cell.month < 1 || cell.month > 60) {
+      if (options?.debugMode) {
+        console.warn('[normalizeForecastCells] Skipping invalid cell during deduplication:', {
+          line_item_id: cell.line_item_id,
+          month: cell.month
+        });
+      }
+      continue;
+    }
+    
+    // Create unique key: projectId|rubroId|month
+    const key = `${projectId}|${cell.line_item_id}|${cell.month}`;
+    
+    if (deduplicationMap.has(key)) {
+      // Duplicate found - merge the values
+      const existing = deduplicationMap.get(key)!;
+      
+      if (options?.debugMode) {
+        console.log('[normalizeForecastCells] Merging duplicate cell:', {
+          key,
+          existing: { planned: existing.planned, forecast: existing.forecast, actual: existing.actual },
+          incoming: { planned: cell.planned, forecast: cell.forecast, actual: cell.actual }
+        });
+      }
+      
+      // Sum numeric values from duplicates
+      existing.planned = (existing.planned || 0) + (cell.planned || 0);
+      existing.forecast = (existing.forecast || 0) + (cell.forecast || 0);
+      existing.actual = (existing.actual || 0) + (cell.actual || 0);
+      existing.variance = existing.forecast - existing.planned;
+      
+      // Prefer non-empty values for other fields
+      if (cell.variance_reason && !existing.variance_reason) {
+        existing.variance_reason = cell.variance_reason;
+      }
+      if (cell.notes && !existing.notes) {
+        existing.notes = cell.notes;
+      }
+      if (cell.last_updated && (!existing.last_updated || cell.last_updated > existing.last_updated)) {
+        existing.last_updated = cell.last_updated;
+        existing.updated_by = cell.updated_by || existing.updated_by;
+      }
+      
+      // Merge matchingIds arrays (remove duplicates)
+      if (cell.matchingIds && existing.matchingIds) {
+        const mergedIds = new Set([...existing.matchingIds, ...cell.matchingIds]);
+        existing.matchingIds = Array.from(mergedIds);
+      } else if (cell.matchingIds && !existing.matchingIds) {
+        existing.matchingIds = cell.matchingIds;
+      }
+    } else {
+      // First occurrence of this key
+      deduplicationMap.set(key, cell);
+    }
+  }
+  
+  const deduplicated = Array.from(deduplicationMap.values());
+
+  // Defensive check: log summary of normalization and deduplication
   if (options?.debugMode) {
     const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
     const invalidCells = normalized.length - validCells.length;
+    const duplicatesRemoved = normalized.length - deduplicated.length;
     
     console.log('[normalizeForecastCells] Summary:', {
       inputCount: cells.length,
       normalizedCount: normalized.length,
       validCells: validCells.length,
       invalidCells,
+      deduplicatedCount: deduplicated.length,
+      duplicatesRemoved,
       baselineId: options?.baselineId,
-      sampleMatchingIds: normalized.slice(0, 3).map(c => ({ 
+      projectId: options?.projectId,
+      sampleMatchingIds: deduplicated.slice(0, 3).map(c => ({ 
         line_item_id: c.line_item_id, 
         matchingIds: c.matchingIds 
       })),
     });
   }
 
-  return normalized;
+  return deduplicated;
 };
 
 export { normalizeRubroId };
