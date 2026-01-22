@@ -77,6 +77,7 @@ import {
   getBaselineById,
   type BaselineDetail,
   acceptBaseline,
+  getAllocations,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
 import { normalizeInvoiceMonth } from "./useSDMTForecastData";
@@ -847,10 +848,11 @@ export function SDMTForecast() {
     const portfolioResults = await Promise.all(
       candidateProjects.map(async (project) => {
         try {
-          const [payload, invoices, projectLineItems] = await Promise.all([
+          const [payload, invoices, projectLineItems, allocations] = await Promise.all([
             getForecastPayload(project.id, months),
             getProjectInvoices(project.id),
             getProjectRubros(project.id).catch(() => [] as LineItem[]),
+            getAllocations(project.id, project.baselineId).catch(() => []),
           ]);
 
           // Check if request is still valid after async operations
@@ -873,22 +875,49 @@ export function SDMTForecast() {
           const hasAcceptedBaseline = baselineStatus === "accepted";
           let usedFallback = false;
 
+          // Log allocations fetched for portfolio project
+          if (import.meta.env.DEV) {
+            console.debug(
+              `[loadPortfolioForecast] project ${project.id}: forecast=${payload.data?.length || 0} allocations=${allocations?.length || 0} rubros=${projectLineItems.length}`
+            );
+          }
+
           if (
             (!normalized || normalized.length === 0) &&
-            projectLineItems.length > 0 &&
             hasAcceptedBaseline
           ) {
-            if (import.meta.env.DEV) {
-              console.debug(
-                `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+            // Try allocations first if available (preferred fallback)
+            if (allocations && allocations.length > 0) {
+              if (import.meta.env.DEV) {
+                console.debug(
+                  `[SDMTForecast] Using allocations fallback for ${project.id}, baseline ${project.baselineId}: ${allocations.length} allocations`
+                );
+              }
+              // Convert allocations to forecast cells format
+              // Allocations have: month, planned, forecast, actual, rubroId/rubro_id
+              normalized = allocations.map((alloc: any) => ({
+                line_item_id: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
+                month: alloc.month,
+                planned: alloc.planned || 0,
+                forecast: alloc.forecast || alloc.planned || 0,
+                actual: alloc.actual || 0,
+                variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
+              }));
+              usedFallback = true;
+            } else if (projectLineItems.length > 0) {
+              // Fall back to baseline rubros if no allocations
+              if (import.meta.env.DEV) {
+                console.debug(
+                  `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+                );
+              }
+              normalized = transformLineItemsToForecast(
+                projectLineItems,
+                months,
+                project.id
               );
+              usedFallback = true;
             }
-            normalized = transformLineItemsToForecast(
-              projectLineItems,
-              months,
-              project.id
-            );
-            usedFallback = true;
           } else if (normalized.length > 0 && import.meta.env.DEV) {
             console.debug(
               `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
