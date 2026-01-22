@@ -11,6 +11,7 @@ import {
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
+import { LEGACY_RUBRO_ID_MAP } from "./canonical-taxonomy";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -88,21 +89,144 @@ type RubroTaxonomyEntry = {
   categoria_codigo?: string;
   tipo_costo?: string;
   tipo_ejecucion?: string;
+  id?: string;
 };
 
 type TaxonomyIndex = {
   fetchedAt: number;
   byCategoryDescription: Map<string, RubroTaxonomyEntry>;
   byDescription: Map<string, RubroTaxonomyEntry>;
+  byLineaCodigo: Map<string, RubroTaxonomyEntry>;
+  byId: Map<string, RubroTaxonomyEntry>;
 };
 
 let taxonomyIndexCache: TaxonomyIndex | null = null;
 
-const normalizeKeyPart = (value?: string | null) =>
+// ---------- safe, robust normalization helpers (declare BEFORE any use) ----------
+/**
+ * Normalize a string to a stable key:
+ *  - normalize Unicode
+ *  - remove diacritics
+ *  - remove punctuation (except hyphen/underscore)
+ *  - collapse whitespace
+ *  - lowercase
+ */
+function normalizeKey(input: any): string {
+  if (input === null || input === undefined) return "";
+  let s = String(input);
+  // Normalize and remove diacritics (Unicode)
+  s = s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  // Remove punctuation except hyphen/underscore, keep letters/numbers/space
+  s = s.replace(/[^\p{L}\p{N}\s\-_]/gu, "");
+  // Collapse whitespace, trim, lowercase
+  s = s.replace(/\s+/g, " ").trim().toLowerCase();
+  return s;
+}
+
+/**
+ * Normalize shorter key parts (linea_gasto or descripcion)
+ * Keep as abstraction in case we want slightly different rules later.
+ */
+function normalizeKeyPart(input: any): string {
+  return normalizeKey(input);
+}
+
+/**
+ * Legacy normalizeKeyPart for backward compatibility with existing code
+ * that expects simple whitespace normalization only.
+ */
+const normalizeKeyPartLegacy = (value?: string | null) =>
   (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 
 const taxonomyKey = (category?: string | null, description?: string | null) =>
-  `${normalizeKeyPart(category)}|${normalizeKeyPart(description)}`;
+  `${normalizeKeyPartLegacy(category)}|${normalizeKeyPartLegacy(description)}`;
+
+/**
+ * Build taxonomy index and seed legacy aliases (safe, no TDZ)
+ * 
+ * Build three fast lookup maps:
+ *  - byLineaCodigo (linea_codigo -> canonical entry)
+ *  - byDescription (normalized description/linea_gasto -> canonical entry)
+ *  - byId (canonical id and linea_codigo, id -> canonical entry)
+ *
+ * Also seed legacy aliases using LEGACY_RUBRO_ID_MAP but normalized.
+ */
+function buildTaxonomyIndex(
+  entries: RubroTaxonomyEntry[],
+  legacyAliases: Record<string, string>
+): Omit<TaxonomyIndex, 'fetchedAt'> {
+  const byLineaCodigo = new Map<string, RubroTaxonomyEntry>();
+  const byDescription = new Map<string, RubroTaxonomyEntry>();
+  const byId = new Map<string, RubroTaxonomyEntry>();
+  const byCategoryDescription = new Map<string, RubroTaxonomyEntry>();
+
+  // 1) index canonical entries
+  entries.forEach((entry) => {
+    // index by canonical id
+    if (entry.id) {
+      byId.set(String(entry.id), entry);
+    }
+    // index by linea_codigo for O(1) lookup
+    if (entry.linea_codigo) {
+      byLineaCodigo.set(String(entry.linea_codigo), entry);
+      // Also index by id if not already present
+      if (!entry.id) {
+        byId.set(String(entry.linea_codigo), entry);
+      }
+    }
+    
+    // index by descripcion and linea_gasto (if present) — normalized
+    const descr = entry.descripcion || entry.linea_gasto;
+    if (descr) {
+      const normalized = normalizeKeyPart(descr);
+      if (normalized) byDescription.set(normalized, entry);
+    }
+
+    // Also keep normalized linea_gasto on its own if it differs:
+    if (entry.linea_gasto && entry.linea_gasto !== entry.descripcion) {
+      const normLG = normalizeKeyPart(entry.linea_gasto);
+      if (normLG) byDescription.set(normLG, entry);
+    }
+    
+    // Legacy category+description indexing for backward compatibility
+    const description =
+      entry.descripcion || entry.linea_gasto || entry.linea_codigo || "";
+    if (entry.categoria || description) {
+      byCategoryDescription.set(
+        taxonomyKey(entry.categoria, description),
+        entry
+      );
+    }
+    if (description) {
+      // Also use legacy normalization for backward compatibility
+      byDescription.set(normalizeKeyPartLegacy(description), entry);
+    }
+  });
+
+  // 2) seed legacy alias map for O(1) lookup
+  if (legacyAliases && typeof legacyAliases === "object") {
+    Object.entries(legacyAliases).forEach(([alias, canonicalId]) => {
+      try {
+        const normalizedAlias = normalizeKeyPart(alias);
+        if (!normalizedAlias) return;
+        // only seed if we don't already have a description mapping (do not overwrite canonical entries)
+        if (!byDescription.has(normalizedAlias)) {
+          // Prefer linea_codigo-based lookup to find canonical entry quickly
+          let canonicalEntry = byLineaCodigo.get(String(canonicalId));
+          if (!canonicalEntry) canonicalEntry = byId.get(String(canonicalId));
+          if (canonicalEntry) {
+            byDescription.set(normalizedAlias, canonicalEntry);
+          }
+        }
+      } catch (err) {
+        // Defensive: don't crash materializer index if one alias is bad
+        console.warn("[materializers] skipping alias due to error", alias, err);
+      }
+    });
+  }
+
+  return { byLineaCodigo, byDescription, byId, byCategoryDescription };
+}
 
 const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
   const now = Date.now();
@@ -119,7 +243,7 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
       new ScanCommand({
         TableName: tableName("rubros_taxonomia"),
         ProjectionExpression:
-          "linea_codigo, categoria, descripcion, linea_gasto, categoria_codigo, tipo_costo, tipo_ejecucion",
+          "linea_codigo, categoria, descripcion, linea_gasto, categoria_codigo, tipo_costo, tipo_ejecucion, id",
       })
     );
     entries.push(...(((scan as any)?.Items || []) as RubroTaxonomyEntry[]));
@@ -127,27 +251,12 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     logError("[materializers] failed to scan rubros_taxonomia", { error });
   }
 
-  const byCategoryDescription = new Map<string, RubroTaxonomyEntry>();
-  const byDescription = new Map<string, RubroTaxonomyEntry>();
-
-  for (const entry of entries) {
-    const description =
-      entry.descripcion || entry.linea_gasto || entry.linea_codigo || "";
-    if (entry.categoria || description) {
-      byCategoryDescription.set(
-        taxonomyKey(entry.categoria, description),
-        entry
-      );
-    }
-    if (description) {
-      byDescription.set(normalizeKeyPart(description), entry);
-    }
-  }
+  // Use buildTaxonomyIndex to safely build indexes with legacy alias seeding
+  const indexMaps = buildTaxonomyIndex(entries, LEGACY_RUBRO_ID_MAP);
 
   taxonomyIndexCache = {
     fetchedAt: now,
-    byCategoryDescription,
-    byDescription,
+    ...indexMaps,
   };
 
   return taxonomyIndexCache;
