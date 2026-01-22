@@ -64,7 +64,7 @@ export function ForecastChartsPanel({
 }: ForecastChartsPanelProps) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'category' | 'cumulative'>('monthly');
 
-  // Build monthly trend data
+  // Build monthly trend data with defensive checks for undefined/null values
   const monthlyTrendData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     const monthData = portfolioTotals.byMonth[month] || {
@@ -76,40 +76,58 @@ export function ForecastChartsPanel({
     const budgetData = monthlyBudgets.find(b => b.month === month);
     const projectCount = projectsPerMonth.find(p => p.month === month)?.count || 0;
     
+    // Ensure all values are valid numbers (not NaN, null, or undefined)
+    const safeNumber = (value: unknown): number => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+    
     return {
       month,
-      Forecast: monthData.forecast,
-      Actual: monthData.actual,
-      Proyectos: projectCount,
-      ...(useMonthlyBudget && budgetData ? { Budget: budgetData.budget } : {}),
+      Forecast: safeNumber(monthData.forecast),
+      Actual: safeNumber(monthData.actual),
+      Proyectos: safeNumber(projectCount),
+      ...(useMonthlyBudget && budgetData ? { Budget: safeNumber(budgetData.budget) } : {}),
     };
   });
 
-  // Build category data (total for the year)
-  const categoryData = Array.from(categoryTotals.entries()).map(([category, totals]) => ({
-    name: category,
-    Forecast: totals.overall.forecast,
-    Actual: totals.overall.actual,
-  }));
+  // Build category data (total for the year) with defensive checks
+  const categoryData = Array.from(categoryTotals.entries()).map(([category, totals]) => {
+    const safeNumber = (value: unknown): number => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+    
+    return {
+      name: category || 'Unknown',
+      Forecast: safeNumber(totals.overall.forecast),
+      Actual: safeNumber(totals.overall.actual),
+    };
+  });
 
-  // Build cumulative data
+  // Build cumulative data with defensive checks
+  const safeNumber = (value: unknown): number => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+  
   const cumulativeData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     let cumForecast = 0;
     let cumActual = 0;
     let cumBudget = 0;
 
-    // Sum up to current month
+    // Sum up to current month with safe number conversion
     for (let m = 1; m <= month; m++) {
       const monthData = portfolioTotals.byMonth[m];
       if (monthData) {
-        cumForecast += monthData.forecast;
-        cumActual += monthData.actual;
+        cumForecast += safeNumber(monthData.forecast);
+        cumActual += safeNumber(monthData.actual);
       }
       
       const budgetData = monthlyBudgets.find(b => b.month === m);
       if (budgetData && useMonthlyBudget) {
-        cumBudget += budgetData.budget;
+        cumBudget += safeNumber(budgetData.budget);
       }
     }
 
@@ -210,6 +228,11 @@ export function ForecastChartsPanel({
                 <CardTitle className="text-base">Tendencia Mensual</CardTitle>
               </CardHeader>
               <CardContent>
+                {monthlyTrendData.every(d => d.Forecast === 0 && d.Actual === 0) ? (
+                  <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                    <p>No hay datos de pronóstico disponibles para mostrar.</p>
+                  </div>
+                ) : (
                 <ResponsiveContainer width="100%" height={350}>
                   <ComposedChart
                     data={monthlyTrendData}
@@ -304,6 +327,7 @@ export function ForecastChartsPanel({
                     </Bar>
                   </ComposedChart>
                 </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -315,6 +339,11 @@ export function ForecastChartsPanel({
                 <CardTitle className="text-base">Por Rubro (Total Año)</CardTitle>
               </CardHeader>
               <CardContent>
+                {categoryData.length === 0 || categoryData.every(d => d.Forecast === 0 && d.Actual === 0) ? (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    <p>No hay datos de rubros disponibles para mostrar.</p>
+                  </div>
+                ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={categoryData}
@@ -352,12 +381,18 @@ export function ForecastChartsPanel({
                     <Bar dataKey="Actual" name="Real" fill={CHART_COLORS.actual} />
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Cumulative Tab */}
           <TabsContent value="cumulative">
+            {cumulativeData.every(d => d['Forecast Acumulado'] === 0 && d['Actual Acumulado'] === 0) ? (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground border rounded-lg">
+                <p>No hay datos acumulados disponibles para mostrar.</p>
+              </div>
+            ) : (
             <LineChartComponent
               data={cumulativeData}
               lines={[
@@ -389,6 +424,7 @@ export function ForecastChartsPanel({
               labelPrefix="Mes"
               valueFormatter={formatCurrency}
             />
+            )}
           </TabsContent>
         </Tabs>
           </CardContent>
