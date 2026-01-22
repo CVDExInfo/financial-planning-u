@@ -46,6 +46,10 @@ function parseCanonicalFile(content) {
 
   for (const id of ids) {
     const item = {
+      // DynamoDB primary key structure
+      pk: 'TAXONOMY',
+      sk: `RUBRO#${id}`,
+      // Taxonomy data attributes
       linea_codigo: id,
       // minimal seed — operators should enrich these rows via proper tooling
       descripcion: id,

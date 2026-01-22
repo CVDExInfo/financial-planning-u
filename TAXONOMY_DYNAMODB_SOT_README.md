@@ -39,6 +39,8 @@ AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia node scripts/sync-taxo
 - Parses `src/lib/rubros/canonical-taxonomy.ts`
 - Extracts canonical taxonomy IDs
 - Upserts minimal entries into DynamoDB with:
+  - `pk`: 'TAXONOMY' (DynamoDB partition key)
+  - `sk`: 'RUBRO#${id}' (DynamoDB sort key)
   - `linea_codigo`: The canonical ID
   - `descripcion`: The ID (placeholder)
   - `categoria`: "UNASSIGNED"
@@ -87,6 +89,29 @@ The backend was already correctly configured:
 - `services/finanzas-api/template.yaml` sets `TABLE_RUBROS_TAXONOMIA` to `${TablePrefix}rubros_taxonomia`
 - `TablePrefix` defaults to `finz_`
 - Result: `tableName('rubros_taxonomia')` resolves to `finz_rubros_taxonomia`
+
+## DynamoDB Schema
+
+The `finz_rubros_taxonomia` table uses the following schema:
+
+**Primary Key:**
+- `pk` (Partition Key): String - Always set to `'TAXONOMY'`
+- `sk` (Sort Key): String - Format: `'RUBRO#${lineaCodigo}'` (e.g., `'RUBRO#MOD-ING'`)
+
+**Data Attributes:**
+- `linea_codigo`: String - The canonical taxonomy ID (e.g., `'MOD-ING'`)
+- `descripcion`: String - Description of the line item
+- `categoria`: String - Category name
+- `categoria_codigo`: String - Category code (optional)
+- `linea_gasto`: String - Line item name (optional)
+- `tipo_costo`: String - Cost type: OPEX or CAPEX (optional)
+- `tipo_ejecucion`: String - Execution type: mensual or puntual/hito (optional)
+- `createdAt`: String - ISO timestamp of creation
+
+**Access Patterns:**
+1. **GetItem**: Retrieve single taxonomy entry by `pk='TAXONOMY'` and `sk='RUBRO#${id}'`
+2. **Scan**: Retrieve all taxonomy entries (used by materializers and CI validation)
+3. **Query**: Query all taxonomy entries by `pk='TAXONOMY'`
 
 ## Rollout Plan
 
