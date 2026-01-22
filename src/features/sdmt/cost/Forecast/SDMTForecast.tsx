@@ -82,7 +82,6 @@ import {
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
 import { normalizeInvoiceMonth } from "./useSDMTForecastData";
 import { computeForecastFromAllocations, type Allocation } from "./computeForecastFromAllocations";
-import { transformLineItemsToForecast } from "./transformLineItemsToForecast";
 import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
