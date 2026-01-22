@@ -906,6 +906,8 @@ export function SDMTForecast() {
                 forecast: alloc.forecast || alloc.planned || 0,
                 actual: alloc.actual || 0,
                 variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
+                last_updated: alloc.last_updated || new Date().toISOString(),
+                updated_by: alloc.updated_by || 'system',
               }));
               usedFallback = true;
             } else if (projectLineItems.length > 0) {
