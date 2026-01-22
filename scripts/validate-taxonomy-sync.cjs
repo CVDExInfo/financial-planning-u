@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/validate-taxonomy-sync.js
+// scripts/validate-taxonomy-sync.cjs
 // Validates that frontend and backend taxonomy IDs are in sync
 const fs = require('fs');
 const path = require('path');
@@ -14,9 +14,23 @@ if (!fs.existsSync(frontendPath) || !fs.existsSync(backendPath)) {
   process.exit(0);
 }
 
+/**
+ * Extracts canonical taxonomy IDs from TypeScript files.
+ * 
+ * This function looks for TypeScript object properties with an 'id' field.
+ * Pattern matches: id: 'MOD-XXX' or id: "MOD-XXX"
+ * 
+ * The pattern specifically targets the canonical ID format used in both
+ * frontend and backend taxonomy definitions where each taxonomy entry
+ * has an 'id' field with the canonical taxonomy identifier (e.g., 'MOD-LEAD').
+ * 
+ * @param {string} text - TypeScript source code
+ * @returns {Set<string>} Set of unique taxonomy IDs found
+ */
 const extractIds = (text) => {
   const ids = new Set();
   // Match patterns like: id: 'MOD-XXX' or id: "MOD-XXX"
+  // This specifically targets the 'id' field in taxonomy objects
   const re = /id:\s*['"]([^'"]+)['"]/g;
   let m;
   while ((m = re.exec(text)) !== null) {

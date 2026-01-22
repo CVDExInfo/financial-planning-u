@@ -96,7 +96,26 @@ function normalizeDataArray<T>(payload: unknown): T[] {
 
 /**
  * Normalizes a rubro item to ensure canonical fields are present.
- * This is a defensive normalization to handle various backend response formats.
+ * 
+ * This is a defensive normalization helper that handles various backend response formats
+ * and ensures consistent field naming across the application.
+ * 
+ * **Field Fallback Priority:**
+ * - `rubro_id`: rubro_id → linea_codigo → id → code → linea_id
+ * - `linea_codigo`: linea_codigo → rubro_id → id → code → linea_id
+ * - `description`/`descripcion`: descripcion → description → linea_gasto → name → nombre → ''
+ * 
+ * **Expected Input Variations:**
+ * - Standard: `{ rubro_id, descripcion, linea_codigo }`
+ * - Legacy: `{ id, description }` or `{ code, name }`
+ * - Accounting: `{ linea_id, linea_gasto }`
+ * 
+ * @param r - Raw rubro object from backend with any field combination
+ * @returns Normalized rubro with guaranteed canonical fields plus all original fields
+ * 
+ * @example
+ * normalizeRubroItem({ id: 'MOD-ING', name: 'Engineer' })
+ * // Returns: { rubro_id: 'MOD-ING', linea_codigo: 'MOD-ING', description: 'Engineer', descripcion: 'Engineer', id: 'MOD-ING', name: 'Engineer' }
  */
 export function normalizeRubroItem(r: Record<string, unknown>): Record<string, unknown> {
   return {

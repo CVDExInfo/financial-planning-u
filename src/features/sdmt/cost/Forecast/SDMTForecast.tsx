@@ -175,6 +175,7 @@ type LineItemLike = Record<string, unknown>;
 
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
+const PORTFOLIO_PROJECTS_WAIT_MS = 500; // Wait time for projects to populate (race condition mitigation)
 
 // Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
@@ -912,7 +913,7 @@ export function SDMTForecast() {
           );
         }
         // Short wait to avoid spurious empty projects on initial load / race conditions
-        await new Promise((res) => setTimeout(res, 500)); // 500ms
+        await new Promise((res) => setTimeout(res, PORTFOLIO_PROJECTS_WAIT_MS));
         candidateProjects = projects.filter((p) => p.id && p.id !== ALL_PROJECTS_ID);
         if (candidateProjects.length === 0) {
           if (import.meta.env.DEV) {
