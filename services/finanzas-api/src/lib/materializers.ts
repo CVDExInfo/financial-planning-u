@@ -115,8 +115,11 @@ function normalizeKey(input: any): string {
   if (input === null || input === undefined) return "";
   let s = String(input);
   // Normalize and remove diacritics (Unicode)
+  // NFD = Canonical Decomposition (splits accented chars into base + combining marks)
+  // \p{Diacritic} matches Unicode diacritical marks (requires 'u' flag for Unicode property escapes)
   s = s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
   // Remove punctuation except hyphen/underscore, keep letters/numbers/space
+  // \p{L} = all Unicode letters, \p{N} = all Unicode numbers (requires 'u' flag)
   s = s.replace(/[^\p{L}\p{N}\s\-_]/gu, "");
   // Collapse whitespace, trim, lowercase
   s = s.replace(/\s+/g, " ").trim().toLowerCase();
