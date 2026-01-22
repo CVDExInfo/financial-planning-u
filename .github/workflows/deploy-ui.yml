@@ -465,6 +465,28 @@ jobs:
           echo "✅ AWS credentials are configured. Caller identity:"
           jq -r '.Arn // .Account' /tmp/aws_identity.json || cat /tmp/aws_identity.json || true
 
+      - name: Validate taxonomy sync (Dynamo SOT)
+        shell: bash
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TAXONOMY_TABLE: finz_rubros_taxonomia
+          NODE_OPTIONS: "--enable-source-maps"
+        run: |
+          set -euo pipefail
+          echo "🔎 Running Dynamo taxonomy validation against finz_rubros_taxonomia"
+          echo "ℹ️  This validates that frontend canonical taxonomy and backend mapping are in sync with DynamoDB"
+          
+          # Run validator (will create tmp/taxonomy_report_full.json)
+          if ! node scripts/validate-taxonomy-dynamo-full.cjs; then
+            echo "❌ Taxonomy validation failed. Check tmp/taxonomy_report_full.json for details"
+            if [ -f tmp/taxonomy_report_full.json ]; then
+              echo "Report summary:"
+              node -e "const r=require('./tmp/taxonomy_report_full.json'); console.log('Missing in Dynamo:', r.missingInDynamo?.length || 0); console.log('Extra in Dynamo:', r.extraInDynamo?.length || 0); console.log('Attribute mismatches:', Object.keys(r.attributeMismatches || {}).length);"
+            fi
+            exit 1
+          fi
+          echo "✅ Taxonomy validation passed"
+
 
       - name: Guard - S3 buckets and CloudFront exist
         run: |
