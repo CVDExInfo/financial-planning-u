@@ -1,9 +1,10 @@
  import {
   BatchWriteCommand,
   BatchWriteCommandInput,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { ddb, tableName, GetCommand, ScanCommand, QueryCommand } from "./dynamo";
+import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
 import {
