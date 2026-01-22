@@ -98,7 +98,7 @@ describe("Materializer Canonical ID Consistency", () => {
       });
 
       // Run materializer
-      const result = await materializeAllocationsForBaseline(baseline, {
+      await materializeAllocationsForBaseline(baseline, {
         dryRun: false,
       });
 
