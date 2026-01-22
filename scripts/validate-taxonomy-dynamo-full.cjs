@@ -43,20 +43,20 @@ function parseFrontendCanonical(content) {
 
 function parseBackendRubrosTaxonomy(content) {
   const result={roleToLinea:{}, nonLabor:{}, defaults:{}};
-  // role maps
-  const roleBlock = content.match(/MOD_ROLE_TO_LINEA_CODIGO\s*[:=]\s*{([\s\S]*?)}/m);
+  // role maps - handle both const and export const, with TypeScript Record<...> type
+  const roleBlock = content.match(/(?:export\s+)?const\s+MOD_ROLE_TO_LINEA_CODIGO\s*:\s*Record<[^>]+>\s*=\s*{([\s\S]*?)};/m);
   if(roleBlock) {
     const m = roleBlock[1].matchAll(/['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g);
     for(const it of m) result.roleToLinea[it[1]]=it[2];
   }
-  // non labor map 
-  const nonlabBlock = content.match(/NON_LABOR_CATEGORY_MAP\s*[:=]\s*{([\s\S]*?)}/m);
+  // non labor map - handle TypeScript Record<...> type
+  const nonlabBlock = content.match(/(?:export\s+)?const\s+NON_LABOR_CATEGORY_MAP\s*:\s*Record<[^>]+>\s*=\s*{([\s\S]*?)};/m);
   if(nonlabBlock) {
     const m = nonlabBlock[1].matchAll(/['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g);
     for(const it of m) result.nonLabor[it[1]]=it[2];
   }
-  const d1 = content.match(/DEFAULT_LABOR_RUBRO\s*=\s*['"]([^'"]+)['"]/);
-  const d2 = content.match(/DEFAULT_NON_LABOR_RUBRO\s*=\s*['"]([^'"]+)['"]/);
+  const d1 = content.match(/(?:export\s+)?const\s+DEFAULT_LABOR_RUBRO\s*=\s*["']([^"']+)["']/);
+  const d2 = content.match(/(?:export\s+)?const\s+DEFAULT_NON_LABOR_RUBRO\s*=\s*["']([^"']+)["']/);
   if(d1) result.defaults.DEFAULT_LABOR_RUBRO=d1[1];
   if(d2) result.defaults.DEFAULT_NON_LABOR_RUBRO=d2[1];
   return result;
