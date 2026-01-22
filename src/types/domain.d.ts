@@ -138,6 +138,8 @@ export type InvoiceDoc = {
   reconciled_by?: string; // User who reconciled/matched the invoice
   deletion_requested_by?: string; // User who requested deletion
   deletion_requested_at?: string; // When deletion was requested
+  rubroId?: string; // Rubro identifier (alternative field name)
+  rubro_id?: string; // Rubro identifier (snake_case variant)
 };
 
 // Scenario modeling
