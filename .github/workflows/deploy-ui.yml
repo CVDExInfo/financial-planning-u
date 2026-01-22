@@ -148,6 +148,15 @@ jobs:
           pnpm install --frozen-lockfile
           echo "✅ Dependencies installed with pnpm"
 
+      - name: Validate taxonomy sync (frontend <> backend)
+        shell: bash
+        env:
+          NODE_OPTIONS: "--enable-source-maps"
+        run: |
+          set -euo pipefail
+          echo "🔎 Running taxonomy sync validation"
+          node scripts/validate-taxonomy-sync.cjs
+
       # ---- Lint (auto-fix where possible, then gate) ----
       - name: Lint (auto-fix if supported)
         shell: bash
