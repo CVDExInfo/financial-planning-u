@@ -673,11 +673,10 @@ export function SDMTForecast() {
       return; // Stale, abort processing
     }
 
-    // Pass baseline ID, projectId, and enable debug mode in development for better diagnostics
+    // Pass baseline ID and enable debug mode in development for better diagnostics
     const debugMode = import.meta.env.DEV;
     let normalized = normalizeForecastCells(payload.data, {
       baselineId: currentProject?.baselineId,
-      projectId: selectedProjectId,
       debugMode,
     });
     let usedFallback = false;
@@ -863,7 +862,6 @@ export function SDMTForecast() {
           const debugMode = import.meta.env.DEV;
           let normalized = normalizeForecastCells(payload.data, {
             baselineId: project.baselineId,
-            projectId: project.id,
             debugMode,
           });
           const baselineStatus = resolveBaselineStatus(
