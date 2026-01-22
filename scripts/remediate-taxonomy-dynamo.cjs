@@ -77,6 +77,10 @@ function ask(q) {
         const newItem = Object.assign({}, obj.tableSample, { pk: desiredPk });
         // set sk if missing to default
         if (!newItem.sk) newItem.sk = `CATEGORIA#${(newItem.categoria_codigo || 'MOD')}`;
+        // Apply attribute updates to the new item as well
+        for (const [k, v] of Object.entries(updateAttrs)) {
+          newItem[k] = v;
+        }
         // Put new item
         const putCmd = new PutItemCommand({
           TableName: TABLE,
@@ -95,10 +99,13 @@ function ask(q) {
         } else {
           console.warn('Old item lacked pk/sk — please manually delete old item');
         }
+        // Clear updateAttrs since they were already applied to the new item
+        Object.keys(updateAttrs).forEach(k => delete updateAttrs[k]);
       }
 
-      // Apply attribute updates if any
+      // Apply attribute updates if any (and pk wasn't changed)
       if (Object.keys(updateAttrs).length > 0) {
+        // Use the current pk/sk from tableSample since pk wasn't changed
         const key = { pk: obj.tableSample.pk, sk: obj.tableSample.sk };
         const expr = [];
         const attrNames = {};

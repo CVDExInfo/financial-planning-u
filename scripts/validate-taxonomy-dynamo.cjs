@@ -60,6 +60,7 @@ async function scanTable(client) {
   do {
     const out = await client.send(new ScanCommand({
       TableName: TABLE,
+      ExclusiveStartKey,
     }));
     if (out.Items) {
       for (const it of out.Items) {
@@ -121,7 +122,7 @@ async function scanTable(client) {
           diffs.push({ attr: 'descripcion/linea_gasto', frontend: frontDescr, table: null });
         }
         // categoria_codigo
-        const tableCatCode = (item.categoria_codigo || item.categoriaCode || item.categoria_codigo || '').trim();
+        const tableCatCode = (item.categoria_codigo || item.categoriaCode || '').trim();
         const frontCatCode = (a.categoria_codigo || '').trim();
         if (frontCatCode && tableCatCode && frontCatCode !== tableCatCode) {
           diffs.push({ attr: 'categoria_codigo', frontend: frontCatCode, table: tableCatCode });
