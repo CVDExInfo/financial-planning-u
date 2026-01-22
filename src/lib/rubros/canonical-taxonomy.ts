@@ -1262,6 +1262,23 @@ const _buildCanonicalAliases = (): Record<string, string> => {
     'contratistas externos (labor)': 'MOD-EXT',
     'contratistas externos labor': 'MOD-EXT',
     'contratistas externos': 'MOD-EXT',
+    
+    // Category-suffixed patterns from allocations/materializers
+    // These appear when rubro_id is concatenated with category name
+    'tec-hw-rpl-equipos-y-tecnologia': 'TEC-HW-RPL',
+    'tec-hw-rpl-equipos-y-tecnolog-a': 'TEC-HW-RPL',
+    'tec-itsm-equipos-y-tecnologia': 'TEC-ITSM',
+    'tec-itsm-equipos-y-tecnolog-a': 'TEC-ITSM',
+    'inf-cloud-infraestructura-nube-data-center': 'INF-CLOUD',
+    'inf-rack-infraestructura-nube-data-center': 'INF-RACK',
+    
+    // Additional MOD category-suffixed patterns
+    'mod-ing-mano-de-obra-directa': 'MOD-ING',
+    'mod-lead-mano-de-obra-directa': 'MOD-LEAD',
+    'mod-sdm-mano-de-obra-directa': 'MOD-SDM',
+    'mod-ot-mano-de-obra-directa': 'MOD-OT',
+    'mod-cont-mano-de-obra-directa': 'MOD-CONT',
+    'mod-ext-mano-de-obra-directa': 'MOD-EXT',
   };
   
   // Normalize all keys to ensure consistent lookup
