@@ -220,6 +220,16 @@ function normalizeListResponse<T>(payload: { data?: unknown } | unknown): T[] {
   return [];
 }
 
+const ProjectRubroRequestSchema = z.object({
+  rubroIds: z.array(z.string()).min(1),
+  monto_total: z.number().min(0).optional(),
+  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
+  meses_programados: z.array(z.string()).optional(),
+  notas: z.string().max(1000).optional(),
+});
+
+type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
+
 function toProjectRubroRequest(payload: RubroCreate): ProjectRubroRequest {
   const normalized: ProjectRubroRequest = {
     rubroIds: payload.rubro_id ? [payload.rubro_id] : [],
@@ -300,16 +310,6 @@ export const RubroCreateSchema = z.object({
 });
 
 export type RubroCreate = z.infer<typeof RubroCreateSchema>;
-
-const ProjectRubroRequestSchema = z.object({
-  rubroIds: z.array(z.string()).min(1),
-  monto_total: z.number().min(0).optional(),
-  tipo_ejecucion: z.enum(["mensual", "puntual", "por_hito"]).optional(),
-  meses_programados: z.array(z.string()).optional(),
-  notas: z.string().max(1000).optional(),
-});
-
-type ProjectRubroRequest = z.infer<typeof ProjectRubroRequestSchema>;
 
 // Allocation bulk schema
 export const AllocationBulkSchema = z.object({

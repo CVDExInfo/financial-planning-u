@@ -214,6 +214,15 @@ export const VarianceWaterfallChart: FC<BaseChartProps & {
     };
   });
 
+  const formatValue = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -230,15 +239,6 @@ export const VarianceWaterfallChart: FC<BaseChartProps & {
       );
     }
     return null;
-  };
-
-  const formatValue = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   return (

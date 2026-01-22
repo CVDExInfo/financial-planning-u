@@ -33,6 +33,28 @@ import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/ta
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
 
+
+/**
+ * Helper to normalize strings for comparison (case-insensitive, whitespace-normalized)
+ */
+export const normalizeString = (s: any): string => {
+  return (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+};
+
+
+/**
+ * Normalize invoice status from various field names and handle case-insensitivity
+ * Supports common variants: status, invoice_status, state, status_code
+ * 
+ * @param inv - Invoice object
+ * @returns Normalized status string (lowercase) or null if no status found
+ */
+const invoiceStatusNormalized = (inv: any): string | null => {
+  const rawStatus = inv.status || inv.invoice_status || inv.state || inv.status_code;
+  if (!rawStatus) return null;
+  return rawStatus.toString().trim().toLowerCase();
+};
+
 // Build taxonomy from canonical source (the single source of truth)
 const taxonomyByRubroId: Record<string, { description?: string; category?: string; isLabor?: boolean }> = {};
 CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
@@ -111,13 +133,6 @@ export const isMaterialized = (baseline: any): boolean => {
   return (
     baseline?.materializedAt || baseline?.materialization_status === "completed"
   );
-};
-
-/**
- * Helper to normalize strings for comparison (case-insensitive, whitespace-normalized)
- */
-export const normalizeString = (s: any): string => {
-  return (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
 };
 
 /**
@@ -421,19 +436,6 @@ const FORCE_ALLOC_STORAGE_KEY = "finz.forceAllocationsOverride";
  * These statuses indicate the invoice has been verified and should be counted
  */
 const VALID_INVOICE_STATUSES = ['matched', 'paid', 'approved', 'posted', 'received', 'validated'] as const;
-
-/**
- * Normalize invoice status from various field names and handle case-insensitivity
- * Supports common variants: status, invoice_status, state, status_code
- * 
- * @param inv - Invoice object
- * @returns Normalized status string (lowercase) or null if no status found
- */
-const invoiceStatusNormalized = (inv: any): string | null => {
-  const rawStatus = inv.status || inv.invoice_status || inv.state || inv.status_code;
-  if (!rawStatus) return null;
-  return rawStatus.toString().trim().toLowerCase();
-};
 
 const parseBooleanFlag = (value: string | null): boolean => {
   if (value === null || value === undefined) return true;
