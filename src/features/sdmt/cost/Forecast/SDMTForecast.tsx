@@ -876,6 +876,13 @@ export function SDMTForecast() {
           const hasAcceptedBaseline = baselineStatus === "accepted";
           let usedFallback = false;
 
+          // Log allocations fetched for portfolio project
+          if (import.meta.env.DEV) {
+            console.debug(
+              `[loadPortfolioForecast] project ${project.id}: forecast=${payload.data?.length || 0} allocations=${allocations?.length || 0} rubros=${projectLineItems.length}`
+            );
+          }
+
           // Fallback hierarchy (matching single-project view in useSDMTForecastData):
           // 1. Try allocations if forecast is empty and allocations exist
           // 2. Else try lineItems if available
@@ -883,20 +890,28 @@ export function SDMTForecast() {
             (!normalized || normalized.length === 0) &&
             hasAcceptedBaseline
           ) {
-            if (allocations.length > 0) {
+            // Try allocations first if available (preferred fallback)
+            if (allocations && allocations.length > 0) {
               if (import.meta.env.DEV) {
                 console.debug(
                   `[SDMTForecast] Using allocations fallback for ${project.id}, baseline ${project.baselineId}: ${allocations.length} allocations`
                 );
               }
-              normalized = computeForecastFromAllocations(
-                allocations,
-                projectLineItems,
-                months,
-                project.id
-              );
+              // Convert allocations to forecast cells format
+              // Allocations have: month, planned, forecast, actual, rubroId/rubro_id
+              normalized = allocations.map((alloc: any) => ({
+                line_item_id: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
+                month: alloc.month,
+                planned: alloc.planned || 0,
+                forecast: alloc.forecast || alloc.planned || 0,
+                actual: alloc.actual || 0,
+                variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
+                last_updated: alloc.last_updated || new Date().toISOString(),
+                updated_by: alloc.updated_by || 'system',
+              }));
               usedFallback = true;
             } else if (projectLineItems.length > 0) {
+              // Fall back to baseline rubros if no allocations
               if (import.meta.env.DEV) {
                 console.debug(
                   `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
