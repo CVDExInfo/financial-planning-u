@@ -340,7 +340,7 @@ export default function RubrosBaselineSummary({
               className="gap-2"
               asChild
             >
-              <a href={doc.s3Url} target="_blank" rel="noreferrer">
+              <a href={doc.s3Url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
                 Ver PDF
               </a>

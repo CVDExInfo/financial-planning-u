@@ -64,7 +64,7 @@ export function LoginPage() {
   const PREFACTURAS_PORTAL_LOGIN =
     rawPrefacturasUrl && rawPrefacturasUrl.length > 0
       ? rawPrefacturasUrl
-      : "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
+      : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
 
   if (!rawPrefacturasUrl) {
     console.warn(
@@ -210,6 +210,19 @@ export function LoginPage() {
               <span className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
                 Acceso seguro Ikusi
               </span>
+
+              {/* Ikusi Operating Direction block */}
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-200">
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                  Dirección de Operaciones IKUSI Colombia
+                </p>
+                <p className="mt-1 max-w-2xl">
+                  Existimos para entregar excelencia con empatía y actitud que inspiran confianza
+                </p>
+                <p className="mt-1 italic text-xs text-slate-500 dark:text-slate-400">
+                  Centrado
+                </p>
+              </div>
             </div>
           </div>
 
@@ -297,6 +310,7 @@ export function LoginPage() {
                 <Button
                   type="button"
                   size="lg"
+                  aria-label="Acceso a Finanzas - inicia sesión con Cognito Hosted UI"
                   className="h-12 w-full justify-between bg-emerald-500 text-emerald-950 hover:bg-emerald-400 dark:text-emerald-50"
                   onClick={() => handleAccess("/", { requiresRoleCheck: false })}
                   disabled={isLoading}
@@ -313,6 +327,7 @@ export function LoginPage() {
                   type="button"
                   variant="secondary"
                   size="lg"
+                  aria-label="Gestor de Actas - acceso directo (se abre en nueva pestaña)"
                   className="h-12 w-full justify-between bg-slate-800 text-slate-50 hover:bg-slate-700 dark:bg-slate-800/90"
                   onClick={() =>
                     handlePortalAccess(PMO_PORTAL_LOGIN, { requiresRoleCheck: true })
@@ -331,6 +346,7 @@ export function LoginPage() {
                   type="button"
                   variant="outline"
                   size="lg"
+                  aria-label="Prefacturas Proveedores - acceso directo (se abre en nueva pestaña)"
                   className="h-12 w-full justify-between border-slate-200 bg-white text-slate-900 hover:bg-slate-100 dark:border-white/20 dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
                   onClick={() => handlePortalAccess(PREFACTURAS_PORTAL_LOGIN)}
                   disabled={isLoading}
