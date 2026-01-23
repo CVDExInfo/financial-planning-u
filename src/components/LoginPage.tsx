@@ -64,7 +64,7 @@ export function LoginPage() {
   const PREFACTURAS_PORTAL_LOGIN =
     rawPrefacturasUrl && rawPrefacturasUrl.length > 0
       ? rawPrefacturasUrl
-      : "https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login";
+      : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
 
   if (!rawPrefacturasUrl) {
     console.warn(
