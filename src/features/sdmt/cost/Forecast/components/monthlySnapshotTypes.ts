@@ -3,6 +3,7 @@ import { isLabor } from '@/lib/rubros-category-utils';
 export interface ForecastCell {
   line_item_id: string;
   rubroId?: string;
+  canonicalRubroId?: string;
   projectId?: string;
   projectName?: string;
   description?: string;
@@ -14,6 +15,7 @@ export interface ForecastCell {
   variance: number;
   last_updated?: string;
   updated_by?: string;
+  matchingIds?: string[];
 }
 
 export interface MonthlyBudgetInput {

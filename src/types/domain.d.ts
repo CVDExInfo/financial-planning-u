@@ -115,6 +115,7 @@ export type ForecastCell = {
   matchingIds?: string[]; // Alternative IDs for invoice matching (canonical, synthetic, aliases)
   monthLabel?: string; // YYYY-MM format for calendar month alignment
   rubroId?: string; // Explicit rubro ID for canonical taxonomy lookup
+  canonicalRubroId?: string; // Canonical rubro ID from taxonomy (single source of truth)
 };
 
 // Invoice/Evidence documents
