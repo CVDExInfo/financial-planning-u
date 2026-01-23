@@ -396,6 +396,9 @@ function normalizeMonth(
 async function getAllocations(event: APIGatewayProxyEventV2) {
   const requestId = event.requestContext?.requestId || 'unknown';
   
+  // Track all attempted partition keys and their results for diagnostics (moved here for error handling)
+  const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
+  
   try {
     await ensureCanRead(event as any);
     
@@ -415,9 +418,6 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     }
     
     const allocationsTable = tableName("allocations");
-    
-    // Track all attempted partition keys and their results for diagnostics
-    const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
     
     // Helper function to query by partition key with optional SK filter
     async function queryByPK(pk: string, skPrefix?: string): Promise<any[]> {
