@@ -87,9 +87,9 @@ export function SelectRubro({
     const categories = getAllCategories();
     
     return categories
-      .map(categoryCode => {
+      .map(category => {
         // Use getRubrosByCategory helper for consistent grouping
-        const categoryRubros = getRubrosByCategory(categoryCode)
+        const categoryRubros = getRubrosByCategory(category.code)
           .filter(r => {
             // Apply category filter
             if (categoryFilter && r.categoria_codigo !== categoryFilter) return false;
@@ -117,8 +117,8 @@ export function SelectRubro({
         if (categoryRubros.length === 0) return null;
         
         return {
-          code: categoryCode,
-          name: categoryRubros[0].categoria,
+          code: category.code,
+          name: category.name,
           rubros: categoryRubros,
         };
       })
