@@ -68,7 +68,8 @@ import {
   getChangeType,
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
-import { normalizeForecastCells } from "@/features/sdmt/cost/utils/dataAdapters";
+import { normalizeForecastCells, normalizeLineItemFromApi, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
@@ -1022,23 +1023,69 @@ export function SDMTForecast() {
     }
 
     const aggregatedData = validResults.flatMap((result) => result.data);
-    const aggregatedLineItems = validResults.flatMap(
-      (result) => result.lineItems
-    );
+    
+    // Build canonical map to deduplicate line items by canonical ID
+    const canonicalMap = new Map<string, LineItem>();
+    const allLineItemsFlattened = validResults.flatMap((result) => result.lineItems);
+    
+    for (const li of allLineItemsFlattened) {
+      const normalizedId = normalizeRubroId(li.id);
+      const canonical = getCanonicalRubroId(normalizedId) || normalizedId;
+      const taxonomy = getTaxonomyById(normalizedId);
+      
+      const existing = canonicalMap.get(canonical);
+      
+      if (!existing) {
+        // Use taxonomy description if available, otherwise use line item description
+        const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
+        const category = taxonomy?.categoria || li.category || '';
+        
+        canonicalMap.set(canonical, { 
+          ...li, 
+          id: canonical,
+          description: desc,
+          category: category,
+        });
+      } else {
+        // Merge metadata: prefer taxonomy description or longest description
+        const taxonomyDesc = taxonomy?.linea_gasto || taxonomy?.descripcion;
+        const currentDesc = existing.description || '';
+        const newDesc = taxonomyDesc || li.description || '';
+        
+        // Prefer taxonomy description, then longest description
+        if (taxonomyDesc) {
+          existing.description = taxonomyDesc;
+        } else if (newDesc.length > currentDesc.length) {
+          existing.description = newDesc;
+        }
+        
+        // Prefer taxonomy category
+        const taxonomyCategory = taxonomy?.categoria;
+        if (taxonomyCategory) {
+          existing.category = taxonomyCategory;
+        } else {
+          existing.category = existing.category || li.category;
+        }
+      }
+    }
+    
+    const portfolioLineItemsArray = Array.from(canonicalMap.values());
+    
     const firstGeneratedAt = validResults.find(
       (result) => result.generatedAt
     )?.generatedAt;
 
     setDataSource("api");
     setGeneratedAt(firstGeneratedAt || new Date().toISOString());
-    setPortfolioLineItems(aggregatedLineItems);
+    setPortfolioLineItems(portfolioLineItemsArray);
     setForecastData(aggregatedData);
 
     if (import.meta.env.DEV) {
       console.debug("[Forecast] Portfolio data loaded", {
         projects: candidateProjects.length,
         records: aggregatedData.length,
-        lineItems: aggregatedLineItems.length,
+        lineItems: portfolioLineItemsArray.length,
+        uniqueCanonicalIds: canonicalMap.size,
       });
     }
   };
