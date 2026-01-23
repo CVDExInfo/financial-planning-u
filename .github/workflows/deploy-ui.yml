@@ -47,6 +47,11 @@ env:
   VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
   # Incremental migration flags
   VITE_ENABLE_RUBROS_ADAPTER: ${{ vars.VITE_ENABLE_RUBROS_ADAPTER || 'false' }}
+  # Multi-SPA Integration URLs
+  # CloudFront for Acta (Gestor de Actas)
+  VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net/login' }}
+  # Prefacturas direct URL
+  VITE_PREFACTURAS_URL: ${{ vars.VITE_PREFACTURAS_URL || 'https://d7t9x3j66yd8k.cloudfront.net/prefacturas/login' }}
 
 jobs:
   build-and-deploy-all:
@@ -228,6 +233,9 @@ jobs:
           VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
           VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
           VITE_CLOUDFRONT_URL: ${{ env.VITE_CLOUDFRONT_URL }}
+          # Multi-SPA Integration URLs
+          VITE_ACTA_BASE_URL: ${{ env.VITE_ACTA_BASE_URL }}
+          VITE_PREFACTURAS_URL: ${{ env.VITE_PREFACTURAS_URL }}
           # Forecast UI feature flags
           VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ env.VITE_FINZ_NEW_FORECAST_LAYOUT }}
           VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS }}
@@ -277,6 +285,19 @@ jobs:
           echo "✅ Bundle assets exist:"
           ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
           sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+
+      - name: Verify ACTA/Prefacturas URLs embedded in bundle
+        run: |
+          set -euo pipefail
+          DIST="dist-finanzas"
+          VITE_ACTA_BASE_URL=$(printf '%s' "${VITE_ACTA_BASE_URL:-}" | tr -d '\r\n')
+          VITE_PREFACTURAS_URL=$(printf '%s' "${VITE_PREFACTURAS_URL:-}" | tr -d '\r\n')
+          if [ -z "$VITE_ACTA_BASE_URL" ] || [ -z "$VITE_PREFACTURAS_URL" ]; then
+            echo "❌ Missing VITE_ACTA_BASE_URL or VITE_PREFACTURAS_URL"; exit 1;
+          fi
+          grep -R --binary-files=text -F "$VITE_ACTA_BASE_URL" "$DIST" >/dev/null || { echo "❌ VITE_ACTA_BASE_URL not found in build"; exit 1; }
+          grep -R --binary-files=text -F "$VITE_PREFACTURAS_URL" "$DIST" >/dev/null || { echo "❌ VITE_PREFACTURAS_URL not found in build"; exit 1; }
+          echo "✅ VITE_ACTA_BASE_URL & VITE_PREFACTURAS_URL present in build"
 
       - name: Write Finanzas deployment metadata
         run: bash scripts/write-deployment-meta.sh dist-finanzas
