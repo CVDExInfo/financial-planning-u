@@ -1030,6 +1030,8 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
   'Project Manager': 'MOD-LEAD', // Add title case variant
   'mod-pm-project-manager': 'MOD-LEAD',
+  'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
+  'MOD-PMO': 'MOD-LEAD', // Legacy PMO variant
   
   // Category-suffixed patterns - Generated when allocation materializers or 
   // PMO Estimator append the Spanish categoria name to the rubro_id 

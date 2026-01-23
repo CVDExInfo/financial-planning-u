@@ -15,6 +15,8 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { ensureCategory } from "@/lib/rubros-category-utils";
+import { normalizeKey } from "@/lib/rubros/normalize-key";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 // ---------- Environment ----------
 const envSource =
@@ -745,6 +747,20 @@ export async function uploadInvoice(
   if (!Number.isFinite(payload.amount))
     throw new Error("Amount must be a finite number");
 
+  // Validate projectId
+  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+    throw new FinanzasApiError("projectId is required and must be a non-empty string");
+  }
+
+  // Validate line_item_id
+  if (!payload.line_item_id || typeof payload.line_item_id !== 'string' || payload.line_item_id.trim() === '') {
+    throw new FinanzasApiError("line_item_id is required and must be a non-empty string");
+  }
+
+  // Normalize and canonicalize the line_item_id
+  const normalizedLineItemId = normalizeKey(payload.line_item_id);
+  const canonicalRubroId = getCanonicalRubroId(payload.line_item_id);
+
   const parsedInvoiceDate = payload.invoice_date
     ? Date.parse(payload.invoice_date)
     : undefined;
@@ -760,7 +776,7 @@ export async function uploadInvoice(
     projectId,
     file: payload.file,
     module: options?.module ?? "reconciliation",
-    lineItemId: payload.line_item_id,
+    lineItemId: normalizedLineItemId,
     invoiceNumber: payload.invoice_number,
     invoiceDate: normalizedInvoiceDate ?? payload.invoice_date,
     vendor: payload.vendor,
@@ -770,7 +786,9 @@ export async function uploadInvoice(
   if (import.meta.env.DEV) {
     console.info("[uploadInvoice] Presign successful", {
       projectId,
-      line_item_id: payload.line_item_id,
+      line_item_id: normalizedLineItemId,
+      line_item_id_original: payload.line_item_id,
+      rubro_canonical: canonicalRubroId,
       amount: payload.amount,
       invoice_number: payload.invoice_number,
       invoice_date: normalizedInvoiceDate ?? payload.invoice_date,
@@ -785,7 +803,8 @@ export async function uploadInvoice(
 
   const body = {
     projectId,
-    lineItemId: payload.line_item_id,
+    lineItemId: normalizedLineItemId,
+    rubro_canonical: canonicalRubroId,
     month: payload.month,
     amount: payload.amount,
     description: payload.description,
