@@ -27,6 +27,7 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
   DEPLOYMENT_ENV: ${{ github.event.inputs.environment || 'dev' }}
+  # Note: API URLs should ideally be in repository variables, using fallback values for backward compatibility
   FINZ_API_URL: ${{ github.event.inputs.environment == 'prod' && 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod' || (vars.DEV_API_URL || 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev') }}
 
 jobs:

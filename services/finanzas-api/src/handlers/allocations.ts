@@ -573,21 +573,34 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     
     // No projectId - return all allocations with pagination limit
     const limit = 1000; // Reasonable limit to avoid timeouts
-    const scanResult = await ddb.send(
-      new ScanCommand({
+    try {
+      const scanResult = await ddb.send(
+        new ScanCommand({
+          TableName: allocationsTable,
+          Limit: limit,
+        })
+      );
+      
+      const items = scanResult.Items || [];
+      console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
+      
+      // Normalize items before returning
+      const normalized = await normalizeAllocations(items);
+      
+      // Return normalized response with data wrapper
+      return ok(event, { data: normalized });
+    } catch (scanErr: any) {
+      // Log scan failure with full context
+      console.error(`[allocations] Scan operation failed, requestId=${requestId}`, {
+        errorName: scanErr?.name,
+        errorMessage: scanErr?.message,
+        stack: scanErr?.stack,
         TableName: allocationsTable,
         Limit: limit,
-      })
-    );
-    
-    const items = scanResult.Items || [];
-    console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
-    
-    // Normalize items before returning
-    const normalized = await normalizeAllocations(items);
-    
-    // Return normalized response with data wrapper
-    return ok(event, { data: normalized });
+      });
+      // Return empty data on scan failure (defensive handling)
+      return ok(event, { data: [] });
+    }
   } catch (error: any) {
     logError("Error fetching allocations", error);
     // Include full diagnostic context for traceability

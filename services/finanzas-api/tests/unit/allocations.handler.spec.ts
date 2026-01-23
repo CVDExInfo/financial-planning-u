@@ -1483,13 +1483,18 @@ describe("allocations handler", () => {
 
       expect(response.statusCode).toBe(200);
       expect(payload.data).toBeDefined();
+      
       // Verify GetCommand was called with projects table
-      const getCalls = (dynamo.ddb.send as jest.Mock).mock.calls.filter(
-        (call: any) => call[0]?.constructor?.name === "GetCommand"
+      // Since GetCommand is mocked, we check the mock calls for GetCommand invocations
+      const sendCalls = (dynamo.ddb.send as jest.Mock).mock.calls;
+      const getCommandCalls = sendCalls.filter(
+        (call: any) => call[0]?.input?.Key?.pk?.startsWith('PROJECT#')
       );
-      if (getCalls.length > 0) {
-        const getCommandCall = getCalls[0][0];
-        expect(getCommandCall.input?.TableName).toBe("test_projects");
+      
+      if (getCommandCalls.length > 0) {
+        const getCall = getCommandCalls[0][0];
+        // Verify it's using the projects table (test_projects in our mock)
+        expect(getCall.input?.TableName).toBe("test_projects");
       }
     });
 
