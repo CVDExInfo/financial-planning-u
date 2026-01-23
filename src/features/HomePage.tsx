@@ -149,7 +149,7 @@ export function HomePage() {
                   </a>
 
                   <a
-                    href="https://login.microsoftonline.com/a1885afe-fe31-45ba-b980-33ea356fca94/oauth2/authorize?client%5Fid=00000003%2D0000%2D0ff1%2Dce00%2D000000000000&response%5Fmode=form%5Fpost&response%5Ftype=code%20id%5Ftoken&resource=00000003%2D0000%2D0ff1%2Dce00%2D000000000000&scope=openid&nonce=D00368B99ED43CF46E0F5C5C3B065B446B5D9F0F9049F557%2D422D4A5CFEDB3720169865790E342EB4881AF980255483438FEDCDFCD4A898A9&redirect%5Furi=https%3A%2F%2Fvelatia%2Esharepoint%2Ecom%2F%5Fforms%2Fdefault%2Easpx&state=OD0w&claims=%7B%22id%5Ftoken%22%3A%7B%22xms%5Fcc%22%3A%7B%22values%22%3A%5B%22CP1%22%5D%7D%7D%7D&wsucxt=1&cobrandid=11bd8083%2D87e0%2D41b5%2Dbb78%2D0bc43c8a8e8a&client%2Drequest%2Did=2ebdefa1%2Df04d%2Da000%2D5a41%2D0b1d3e280e59&sso_reload=true"
+                    href="https://extra-hours-ikusi-ui--valencia94.github.app"
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Horas Extras - Portal de gestión de horas extraordinarias (abre en nueva pestaña)"
