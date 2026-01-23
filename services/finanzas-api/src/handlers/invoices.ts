@@ -84,7 +84,7 @@ export const handler = async (
         ...inv,
         rubro_canonical: canonical,
         month: inv.month || (inv.invoiceDate && inv.invoiceDate.slice(0, 7)) || null,
-        amount: Number(inv.amount || inv.total || 0) || 0 // Ensure NaN becomes 0
+        amount: Number(inv.amount || inv.total || 0)
       };
     });
 
