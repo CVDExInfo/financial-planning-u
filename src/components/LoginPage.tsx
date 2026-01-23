@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * ResourceLink - small presentational component for the Resources list
+ * Small presentational ResourceLink component (keeps accessibility & consistent layout)
  */
 function ResourceLink({
   href,
@@ -76,7 +76,6 @@ export function LoginPage() {
   const [appearance, setAppearance] = useState<"light" | "dark">(initialAppearance);
   const previousAppearance = useRef<string | undefined>(undefined);
 
-  // External portals (baked by Vite during build)
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
   const PMO_PORTAL_LOGIN = rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/";
   if (!rawActaUrl) {
@@ -97,10 +96,6 @@ export function LoginPage() {
     [isAuthenticated, session.user],
   );
 
-  /**
-   * Internal access helper — uses Hosted UI login + client-side routing.
-   * Keep this so "Acceso a Finanzas" triggers login + navigate to internal SPA route.
-   */
   const handleAccess = (path: string, { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {}) => {
     setAccessMessage(null);
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -115,7 +110,7 @@ export function LoginPage() {
         localStorage.setItem("cv.module", "pmo");
       }
     } catch {
-      // ignore storage errors
+      // ignore
     }
 
     if (!isAuthenticated) {
@@ -126,9 +121,6 @@ export function LoginPage() {
     navigate(normalizedPath);
   };
 
-  /**
-   * External portal access — open external SPA in new tab (defensive noopener)
-   */
   const handlePortalAccess = (url: string, { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {}) => {
     setAccessMessage(null);
 
@@ -138,14 +130,9 @@ export function LoginPage() {
     }
 
     try {
-      const nw = window.open(url, "_blank");
-      if (nw) {
-        try {
-          // defensive
-          nw.opener = null;
-        } catch {
-          /* ignore cross-origin */
-        }
+      const newWin = window.open(url, "_blank");
+      if (newWin) {
+        try { newWin.opener = null; } catch { /* ignore cross-origin */ }
       } else {
         setAccessMessage("No pudimos abrir el portal solicitado. Intenta nuevamente o contacta soporte.");
       }
@@ -185,11 +172,10 @@ export function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-950/40 via-slate-950 to-slate-900 text-slate-50">
-      {/* Decorative background layers */}
+      {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.06),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(59,130,246,0.04),transparent_42%)] opacity-40" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:140px_140px] opacity-10" />
 
-      {/* Full-width centering wrapper with centered card */}
       <div className="relative w-full px-4 py-12">
         <div className="mx-auto max-w-6xl">
           {/* Header */}
@@ -199,11 +185,8 @@ export function LoginPage() {
                 <Logo className="h-10 w-auto text-emerald-200" />
               </div>
               <div className="flex flex-col">
-                {/* Badge */}
                 <span className="text-sm font-semibold text-emerald-300">Ikusi - Central de Operaciones</span>
-                {/* H1 */}
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Ikusi · Central de Operaciones</h1>
-                {/* Mi Hermano copy */}
                 <div className="mt-1 text-sm text-slate-300">
                   <p className="font-semibold text-emerald-200">Dirección de Operaciones IKUSI Colombia</p>
                   <p className="mt-1 max-w-2xl">Existimos para entregar excelencia con empatía y actitud que inspiran confianza</p>
@@ -224,7 +207,6 @@ export function LoginPage() {
             </Button>
           </div>
 
-          {/* Centered card with 3/1 grid (left: 3, right:1) */}
           <Card className="relative overflow-hidden border border-slate-700/40 bg-slate-900/70 shadow-xl">
             <div className="relative grid gap-8 p-8 lg:grid-cols-4 lg:p-10">
               {/* Left column (3/4) */}
@@ -257,6 +239,28 @@ export function LoginPage() {
                       El acceso a Finanzas se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
                     </p>
                   </div>
+
+                  {/* Horas Extras as Ikusi internal module */}
+                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60 mt-2 sm:mt-0">
+                    <p className="text-sm font-semibold text-emerald-200">Horas Extras</p>
+                    <p className="mt-2 text-sm text-slate-300">
+                      Accede al módulo de horas extras para gestionar solicitudes y autorizaciones.
+                    </p>
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Horas Extras - módulo interno Ikusi"
+                        className="h-10 px-3"
+                        onClick={() => handleAccess("/horas-extras")}
+                        disabled={isLoading}
+                      >
+                        Ir a Horas Extras
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -273,7 +277,6 @@ export function LoginPage() {
                   )}
                 </div>
 
-                {/* Quick buttons – includes Horas Extras as internal Ikusi module */}
                 <div className="flex flex-col gap-3">
                   <Button
                     type="button"
@@ -319,24 +322,24 @@ export function LoginPage() {
                     <ArrowRight className="h-5 w-5" />
                   </Button>
 
-                  {/* Horas Extras is an Ikusi module (internal) */}
+                  {/* Centrix (external portal) */}
                   <Button
                     type="button"
                     variant="ghost"
                     size="lg"
-                    aria-label="Horas Extras - módulo interno Ikusi"
+                    aria-label="Centrix - acceso directo (se abre en nueva pestaña)"
                     className="h-12 w-full justify-between border border-slate-700/30 text-slate-100"
-                    onClick={() => handleAccess("/horas-extras")}
+                    onClick={() => handlePortalAccess("https://newcentrix.labikusi.com/")}
                     disabled={isLoading}
                   >
                     <span className="flex items-center gap-2 font-semibold">
-                      <ExternalLink className="h-5 w-5" /> Horas Extras
+                      <ExternalLink className="h-5 w-5" /> Centrix
                     </span>
                     <ArrowRight className="h-5 w-5" />
                   </Button>
                 </div>
 
-                {/* Resources tile */}
+                {/* Resources */}
                 <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-800/60">
                   <p className="text-sm font-semibold text-emerald-200 mb-3">Recursos</p>
                   <div className="grid gap-2">
