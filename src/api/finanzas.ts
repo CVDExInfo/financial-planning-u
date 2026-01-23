@@ -195,6 +195,17 @@ async function fetchArraySource(
         logApiDebug(`${label} endpoint unavailable (${err.status}), returning empty array`, { url });
         return [];
       }
+      
+      // Handle 5xx server errors with user notification
+      if (err.status >= 500 && err.status < 600) {
+        console.error(`[finanzas-api] ${label} server error (${err.status})`, err);
+        if (typeof toast?.error === "function") {
+          toast.error("Error del servidor", {
+            description: "Problema al cargar datos. Mostrando vista sin información.",
+          });
+        }
+        return [];
+      }
     }
     
     // For real network errors (TypeError/Failed to fetch), downgrade severity
@@ -204,7 +215,11 @@ async function fetchArraySource(
     
     if (isNetworkError) {
       console.warn(`[finanzas-api] ${label} network error`, err);
-      // Don't show toast for network errors to avoid spam
+      if (typeof toast?.error === "function") {
+        toast.error("Problema de red", {
+          description: "Mostrando vista sin información mientras se restablece la conexión.",
+        });
+      }
       return [];
     }
     

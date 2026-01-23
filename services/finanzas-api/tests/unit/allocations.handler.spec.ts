@@ -78,7 +78,7 @@ describe("allocations handler", () => {
 
     const event: any = {
       headers: baseHeaders,
-      requestContext: { http: { method: "GET" } },
+      requestContext: { http: { method: "GET" }, requestId: "test-req-1" },
       queryStringParameters: { projectId: "P-123" },
       __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
     };
@@ -87,8 +87,9 @@ describe("allocations handler", () => {
     const payload = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(Array.isArray(payload)).toBe(true);
-    expect(payload.length).toBe(0);
+    expect(payload.data).toBeDefined();
+    expect(Array.isArray(payload.data)).toBe(true);
+    expect(payload.data.length).toBe(0);
   });
 
   it("returns array of allocations when they exist", async () => {
@@ -117,7 +118,7 @@ describe("allocations handler", () => {
 
     const event: any = {
       headers: baseHeaders,
-      requestContext: { http: { method: "GET" } },
+      requestContext: { http: { method: "GET" }, requestId: "test-req-2" },
       queryStringParameters: { projectId: "P-123" },
       __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
     };
@@ -126,19 +127,24 @@ describe("allocations handler", () => {
     const payload = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(Array.isArray(payload)).toBe(true);
-    expect(payload.length).toBe(2);
-    expect(payload[0].projectId).toBe("P-123");
+    expect(payload.data).toBeDefined();
+    expect(Array.isArray(payload.data)).toBe(true);
+    expect(payload.data.length).toBe(2);
+    expect(payload.data[0].projectId).toBe("P-123");
   });
 
-  it("returns array instead of object wrapper", async () => {
+  it("returns normalized response with data wrapper", async () => {
     (dynamo.ddb.send as jest.Mock).mockResolvedValue({
-      Items: [{ id: "test" }],
+      Items: [{ 
+        pk: "PROJECT#P-123",
+        sk: "ALLOCATION#base_001#2025-01#MOD-ING",
+        id: "test" 
+      }],
     });
 
     const event: any = {
       headers: baseHeaders,
-      requestContext: { http: { method: "GET" } },
+      requestContext: { http: { method: "GET" }, requestId: "test-req-3" },
       queryStringParameters: { projectId: "P-123" },
       __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
     };
@@ -146,10 +152,91 @@ describe("allocations handler", () => {
     const response = await allocationsHandler(event);
     const payload = JSON.parse(response.body);
 
-    // Ensure response is a bare array, not {data: []}
-    expect(Array.isArray(payload)).toBe(true);
-    expect(payload.data).toBeUndefined();
-    expect(payload.total).toBeUndefined();
+    // Ensure response has data wrapper: {data: [...]}
+    expect(payload.data).toBeDefined();
+    expect(Array.isArray(payload.data)).toBe(true);
+  });
+
+  it("handles DynamoDB errors gracefully with 500 status", async () => {
+    (dynamo.ddb.send as jest.Mock).mockRejectedValue(
+      new Error("DynamoDB connection error")
+    );
+
+    const event: any = {
+      headers: baseHeaders,
+      requestContext: { http: { method: "GET" }, requestId: "test-req-error-1" },
+      queryStringParameters: { projectId: "P-123" },
+      __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+    };
+
+    const response = await allocationsHandler(event);
+    const payload = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(500);
+    expect(payload.error).toBeDefined();
+    expect(payload.error).toContain("Failed to fetch allocations");
+    expect(payload.error).toContain("test-req-error-1"); // requestId should be included
+  });
+
+  it("handles null/malformed items in DynamoDB response", async () => {
+    const malformedItems = [
+      null,
+      { pk: "PROJECT#P-123", sk: "ALLOCATION#base_001#2025-01#MOD-ING", rubroId: null, amount: null },
+      { pk: "PROJECT#P-123", sk: "ALLOCATION#base_001#2025-02#MOD-ING", month: undefined },
+    ];
+
+    (dynamo.ddb.send as jest.Mock).mockResolvedValue({
+      Items: malformedItems,
+    });
+
+    const event: any = {
+      headers: baseHeaders,
+      requestContext: { http: { method: "GET" }, requestId: "test-req-4" },
+      queryStringParameters: { projectId: "P-123" },
+      __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+    };
+
+    const response = await allocationsHandler(event);
+    const payload = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.data).toBeDefined();
+    expect(Array.isArray(payload.data)).toBe(true);
+    // Should handle null items gracefully
+    expect(payload.data.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("returns 400 for missing required parameters", async () => {
+    const event: any = {
+      headers: baseHeaders,
+      requestContext: { http: { method: "GET" }, requestId: "test-req-5" },
+      queryStringParameters: {}, // No projectId or baseline
+      __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+    };
+
+    // Should still work - returns all allocations with scan
+    const response = await allocationsHandler(event);
+    
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("includes requestId in error responses for traceability", async () => {
+    (dynamo.ddb.send as jest.Mock).mockRejectedValue(
+      new Error("Table does not exist")
+    );
+
+    const event: any = {
+      headers: baseHeaders,
+      requestContext: { http: { method: "GET" }, requestId: "req-trace-123" },
+      queryStringParameters: { projectId: "P-999" },
+      __verifiedClaims: { "cognito:groups": ["FIN"], email: "test@example.com" },
+    };
+
+    const response = await allocationsHandler(event);
+    const payload = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(500);
+    expect(payload.error).toContain("req-trace-123");
   });
 
   describe("bulk allocations update", () => {

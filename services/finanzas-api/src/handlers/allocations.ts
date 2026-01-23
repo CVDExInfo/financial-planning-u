@@ -368,6 +368,8 @@ function normalizeMonth(
  * Tracks all attempted keys for diagnostics
  */
 async function getAllocations(event: APIGatewayProxyEventV2) {
+  const requestId = event.requestContext?.requestId || 'unknown';
+  
   try {
     await ensureCanRead(event as any);
     
@@ -447,7 +449,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       if (items.length > 0) {
         logInfo(`[allocations] ✅ Found ${items.length} allocations by ${pkCandidate}${skPrefix ? ` with SK filter ${skPrefix}` : ''}`);
         const normalized = await normalizeAllocations(items, baselineId);
-        return ok(event, normalized);
+        return ok(event, { data: normalized });
       }
       
       // If no baselineId was provided but we got 0 results, try to derive baselineId from project
@@ -473,7 +475,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations using derived baselineId ${derivedBaselineId}`);
                 const normalized = await normalizeAllocations(items, derivedBaselineId);
-                return ok(event, normalized);
+                return ok(event, { data: normalized });
               }
             }
           }
@@ -498,7 +500,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations via baseline→project resolution: ${pkCandidate} with baselineId ${incomingId}`);
                 const normalized = await normalizeAllocations(items, incomingId);
-                return ok(event, normalized);
+                return ok(event, { data: normalized });
               }
             } else {
               console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
@@ -518,7 +520,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         if (items.length > 0) {
           logInfo(`[allocations] ✅ Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
           const normalized = await normalizeAllocations(items, incomingId);
-          return ok(event, normalized);
+          return ok(event, { data: normalized });
         }
       }
       
@@ -528,7 +530,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         isBaselineLike,
       });
       
-      return ok(event, []);
+      return ok(event, { data: [] });
     }
     
     // No projectId - return all allocations with pagination limit
@@ -546,11 +548,13 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     // Normalize items before returning
     const normalized = await normalizeAllocations(items);
     
-    // Return bare array for frontend compatibility
-    return ok(event, normalized);
-  } catch (error) {
+    // Return normalized response with data wrapper
+    return ok(event, { data: normalized });
+  } catch (error: any) {
     logError("Error fetching allocations", error);
-    return serverError(event as any, "Failed to fetch allocations");
+    // Include requestId for traceability
+    console.error(`[allocations] Request ${requestId} failed:`, error?.message || error);
+    return serverError(event as any, `Failed to fetch allocations (requestId: ${requestId})`);
   }
 }
 
