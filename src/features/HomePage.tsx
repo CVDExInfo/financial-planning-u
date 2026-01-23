@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -6,17 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loginWithHostedUI } from "@/config/aws";
 import { useAuth } from "@/hooks/useAuth";
-import { getDefaultRouteForRole } from "@/lib/auth";
 
 export function HomePage() {
-  const navigate = useNavigate();
   const { currentRole, canAccessRoute: userCanAccessRoute } = useAuth();
 
-  const pmoDefaultPath = getDefaultRouteForRole("PMO");
   const prefacturasEntryPath = "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
   const gestorDeActasUrl = "https://d7t9x3j66yd8k.cloudfront.net/";
 
-  const canAccessPMO = userCanAccessRoute(pmoDefaultPath);
   const canAccessSDMT = userCanAccessRoute("/sdmt/cost/catalog");
 
   const navigateToGestorDeActas = () => window.open(gestorDeActasUrl, "_blank");
@@ -115,7 +110,7 @@ export function HomePage() {
                 <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
                   <span>Gestor de Actas (PMO)</span>
                   <Badge variant="secondary" className="text-[11px]">
-                    {canAccessPMO ? "Disponible" : "Rol requerido"}
+                    Acceso directo
                   </Badge>
                 </div>
               </div>
