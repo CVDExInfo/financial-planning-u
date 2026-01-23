@@ -70,3 +70,4 @@ artifacts-*.txt
 # Taxonomy validation temporary files
 tmp/
 !tmp/.gitkeep
+screenshots/
