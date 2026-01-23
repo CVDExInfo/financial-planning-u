@@ -1,6 +1,6 @@
 /* src/components/LoginPage.tsx
-   Rebalanced header + adjusted grid to remove large center gap,
-   removed duplicate title and "Centrado", and improved Resources list.
+   Improved balancing + unblock Gestor de Actas / Prefacturas buttons.
+   Minimal, safe presentational updates only.
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -107,7 +107,7 @@ export function LoginPage() {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
     if (requiresRoleCheck && !canAccessRoute(normalizedPath)) {
-      setAccessMessage("Acceso restringido a roles autorizados. Solicita permisos si necesitas entrar.");
+      setAccessMessage("Necesitas permisos para acceder. Contacta con tu administrador de sistemas.");
       return;
     }
 
@@ -132,10 +132,10 @@ export function LoginPage() {
     { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {},
   ) => {
     setAccessMessage(null);
+
+    // If a role-check is requested and user can't access, surface friendly message
     if (requiresRoleCheck && !canAccessRoute("/pmo/prefactura/estimator")) {
-      setAccessMessage(
-        "Acceso restringido al portal PMO Prefacturas. Solicita permisos al administrador si necesitas entrar.",
-      );
+      setAccessMessage("Necesitas permisos para acceder. Contacta con tu administrador de sistemas.");
       return;
     }
 
@@ -235,7 +235,7 @@ export function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-95 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
           <div className="relative grid gap-8 p-6 lg:grid-cols-3 lg:p-8">
             {/* Left column – headline + feature tiles (2/3 width) */}
-            <div className="flex flex-col justify-between gap-6 lg:col-span-2">
+            <div className="flex flex-col justify-start gap-6 lg:col-span-2">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-white/10 dark:text-emerald-200 dark:ring-white/15">
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
@@ -298,12 +298,13 @@ export function LoginPage() {
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
 
+                {/* OBS: removed role-check for Gestor de Actas — opens portal directly */}
                 <Button
                   type="button"
                   variant="secondary"
                   size="lg"
                   className="h-12 w-full justify-between bg-slate-800 text-slate-50 hover:bg-slate-700 dark:bg-slate-800/90"
-                  onClick={() => handlePortalAccess(PMO_PORTAL_LOGIN, { requiresRoleCheck: true })}
+                  onClick={() => handlePortalAccess(PMO_PORTAL_LOGIN)}
                   disabled={isLoading}
                 >
                   <span className="flex items-center gap-2 font-semibold">
@@ -313,6 +314,7 @@ export function LoginPage() {
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
 
+                {/* OBS: removed role-check for Prefacturas Proveedores — opens portal directly */}
                 <Button
                   type="button"
                   variant="outline"
