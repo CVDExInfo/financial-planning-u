@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Small presentational ResourceLink component (keeps accessibility & consistent layout)
+ * ResourceLink - small presentational link for the Resources tile
  */
 function ResourceLink({
   href,
@@ -40,12 +40,8 @@ function ResourceLink({
       className="flex items-center justify-between gap-4 rounded-lg border border-slate-200/60 bg-white/80 px-3 py-2 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
     >
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-          {title}
-        </div>
-        {subtitle && (
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate">{subtitle}</p>
-        )}
+        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{title}</div>
+        {subtitle && <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate">{subtitle}</p>}
       </div>
       <ExternalLink className="h-4 w-4 text-slate-400 flex-shrink-0" aria-hidden="true" />
     </a>
@@ -60,15 +56,9 @@ export function LoginPage() {
   const initialAppearance = useMemo<"light" | "dark">(() => {
     if (typeof document !== "undefined") {
       const root = document.documentElement;
-      if (root.dataset.appearance === "dark" || root.classList.contains("dark")) {
-        return "dark";
-      }
-      if (root.dataset.appearance === "light") {
-        return "light";
-      }
-      if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-        return "dark";
-      }
+      if (root.dataset.appearance === "dark" || root.classList.contains("dark")) return "dark";
+      if (root.dataset.appearance === "light") return "light";
+      if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "dark";
     }
     return "light";
   }, []);
@@ -76,6 +66,7 @@ export function LoginPage() {
   const [appearance, setAppearance] = useState<"light" | "dark">(initialAppearance);
   const previousAppearance = useRef<string | undefined>(undefined);
 
+  // Vite-backed portal URLs
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
   const PMO_PORTAL_LOGIN = rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/";
   if (!rawActaUrl) {
@@ -84,17 +75,15 @@ export function LoginPage() {
 
   const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL?.trim();
   const PREFACTURAS_PORTAL_LOGIN =
-    rawPrefacturasUrl && rawPrefacturasUrl.length > 0
-      ? rawPrefacturasUrl
-      : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
+    rawPrefacturasUrl && rawPrefacturasUrl.length > 0 ? rawPrefacturasUrl : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
   if (!rawPrefacturasUrl) {
     console.warn("[LoginPage] VITE_PREFACTURAS_URL no está definido; usando fallback para Prefacturas.");
   }
 
-  const sessionEmail = useMemo(
-    () => (isAuthenticated && session.user ? session.user.email ?? session.user.login : null),
-    [isAuthenticated, session.user],
-  );
+  const sessionEmail = useMemo(() => (isAuthenticated && session.user ? session.user.email ?? session.user.login : null), [
+    isAuthenticated,
+    session.user,
+  ]);
 
   const handleAccess = (path: string, { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {}) => {
     setAccessMessage(null);
@@ -106,11 +95,9 @@ export function LoginPage() {
     }
 
     try {
-      if (normalizedPath.startsWith("/pmo")) {
-        localStorage.setItem("cv.module", "pmo");
-      }
+      if (normalizedPath.startsWith("/pmo")) localStorage.setItem("cv.module", "pmo");
     } catch {
-      // ignore
+      // ignore localStorage errors
     }
 
     if (!isAuthenticated) {
@@ -130,9 +117,15 @@ export function LoginPage() {
     }
 
     try {
-      const newWin = window.open(url, "_blank");
-      if (newWin) {
-        try { newWin.opener = null; } catch { /* ignore cross-origin */ }
+      const nw = window.open(url, "_blank");
+      if (nw) {
+        try {
+          // defensive noopener
+          // eslint-disable-next-line no-unused-expressions
+          (nw as Window & { opener: Window | null }).opener = null;
+        } catch {
+          // ignore cross-origin restrictions
+        }
       } else {
         setAccessMessage("No pudimos abrir el portal solicitado. Intenta nuevamente o contacta soporte.");
       }
@@ -172,10 +165,11 @@ export function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-950/40 via-slate-950 to-slate-900 text-slate-50">
-      {/* Background decoration */}
+      {/* Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.06),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(59,130,246,0.04),transparent_42%)] opacity-40" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:140px_140px] opacity-10" />
 
+      {/* Wrapper and centered card */}
       <div className="relative w-full px-4 py-12">
         <div className="mx-auto max-w-6xl">
           {/* Header */}
@@ -209,7 +203,7 @@ export function LoginPage() {
 
           <Card className="relative overflow-hidden border border-slate-700/40 bg-slate-900/70 shadow-xl">
             <div className="relative grid gap-8 p-8 lg:grid-cols-4 lg:p-10">
-              {/* Left column (3/4) */}
+              {/* Left (3/4) */}
               <div className="lg:col-span-3">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 rounded-full bg-emerald-800/10 px-4 py-1.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-700/10">
@@ -236,12 +230,11 @@ export function LoginPage() {
                   <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
                     <p className="text-sm font-semibold text-emerald-200">Sesión y seguridad</p>
                     <p className="mt-2 text-sm text-slate-300">
-                      El acceso a Finanzas se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
+                      El acceso a Ikusi · Central de Operaciones se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
                     </p>
                   </div>
 
-                  {/* Horas Extras as Ikusi internal module */}
-                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60 mt-2 sm:mt-0">
+                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
                     <p className="text-sm font-semibold text-emerald-200">Horas Extras</p>
                     <p className="mt-2 text-sm text-slate-300">
                       Accede al módulo de horas extras para gestionar solicitudes y autorizaciones.
@@ -264,7 +257,7 @@ export function LoginPage() {
                 </div>
               </div>
 
-              {/* Right column (1/4) */}
+              {/* Right (1/4) */}
               <aside className="lg:col-span-1 flex flex-col gap-4">
                 <div className="rounded-xl border border-slate-700/40 p-5 bg-slate-800/60">
                   <p className="text-sm font-semibold text-emerald-200">Accesos rápidos</p>
@@ -281,13 +274,13 @@ export function LoginPage() {
                   <Button
                     type="button"
                     size="lg"
-                    aria-label="Acceso a Finanzas - inicia sesión con Cognito Hosted UI"
+                    aria-label="Acceso a Ikusi · Central de Operaciones - inicia sesión con Cognito Hosted UI"
                     className="h-12 w-full justify-between bg-emerald-600 text-slate-900 hover:bg-emerald-500"
                     onClick={() => handleAccess("/", { requiresRoleCheck: false })}
                     disabled={isLoading}
                   >
                     <span className="flex items-center gap-2 font-semibold">
-                      <LogIn className="h-5 w-5" /> Acceso a Finanzas
+                      <LogIn className="h-5 w-5" /> Acceso a Ikusi · Central de Operaciones
                     </span>
                     <ArrowRight className="h-5 w-5" />
                   </Button>
@@ -322,7 +315,7 @@ export function LoginPage() {
                     <ArrowRight className="h-5 w-5" />
                   </Button>
 
-                  {/* Centrix (external portal) */}
+                  {/* Centrix external portal (added) */}
                   <Button
                     type="button"
                     variant="ghost"
@@ -339,7 +332,7 @@ export function LoginPage() {
                   </Button>
                 </div>
 
-                {/* Resources */}
+                {/* Resources tile */}
                 <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-800/60">
                   <p className="text-sm font-semibold text-emerald-200 mb-3">Recursos</p>
                   <div className="grid gap-2">
@@ -367,14 +360,12 @@ export function LoginPage() {
                 </div>
 
                 {accessMessage ? (
-                  <div className="rounded-lg border border-amber-600 bg-amber-900/10 px-4 py-3 text-sm text-amber-200 mt-2">
-                    {accessMessage}
-                  </div>
+                  <div className="rounded-lg border border-amber-600 bg-amber-900/10 px-4 py-3 text-sm text-amber-200 mt-2">{accessMessage}</div>
                 ) : null}
               </aside>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </main>
   );
