@@ -1,25 +1,13 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Shield, Sparkles, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Shield, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loginWithHostedUI } from "@/config/aws";
 import { useAuth } from "@/hooks/useAuth";
-import { getDefaultRouteForRole } from "@/lib/auth";
 
 export function HomePage() {
-  const navigate = useNavigate();
-  const { currentRole, canAccessRoute: userCanAccessRoute } = useAuth();
-
-  const pmoDefaultPath = getDefaultRouteForRole("PMO");
-  const prefacturasEntryPath = "/prefacturas/login";
-
-  const canAccessPMO = userCanAccessRoute(pmoDefaultPath);
-  const canAccessSDMT = userCanAccessRoute("/sdmt/cost/catalog");
-
-  const navigateToPMO = () => navigate(pmoDefaultPath);
-  const navigateToPrefacturas = () => window.location.assign(prefacturasEntryPath);
+  const { currentRole } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b1220] via-[#0c1628] to-[#0b1424] text-slate-100">
@@ -27,15 +15,14 @@ export function HomePage() {
         <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] items-center">
           <div className="space-y-6">
             <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10">
-              Finanzas SD · Ikusi
+              Ikusi - Central de Operaciones
             </Badge>
             <div className="space-y-3">
               <h1 className="text-4xl md:text-5xl font-semibold leading-tight text-white">
-                Financial Planning &amp; Service Delivery Portal
+                Ikusi · Central de Operaciones
               </h1>
               <p className="text-lg text-slate-300 max-w-3xl">
-                Administra presupuestos, catálogos y estimaciones desde un solo lugar. Navega
-                entre Finanzas, SDMT y PMO con permisos claros y una experiencia unificada.
+                Plataforma operativa para SDM, PMO, ingenieros y proveedores — un punto único para acceder a recursos, gestionar flujos de trabajo, tramitar aprobaciones y facilitar la operación diaria del equipo.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -46,18 +33,18 @@ export function HomePage() {
                 <div>
                   <p className="font-medium text-white">Accesos por rol</p>
                   <p className="text-sm text-slate-300">
-                    PMO, SDMT y Vendor ven solo los módulos y rutas permitidos.
+                    PMO, SDM, Ingenieros y Vendors ven únicamente los módulos y rutas habilitados para su rol.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-emerald-500/15 text-emerald-300 flex items-center justify-center">
-                  <Sparkles className="h-5 w-5" />
+                  <Shield className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-white">Listo para producción</p>
+                  <p className="font-medium text-white">Sesión y seguridad</p>
                   <p className="text-sm text-slate-300">
-                    CloudFront + Cognito + API Gateway ya configurados para /finanzas.
+                    El acceso a Finanzas se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
                   </p>
                 </div>
               </div>
@@ -73,15 +60,20 @@ export function HomePage() {
           <Card className="bg-white/5 border-white/10 shadow-2xl backdrop-blur">
             <CardContent className="space-y-6 p-8">
               <div className="space-y-2">
-                <p className="text-sm uppercase tracking-[0.2em] text-primary">Módulos</p>
-                <h2 className="text-2xl font-semibold text-white">Elige a dónde ingresar</h2>
+                <p className="text-sm uppercase tracking-[0.2em] text-primary">Accesos rápidos</p>
+                <h2 className="text-2xl font-semibold text-white">Accesos rápidos</h2>
                 <p className="text-slate-300 text-sm">
-                  Inicia sesión con Cognito para continuar. Los accesos secundarios están listos para PMO y Prefacturas.
+                  Accede con tu cuenta corporativa a las herramientas habilitadas según tu rol. Gestor de Actas y Prefacturas están disponibles como accesos directos.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={() => loginWithHostedUI()}>
+                <Button 
+                  size="lg" 
+                  className="w-full" 
+                  onClick={() => loginWithHostedUI()}
+                  aria-label="Acceso a Finanzas"
+                >
                   Acceso a Finanzas
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -89,35 +81,78 @@ export function HomePage() {
                   size="lg"
                   variant="outline"
                   className="w-full border-primary/40 text-primary"
-                  onClick={navigateToPMO}
-                  disabled={!canAccessPMO}
+                  onClick={() => window.open('https://d7t9x3j66yd8k.cloudfront.net/', '_blank')}
+                  aria-label="Gestor de Actas - acceso directo"
                 >
-                  PMO Portal
-                  {!canAccessPMO && <Shield className="h-4 w-4 ml-2 opacity-60" />}
+                  Gestor de Actas
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
                 <Button
                   size="lg"
                   variant="secondary"
                   className="w-full"
-                  onClick={navigateToPrefacturas}
+                  onClick={() => window.open('https://df7rl707jhpas.cloudfront.net/prefacturas/facturas', '_blank')}
+                  aria-label="Prefacturas Proveedores - acceso directo"
                 >
-                  Prefacturas Portal
+                  Prefacturas Proveedores
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
 
-              <div className="grid gap-3 text-sm text-slate-200">
-                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                  <span>SDMT Cost Catalog &amp; Reconciliation</span>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {canAccessSDMT ? "Disponible" : "Rol requerido"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                  <span>PMO Planificador Proyectos de Servicio</span>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {canAccessPMO ? "Disponible" : "Rol requerido"}
-                  </Badge>
+              <div className="space-y-4 pt-4 border-t border-white/10">
+                <div>
+                  <h3 className="text-sm font-semibold text-white mb-3">Recursos</h3>
+                  <div className="grid gap-2 text-sm">
+                    <a 
+                      href="https://ikusi.my.salesforce.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <span className="text-white font-medium">Login | Salesforce</span>
+                        <p className="text-xs text-slate-300">Acceso al CRM corporativo</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </a>
+                    <a 
+                      href="https://ikusidev.service-now.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <span className="text-white font-medium">SERVICENOW</span>
+                        <p className="text-xs text-slate-300">Gestión de incidencias y solicitudes (Colombia)</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </a>
+                    <a 
+                      href="https://horasextras.ikusi.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <span className="text-white font-medium">Horas Extras</span>
+                        <p className="text-xs text-slate-300">Portal para gestión de horas extraordinarias y autorizaciones</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </a>
+                    <a 
+                      href="https://apps.cisco.com/Commerce/home" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <span className="text-white font-medium">CISCO CCW</span>
+                        <p className="text-xs text-slate-300">Portal Cisco para pedidos y licencias</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </a>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3">¿Necesitas acceso? Contacta con tu administrador de sistemas.</p>
                 </div>
               </div>
             </CardContent>
