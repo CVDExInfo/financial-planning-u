@@ -695,6 +695,7 @@ export const finanzasClient = {
     year: number;
     currency: string;
     months: Array<{ month: string; amount: number }>;
+    monthlyMap?: Record<string, number>; // Added for O(1) lookups
     updated_at?: string;
     updated_by?: string;
   } | null> {
@@ -705,6 +706,7 @@ export const finanzasClient = {
         year: number;
         currency: string;
         months: Array<{ month: string; amount: number }>;
+        monthlyMap?: Record<string, number>;
         updated_at?: string;
         updated_by?: string;
       }>(path, {

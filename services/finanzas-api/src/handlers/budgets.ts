@@ -316,6 +316,13 @@ async function getMonthlyBudget(event: APIGatewayProxyEventV2): Promise<APIGatew
       year: result.Item.year,
       currency: result.Item.currency || "USD",
       months: result.Item.months || [],
+      // Add monthlyMap for easy frontend access
+      monthlyMap: (result.Item.months || []).reduce((map: Record<string, number>, m: { month?: string; amount?: number }) => {
+        if (m && m.month) {
+          map[m.month] = Number(m.amount || 0);
+        }
+        return map;
+      }, {} as Record<string, number>),
       updated_at: result.Item.updated_at,
       updated_by: result.Item.updated_by,
     };

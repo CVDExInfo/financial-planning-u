@@ -373,11 +373,12 @@ export const matchInvoiceToCell = (
     }
   }
 
-  // 4) canonical rubroId: use getCanonicalRubroId
+  // 4) canonical rubroId: use rubro_canonical if available from backend, otherwise compute
   const cellRubroId = cell.rubroId || cell.line_item_id;
   
+  // Prioritize rubro_canonical from backend (if present) for more reliable matching
   if (invRubroId && cellRubroId) {
-    const invCanonical = getCanonicalRubroId(invRubroId);
+    const invCanonical = inv.rubro_canonical || getCanonicalRubroId(invRubroId);
     const cellCanonical = getCanonicalRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
       if (shouldLogDiagnostics) {
