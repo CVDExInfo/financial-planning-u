@@ -1,11 +1,11 @@
 /* src/components/LoginPage.tsx
-   Final (consolidated):
+   Final (mint/ice light theme):
    - Light-mode default + optional dark toggle
-   - Single hero ("Acceso operativo") in Row 1 (removed extra tile)
+   - Single hero ("Acceso operativo")
    - Row 2: Recursos operativos / Plataformas externas / Módulos internos
-   - 5 internal modules, no restrictions/disable
+   - 5 internal modules (no restrictions/disable)
    - External platforms include Planview + ProjectPlace in correct order
-   - Rebalanced spacing + smaller button sizing + consistent hover states
+   - Light theme tuned to mint/ice look (less slate, softer grid)
 */
 
 import { useEffect, useMemo, useRef, useState, type ElementType } from "react";
@@ -35,7 +35,7 @@ type TileLinkProps = {
   subtitle: string;
   icon: ElementType;
   badge?: string;
-  href?: string; // if omitted, will show a friendly message instead of navigating
+  href?: string;
   openInNewTab?: boolean;
   ariaLabel?: string;
   onMissingHref?: () => void;
@@ -53,11 +53,14 @@ function TileLink({
 }: TileLinkProps) {
   const base =
     "group flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0";
+
+  // Mint/ice light surface + clear hover (not too green)
   const surface =
-    "border-slate-200/70 bg-white/75 hover:bg-emerald-50/60 hover:border-emerald-200/70 dark:border-white/10 dark:bg-slate-950/35 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25";
+    "border-slate-200/70 bg-white/80 hover:bg-emerald-50/60 hover:border-emerald-200/70 hover:-translate-y-[1px] hover:shadow-md " +
+    "dark:border-white/10 dark:bg-slate-950/35 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25";
 
   const Left = (
-    <span className="mt-0.5 grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border border-slate-200/70 bg-white/80 text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-100">
+    <span className="mt-0.5 grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border border-slate-200/70 bg-white text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-100">
       <Icon className="h-4 w-4" aria-hidden="true" />
     </span>
   );
@@ -75,10 +78,7 @@ function TileLink({
       />
     )
   ) : (
-    <ArrowRight
-      className="mt-1 h-4 w-4 flex-shrink-0 text-slate-300"
-      aria-hidden="true"
-    />
+    <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-slate-300" aria-hidden="true" />
   );
 
   const Content = (
@@ -120,7 +120,9 @@ function TileLink({
       target={openInNewTab ? "_blank" : undefined}
       rel={openInNewTab ? "noopener noreferrer" : undefined}
       className={`${base} ${surface}`}
-      aria-label={ariaLabel ?? `${title} - ${subtitle}${openInNewTab ? " (se abre en nueva pestaña)" : ""}`}
+      aria-label={
+        ariaLabel ?? `${title} - ${subtitle}${openInNewTab ? " (se abre en nueva pestaña)" : ""}`
+      }
     >
       {Left}
       {Content}
@@ -147,20 +149,24 @@ function QuickAccessButton({
   variant?: QuickVariant;
 }) {
   const base =
-    "group w-full rounded-xl px-4 py-3 flex items-center justify-between gap-3 border shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0 disabled:opacity-60 disabled:cursor-not-allowed";
+    "group w-full rounded-xl px-4 py-3 flex items-center justify-between gap-3 border shadow-sm transition-all " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0 " +
+    "disabled:opacity-60 disabled:cursor-not-allowed";
 
-  // Light-mode readability first; dark-mode is optional
   const variants: Record<QuickVariant, string> = {
     primary:
-      "bg-emerald-500 text-emerald-950 border-emerald-400/30 hover:bg-emerald-400 hover:-translate-y-[1px] hover:shadow-md hover:shadow-emerald-300/30 dark:text-emerald-950",
+      "bg-emerald-500 text-emerald-950 border-emerald-400/30 hover:bg-emerald-400 hover:-translate-y-[1px] " +
+      "hover:shadow-md hover:shadow-emerald-300/30 dark:text-emerald-950",
     surface:
-      "bg-white text-slate-900 border-slate-200/80 hover:bg-emerald-50/70 hover:border-emerald-200/80 hover:-translate-y-[1px] hover:shadow-md dark:bg-slate-950/35 dark:text-slate-50 dark:border-white/10 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25",
+      // Make non-primary buttons readable in LIGHT mode (no black slabs)
+      "bg-white/90 text-slate-900 border-slate-200/80 hover:bg-emerald-50/70 hover:border-emerald-200/80 hover:-translate-y-[1px] hover:shadow-md " +
+      "dark:bg-slate-950/35 dark:text-slate-50 dark:border-white/10 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25",
   };
 
   const iconBox =
     variant === "primary"
       ? "bg-black/10 border-black/10"
-      : "bg-slate-50 border-slate-200/70 dark:bg-slate-900/50 dark:border-white/10";
+      : "bg-emerald-50/40 border-slate-200/70 dark:bg-slate-900/50 dark:border-white/10";
 
   const subText =
     variant === "primary"
@@ -198,7 +204,7 @@ export function LoginPage() {
   const { login, isLoading, isAuthenticated, session } = useAuth();
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
-  // Default should be LIGHT (per request). Only honor explicit DOM setting if present.
+  // Default is LIGHT
   const initialAppearance = useMemo<Appearance>(() => {
     if (typeof document !== "undefined") {
       const root = document.documentElement;
@@ -222,12 +228,14 @@ export function LoginPage() {
       ? rawPrefacturasUrl
       : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
 
-  // Resource URLs (configure in env; if empty we show a message)
+  // Internal / resource URLs (env-driven; no placeholders)
   const SECURITY_GUIDE_URL = import.meta.env.VITE_SECURITY_GUIDE_URL?.trim() ?? "";
   const ROLE_GUIDE_URL = import.meta.env.VITE_ROLE_GUIDE_URL?.trim() ?? "";
   const POLICIES_GUIDE_URL = import.meta.env.VITE_POLICIES_GUIDE_URL?.trim() ?? "";
   const SUPPORT_URL =
     (import.meta.env.VITE_SUPPORT_URL?.trim() ?? "") || "https://ikusi.service-now.com/colombia";
+  const HOURS_EXTRA_URL = import.meta.env.VITE_HOURS_EXTRA_URL?.trim() ?? "https://extra-hours-ikusi-ui--valencia94.github.app";
+  const CENTRIX_URL = import.meta.env.VITE_CENTRIX_URL?.trim() ?? "";
 
   const handleAccess = (path: string) => {
     setAccessMessage(null);
@@ -286,23 +294,21 @@ export function LoginPage() {
     isAuthenticated && session?.user ? (session.user.email ?? session.user.login ?? null) : null;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
-      {/* Decorative gradients + grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.14),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(56,189,248,0.14),transparent_42%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.12),transparent_38%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.20),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.16),transparent_30%)]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-slate-50/75 to-slate-100/80 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-900/85" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:140px_140px] opacity-20 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-sky-50 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
+      {/* Mint/ice background (light) + existing dark gradients */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.12),transparent_40%),radial-gradient(circle_at_82%_10%,rgba(56,189,248,0.12),transparent_42%),radial-gradient(circle_at_60%_86%,rgba(14,116,144,0.10),transparent_40%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.20),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.16),transparent_30%)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-emerald-50/40 to-sky-50/55 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-900/85" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:140px_140px] opacity-15 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
 
       {/* Header */}
       <header className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-12 items-center gap-4">
-          {/* Larger logo */}
           <div className="col-span-12 sm:col-span-3 flex items-center justify-center sm:justify-start">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-2 ring-emerald-200/80 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/30">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/80 ring-2 ring-emerald-200/80 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/30">
               <Logo className="h-12" />
             </div>
           </div>
 
-          {/* Title */}
           <div className="col-span-12 sm:col-span-6 text-center">
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
               Central de Operaciones
@@ -315,13 +321,12 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* Appearance toggle */}
           <div className="col-span-12 sm:col-span-3 flex justify-center sm:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="gap-2 border-slate-200/80 bg-white/70 text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-900/70"
+              className="gap-2 border-slate-200/80 bg-white/75 text-slate-700 shadow-sm hover:bg-white hover:text-slate-900 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-900/70"
               onClick={() => setAppearance(appearance === "dark" ? "light" : "dark")}
             >
               {appearance === "dark" ? (
@@ -342,12 +347,12 @@ export function LoginPage() {
 
       {/* Main card */}
       <section className="relative mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8 lg:pb-16">
-        <Card className="relative overflow-hidden border border-slate-200/80 bg-white/80 shadow-xl shadow-emerald-200/40 backdrop-blur dark:border-white/10 dark:bg-slate-950/65 dark:shadow-2xl dark:shadow-emerald-900/25">
+        <Card className="relative overflow-hidden border border-slate-200/70 bg-white/75 shadow-xl shadow-emerald-200/25 backdrop-blur dark:border-white/10 dark:bg-slate-950/65 dark:shadow-2xl dark:shadow-emerald-900/25">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-90 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
 
           <div className="relative grid gap-6 p-6 lg:p-8">
-            {/* Hero (single) */}
-            <div className="rounded-2xl border border-emerald-200/70 bg-white/70 p-6 shadow-sm dark:border-emerald-400/25 dark:bg-slate-950/30">
+            {/* Hero */}
+            <div className="rounded-2xl border border-emerald-200/70 bg-white/75 p-6 shadow-sm dark:border-emerald-400/25 dark:bg-slate-950/30">
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-white/15">
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                 Portal corporativo seguro
@@ -387,7 +392,7 @@ export function LoginPage() {
               </div>
             ) : null}
 
-            {/* Row 2 headings + cards */}
+            {/* Row 2 */}
             <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
               {/* Recursos operativos */}
               <div className="flex flex-col h-full">
@@ -395,13 +400,13 @@ export function LoginPage() {
                   Recursos operativos
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
                   <div className="space-y-3">
                     <TileLink
                       icon={ShieldCheck}
                       title="Sesión y seguridad"
                       badge="Seguridad"
-                      subtitle="El acceso se autentica mediante AWS Cognito (Hosted UI)."
+                      subtitle="El acceso se autentica mediante AWS Cognito."
                       href={SECURITY_GUIDE_URL || undefined}
                       onMissingHref={() =>
                         setAccessMessage("Enlace de 'Sesión y seguridad' no configurado (VITE_SECURITY_GUIDE_URL).")
@@ -411,7 +416,7 @@ export function LoginPage() {
                     <TileLink
                       icon={Users}
                       title="Acceso por rol"
-                      subtitle="Los módulos visibles se ajustan según tu rol corporativo."
+                      subtitle="Los módulos se ajustan según tu rol corporativo."
                       href={ROLE_GUIDE_URL || undefined}
                       onMissingHref={() =>
                         setAccessMessage("Enlace de 'Acceso por rol' no configurado (VITE_ROLE_GUIDE_URL).")
@@ -449,7 +454,7 @@ export function LoginPage() {
                   Plataformas externas
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30 flex flex-col">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30 flex flex-col">
                   <div className="space-y-3">
                     <TileLink
                       icon={ExternalLink}
@@ -495,7 +500,7 @@ export function LoginPage() {
                   Módulos internos
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
                   <div className="space-y-3">
                     <QuickAccessButton
                       label="Finanzas · SMO"
@@ -529,9 +534,7 @@ export function LoginPage() {
                       subLabel="Autorizaciones y control"
                       icon={ExternalLink}
                       variant="surface"
-                      onClick={() =>
-                        handlePortalAccess("https://extra-hours-ikusi-ui--valencia94.github.app")
-                      }
+                      onClick={() => handlePortalAccess(HOURS_EXTRA_URL)}
                       disabled={isLoading}
                     />
 
@@ -540,7 +543,13 @@ export function LoginPage() {
                       subLabel="Acceso al portal corporativo"
                       icon={ExternalLink}
                       variant="surface"
-                      onClick={() => handlePortalAccess("https://centrix.example")}
+                      onClick={() => {
+                        if (!CENTRIX_URL) {
+                          setAccessMessage("Enlace de Centrix no configurado (VITE_CENTRIX_URL).");
+                          return;
+                        }
+                        handlePortalAccess(CENTRIX_URL);
+                      }}
                       disabled={isLoading}
                     />
                   </div>
@@ -552,7 +561,6 @@ export function LoginPage() {
               </div>
             </div>
 
-            {/* Footer microcopy */}
             <div className="mt-6">
               <p className="text-xs text-slate-500 dark:text-slate-300/70 italic text-center">
                 Optimizado para laptop y tablet. El contenido se ajusta para mantener legibilidad y jerarquía visual.
