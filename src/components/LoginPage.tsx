@@ -1,6 +1,6 @@
 /* src/components/LoginPage.tsx
-   Rebalanced header + removed "Centrado" + compact, accessible Resources list.
-   Self-contained ResourceLink component included.
+   Rebalanced header + adjusted grid to remove large center gap,
+   removed duplicate title and "Centrado", and improved Resources list.
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,8 +22,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Inline tiny ResourceLink component for consistent styling/accessibility.
- * Kept here for single-file replacement and to avoid touching other imports.
+ * Small presentational ResourceLink component (keeps accessibility & consistent layout)
  */
 function ResourceLink({
   href,
@@ -182,11 +181,14 @@ export function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
+      {/* Decorative gradients / grid */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(56,189,248,0.18),transparent_42%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.14),transparent_38%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.2),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.25),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.18),transparent_30%)]" />
       <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-slate-50/70 to-slate-100/75 dark:from-slate-950 dark:via-slate-950/90 dark:to-slate-900/80" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:140px_140px] opacity-25 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
 
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      {/* Page container: smaller max width to reduce large empty margins on ultra-wide screens */}
+      <div className="relative mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+        {/* Header with logo and appearance toggle */}
         <div className="flex flex-wrap items-center justify-between gap-4 text-base font-semibold text-emerald-800 dark:text-emerald-100">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-emerald-200 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/40">
@@ -228,17 +230,20 @@ export function LoginPage() {
           </Button>
         </div>
 
+        {/* Main card: use 3-column grid (2/1 split) to reduce center gap */}
         <Card className="relative overflow-hidden border border-slate-200/80 bg-white/90 shadow-xl shadow-emerald-200/40 backdrop-blur dark:border-white/10 dark:bg-slate-950/70 dark:shadow-2xl dark:shadow-emerald-900/30">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-95 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
-          <div className="relative grid gap-10 p-8 lg:grid-cols-5 lg:p-10">
-            <div className="flex flex-col justify-between gap-8 lg:col-span-3">
+          <div className="relative grid gap-8 p-6 lg:grid-cols-3 lg:p-8">
+            {/* Left column – headline + feature tiles (2/3 width) */}
+            <div className="flex flex-col justify-between gap-6 lg:col-span-2">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-white/10 dark:text-emerald-200 dark:ring-white/15">
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                   Portal corporativo cifrado
                 </div>
+
                 <div className="space-y-3">
-                  <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-[3.2rem]">
+                  <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-[2.6rem]">
                     Accesos rápidos
                   </h1>
                   <p className="max-w-2xl text-base text-slate-700 dark:text-slate-200/90">
@@ -263,18 +268,16 @@ export function LoginPage() {
               </div>
             </div>
 
-            <div className="flex flex-col justify-center gap-5 lg:col-span-2">
+            {/* Right column – quick entries (1/3 width) */}
+            <div className="flex flex-col justify-center gap-5 lg:col-span-1">
               <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg shadow-emerald-100/80 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50 dark:shadow-black/30">
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
-                  Accesos rápidos
-                </p>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">Accesos rápidos</p>
                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-200/80">
                   Accede con tu cuenta corporativa a las herramientas habilitadas según tu rol. Gestor de Actas y Prefacturas están disponibles como accesos directos.
                 </p>
                 {isAuthenticated && (
                   <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
-                    Sesión activa
-                    {sessionEmail ? `: ${sessionEmail}` : ""}. Continúa sin volver a iniciar sesión.
+                    Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}. Continúa sin volver a iniciar sesión.
                   </p>
                 )}
               </div>
@@ -326,10 +329,9 @@ export function LoginPage() {
                 </Button>
               </div>
 
+              {/* Resources */}
               <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg shadow-emerald-100/80 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50 dark:shadow-black/30">
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200 mb-3">
-                  Recursos
-                </p>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200 mb-3">Recursos</p>
                 <div className="space-y-2">
                   <ResourceLink
                     href="https://ikusi.my.salesforce.com/"
