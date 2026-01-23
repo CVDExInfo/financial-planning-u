@@ -178,10 +178,11 @@ export function useMonthlySnapshotData({
       if (canonical && canonical !== normalized) {
         m.set(canonical, { description: desc, category, canonicalId: canonical });
       }
-      // Also index by taxonomyId if present
-      const taxonomyId = (li as any).taxonomyId || (li as any).rubro_taxonomy_id;
-      if (taxonomyId && !m.has(taxonomyId)) {
-        m.set(taxonomyId, { description: desc, category, canonicalId: canonical });
+      // Also index by taxonomyId if present (check for potential taxonomy ID properties)
+      const potentialTaxonomyId = (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).taxonomyId || 
+                                   (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).rubro_taxonomy_id;
+      if (potentialTaxonomyId && !m.has(potentialTaxonomyId)) {
+        m.set(potentialTaxonomyId, { description: desc, category, canonicalId: canonical });
       }
     });
     return m;

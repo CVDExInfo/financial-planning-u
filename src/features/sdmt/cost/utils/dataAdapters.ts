@@ -247,7 +247,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
       monthLabel,
       rubroId: rubroId || lineItemId,
-      canonicalRubroId: canonicalId || undefined,
+      canonicalRubroId: canonicalId,
     };
 
     // Add baseline_id to the cell if provided (for traceability)
