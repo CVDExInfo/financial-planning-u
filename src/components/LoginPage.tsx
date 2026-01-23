@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   MoonStar,
   SunMedium,
+  ExternalLink,
 } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
@@ -205,13 +206,13 @@ export function LoginPage() {
             {/* Stronger title hierarchy */}
             <div className="flex flex-col leading-tight">
               <span className="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-200/90">
-                Finanzas SD
+                Ikusi - Central de Operaciones
               </span>
               <span className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                Acceso seguro Ikusi
+                Ikusi · Central de Operaciones
               </span>
 
-              {/* Ikusi Operating Direction block */}
+              {/* Mi Hermano copy */}
               <div className="mt-1 text-sm text-slate-600 dark:text-slate-200">
                 <p className="font-semibold text-emerald-700 dark:text-emerald-300">
                   Dirección de Operaciones IKUSI Colombia
@@ -260,28 +261,25 @@ export function LoginPage() {
                 </div>
                 <div className="space-y-3">
                   <h1 className="text-4xl font-semibold leading-tight sm:text-5xl md:text-[3.2rem]">
-                    Finanzas Access · Ikusi
+                    Accesos rápidos
                   </h1>
                   <p className="max-w-2xl text-base text-slate-700 dark:text-slate-200/90">
-                    Autentícate con Cognito Hosted UI para ingresar al módulo Finanzas SD,
-                    gestionar prefacturas y colaborar con PMO sin fricción.
+                    Plataforma operativa para SDM, PMO, ingenieros y proveedores — un punto único para acceder a recursos, gestionar flujos de trabajo, tramitar aprobaciones y facilitar la operación diaria del equipo.
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-md shadow-emerald-100/70 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:shadow-black/20">
-                  <p className="text-sm font-semibold">Experiencia consistente</p>
+                  <p className="text-sm font-semibold">Accesos por rol</p>
                   <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
-                    Interfaz alineada al diseño digital de Finanzas SD. Todo el flujo conserva
-                    los colores Ikusi.
+                    PMO, SDM, Ingenieros y Vendors ven únicamente los módulos y rutas habilitados para su rol.
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-md shadow-emerald-100/70 dark:border-white/10 dark:bg-slate-900/80 dark:text-white dark:shadow-black/20">
-                  <p className="text-sm font-semibold">Sesión protegida</p>
+                  <p className="text-sm font-semibold">Sesión y seguridad</p>
                   <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
-                    El inicio se realiza desde el Hosted UI de Cognito y regresa al portal sin
-                    cambiar la configuración de autenticación.
+                    El acceso a Finanzas se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
                   </p>
                 </div>
               </div>
@@ -291,10 +289,10 @@ export function LoginPage() {
             <div className="flex flex-col justify-center gap-5 lg:col-span-2">
               <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg shadow-emerald-100/80 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50 dark:shadow-black/30">
                 <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
-                  Entradas rápidas
+                  Accesos rápidos
                 </p>
                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-200/80">
-                  Accede con tu cuenta corporativa Ikusi a los módulos que tengas habilitados.
+                  Accede con tu cuenta corporativa a las herramientas habilitadas según tu rol. Gestor de Actas y Prefacturas están disponibles como accesos directos.
                 </p>
                 {isAuthenticated && (
                   <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
@@ -317,7 +315,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <LogIn className="h-5 w-5" aria-hidden="true" />
-                    Acceso a Finanzas SDM
+                    Acceso a Finanzas
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -336,7 +334,7 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <Building2 className="h-5 w-5" aria-hidden="true" />
-                    Entrar a PMO Platform
+                    Gestor de Actas
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
@@ -353,10 +351,77 @@ export function LoginPage() {
                 >
                   <span className="flex items-center gap-2 font-semibold">
                     <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
-                    Entrar a Prefacturas Portal
+                    Prefacturas Proveedores
                   </span>
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
                 </Button>
+              </div>
+
+              {/* Resources section */}
+              <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg shadow-emerald-100/80 backdrop-blur dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50 dark:shadow-black/30">
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-200 mb-3">
+                  Recursos
+                </p>
+                <div className="space-y-2">
+                  <a
+                    href="https://ikusi.my.salesforce.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Login | Salesforce - Acceso al CRM corporativo"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200/60 bg-white/80 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Login | Salesforce</span>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Acceso al CRM corporativo</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </a>
+
+                  <a
+                    href="https://ikusi.service-now.com/colombia"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="SERVICENOW - Gestión de incidencias y solicitudes (Colombia)"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200/60 bg-white/80 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">SERVICENOW</span>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Gestión de incidencias y solicitudes (Colombia)</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </a>
+
+                  <a
+                    href="https://extra-hours-ikusi-ui--valencia94.github.app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Horas Extras - Portal para gestión de horas extraordinarias y autorizaciones"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200/60 bg-white/80 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Horas Extras</span>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Portal para gestión de horas extraordinarias y autorizaciones</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </a>
+
+                  <a
+                    href="https://id.cisco.com/oauth2/default/v1/authorize?response_type=code&scope=openid%20profile%20address%20offline_access%20cci_coimemberOf%20email&client_id=cae-okta-web-gslb-01&state=e73wpl5CQD4G50dLMpSuqGjcpLc&redirect_uri=https%3A%2F%2Fccrc.cisco.com%2Fcb%2Fsso&nonce=pfDuXeO_o1BnKoOUdbwlNkx94k0P2BHYr5_zvC75EXw"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="CISCO CCW - Portal Cisco para pedidos y licencias"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200/60 bg-white/80 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  >
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">CISCO CCW</span>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Portal Cisco para pedidos y licencias</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  </a>
+                </div>
+                <p className="mt-3 text-xs text-slate-600 dark:text-slate-400 italic">
+                  ¿Necesitas acceso? Contacta con tu administrador de sistemas.
+                </p>
               </div>
 
               {accessMessage ? (
