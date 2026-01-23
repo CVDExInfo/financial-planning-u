@@ -119,7 +119,6 @@ import {
   buildPortfolioTotals,
 } from "./categoryGrouping";
 import { buildProjectTotals, buildProjectRubros } from "./projectGrouping";
-import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 import { getBaselineDuration, clampMonthIndex } from "./monthHelpers";
 
