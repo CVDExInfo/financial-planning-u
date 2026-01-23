@@ -747,8 +747,8 @@ export async function uploadInvoice(
   if (!Number.isFinite(payload.amount))
     throw new Error("Amount must be a finite number");
 
-  // Validate projectId
-  if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+  // Validate projectId (type and non-empty string)
+  if (typeof projectId !== 'string' || projectId.trim() === '') {
     throw new FinanzasApiError("projectId is required and must be a non-empty string");
   }
 
