@@ -379,7 +379,7 @@ function normalizeMonth(
 /**
  * GET /allocations
  * Returns allocations from DynamoDB, filtered by projectId and optionally by baselineId
- * Always returns an array (never {data: []}) for frontend compatibility
+ * Returns normalized response: { data: [...] } for consistency with other endpoints
  * 
  * Query parameters:
  * - projectId (required): The project ID
