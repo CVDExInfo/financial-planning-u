@@ -1,0 +1,24 @@
+# Forbidden Rubro Literals
+# 
+# This file contains literal rubro IDs that should NOT be present in the codebase.
+# These are legacy IDs that have been replaced by canonical taxonomy IDs.
+# 
+# The CI pipeline will fail if any of these strings are found in the code.
+# This prevents reintroduction of non-canonical rubro IDs.
+#
+# Format: One literal per line
+# Lines starting with # are comments and will be ignored
+
+# Legacy MOD-PM variants (replaced with MOD-LEAD)
+MOD-PM
+mod-pm
+MOD-PMO
+mod-pmo
+
+# Legacy project manager variants (should use MOD-LEAD)
+mod-pm-project-manager
+
+# Add other forbidden literals here as they are discovered
+# Examples:
+# RUBRO-INVALID
+# OLD-RUBRO-ID

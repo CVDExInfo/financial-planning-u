@@ -1,0 +1,192 @@
+name: Taxonomy Sync and Deploy
+
+on:
+  push:
+    paths:
+      - 'data/rubros.taxonomy.json'
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  validate-taxonomy:
+    name: Validate Taxonomy JSON
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate JSON structure
+        run: |
+          echo "Validating /data/rubros.taxonomy.json..."
+          
+          # Check if file exists
+          if [ ! -f data/rubros.taxonomy.json ]; then
+            echo "❌ Taxonomy file not found at data/rubros.taxonomy.json"
+            exit 1
+          fi
+          
+          # Validate JSON syntax
+          if ! jq empty data/rubros.taxonomy.json 2>&1; then
+            echo "❌ Invalid JSON syntax in taxonomy file"
+            exit 1
+          fi
+          
+          # Check required fields
+          SCHEMA=$(jq -r '.schema' data/rubros.taxonomy.json)
+          if [ "$SCHEMA" != "rubros-taxonomy/v1" ]; then
+            echo "❌ Invalid or missing schema field. Expected 'rubros-taxonomy/v1', got '$SCHEMA'"
+            exit 1
+          fi
+          
+          # Check items array exists and has entries
+          ITEMS_COUNT=$(jq '.items | length' data/rubros.taxonomy.json)
+          if [ "$ITEMS_COUNT" -eq 0 ]; then
+            echo "❌ Taxonomy must contain at least one item"
+            exit 1
+          fi
+          
+          echo "✅ Taxonomy validation passed"
+          echo "   Schema: $SCHEMA"
+          echo "   Items: $ITEMS_COUNT"
+          
+          # Validate each item has required fields
+          MISSING_FIELDS=$(jq -r '
+            .items[] | 
+            select(
+              .linea_codigo == null or 
+              .categoria_codigo == null or 
+              .linea_gasto == null or
+              .tipo_costo == null or
+              .tipo_ejecucion == null
+            ) | 
+            .linea_codigo // "unknown"
+          ' data/rubros.taxonomy.json)
+          
+          if [ -n "$MISSING_FIELDS" ]; then
+            echo "❌ Some items are missing required fields: $MISSING_FIELDS"
+            exit 1
+          fi
+          
+          echo "✅ All items have required fields"
+
+      - name: Check for duplicate IDs
+        run: |
+          echo "Checking for duplicate linea_codigo values..."
+          
+          DUPLICATES=$(jq -r '.items[].linea_codigo' data/rubros.taxonomy.json | sort | uniq -d)
+          
+          if [ -n "$DUPLICATES" ]; then
+            echo "❌ Found duplicate linea_codigo values:"
+            echo "$DUPLICATES"
+            exit 1
+          fi
+          
+          echo "✅ No duplicate IDs found"
+
+  deploy-artifacts:
+    name: Deploy Taxonomy Artifacts
+    needs: validate-taxonomy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Upload taxonomy to S3
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          S3_BUCKET="${{ secrets.TAXONOMY_S3_BUCKET }}"
+          
+          if [ -z "$S3_BUCKET" ]; then
+            echo "⚠️  TAXONOMY_S3_BUCKET secret not set. Skipping S3 upload."
+            echo "   Set this secret to enable taxonomy versioning in S3."
+          else
+            echo "Uploading taxonomy to S3..."
+            
+            # Upload with timestamp for versioning
+            aws s3 cp data/rubros.taxonomy.json \
+              "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json" \
+              --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
+            
+            # Upload as latest
+            aws s3 cp data/rubros.taxonomy.json \
+              "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json" \
+              --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
+            
+            echo "✅ Taxonomy uploaded to S3"
+            echo "   Versioned: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json"
+            echo "   Latest: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json"
+          fi
+
+  trigger-deployments:
+    name: Trigger Service Deployments
+    needs: deploy-artifacts
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [ui, api]
+    steps:
+      - name: Trigger ${{ matrix.service }} deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const serviceName = '${{ matrix.service }}';
+            const workflowFile = serviceName === 'ui' 
+              ? 'deploy-finanzas-ui.yml' 
+              : 'deploy-finanzas-api.yml';
+            
+            console.log(`Triggering ${serviceName} deployment via ${workflowFile}...`);
+            
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowFile,
+                ref: context.ref,
+              });
+              console.log(`✅ ${serviceName} deployment triggered`);
+            } catch (error) {
+              console.error(`⚠️  Failed to trigger ${serviceName} deployment:`, error.message);
+              console.log(`   This is non-fatal. You may need to deploy ${serviceName} manually.`);
+            }
+
+  notify:
+    name: Send Notification
+    needs: [validate-taxonomy, deploy-artifacts, trigger-deployments]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send success notification
+        if: needs.validate-taxonomy.result == 'success' && needs.deploy-artifacts.result == 'success'
+        run: |
+          echo "✅ Taxonomy sync completed successfully"
+          echo "   Commit: ${{ github.sha }}"
+          echo "   Branch: ${{ github.ref_name }}"
+          echo "   Triggered by: ${{ github.actor }}"
+          
+          # Add Slack/email notification here if needed
+          # Example:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d '{"text":"✅ Taxonomy sync completed successfully for commit ${{ github.sha }}"}'
+
+      - name: Send failure notification
+        if: needs.validate-taxonomy.result == 'failure' || needs.deploy-artifacts.result == 'failure'
+        run: |
+          echo "❌ Taxonomy sync failed"
+          echo "   Commit: ${{ github.sha }}"
+          echo "   Branch: ${{ github.ref_name }}"
+          echo "   Check the logs for details"
+          
+          # Add Slack/email notification here if needed
+          exit 1

@@ -56,3 +56,70 @@ jobs:
   # If integration tests are needed in the future, they should be reworked to use
   # explicit test fixtures or a new data setup approach that doesn't rely on
   # the canonical-projects seed script.
+
+  check-forbidden-rubros:
+    name: Check for forbidden rubro literals
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for forbidden rubro literals
+        run: |
+          echo "Checking for forbidden rubro literals..."
+          
+          # Read forbidden literals from file (skip comments and empty lines)
+          FORBIDDEN_LITERALS=$(grep -v '^#' ci/forbidden-rubros.txt | grep -v '^$' || true)
+          
+          if [ -z "$FORBIDDEN_LITERALS" ]; then
+            echo "⚠️  No forbidden literals defined in ci/forbidden-rubros.txt"
+            echo "   This check will pass but is not effective."
+            exit 0
+          fi
+          
+          FOUND_VIOLATIONS=0
+          
+          # Check each forbidden literal
+          while IFS= read -r literal; do
+            [ -z "$literal" ] && continue
+            
+            echo ""
+            echo "Searching for: '$literal'"
+            
+            # Search in source files, excluding:
+            # - node_modules, .git, dist, build directories
+            # - ci/forbidden-rubros.txt itself
+            # - test files that explicitly test legacy mapping
+            # - LEGACY_RUBRO_ID_MAP definitions (these are intentional)
+            MATCHES=$(git grep -n "$literal" -- \
+              ':!node_modules' \
+              ':!.git' \
+              ':!dist' \
+              ':!build' \
+              ':!ci/forbidden-rubros.txt' \
+              ':!**/canonical-taxonomy.ts' \
+              ':!**/__tests__/**' \
+              || true)
+            
+            if [ -n "$MATCHES" ]; then
+              echo "❌ Found forbidden literal '$literal':"
+              echo "$MATCHES"
+              FOUND_VIOLATIONS=1
+            else
+              echo "✅ Not found"
+            fi
+          done <<< "$FORBIDDEN_LITERALS"
+          
+          echo ""
+          if [ $FOUND_VIOLATIONS -eq 1 ]; then
+            echo "❌ FAIL: Found forbidden rubro literals in codebase"
+            echo ""
+            echo "These literals should not be used. Use canonical taxonomy IDs instead."
+            echo "See /data/rubros.taxonomy.json for valid canonical IDs."
+            echo ""
+            echo "If you need to reference legacy IDs for mapping purposes,"
+            echo "add them to the LEGACY_RUBRO_ID_MAP in canonical-taxonomy.ts"
+            exit 1
+          else
+            echo "✅ PASS: No forbidden rubro literals found"
+          fi
