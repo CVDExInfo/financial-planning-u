@@ -274,13 +274,13 @@ export function LoginPage() {
                   <Button
                     type="button"
                     size="lg"
-                    aria-label="Acceso a Ikusi · Central de Operaciones - inicia sesión con Cognito Hosted UI"
+                    aria-label="Acceso a Finanzas SMO - Service Management Office"
                     className="h-12 w-full justify-between bg-emerald-600 text-slate-900 hover:bg-emerald-500"
                     onClick={() => handleAccess("/", { requiresRoleCheck: false })}
                     disabled={isLoading}
                   >
                     <span className="flex items-center gap-2 font-semibold">
-                      <LogIn className="h-5 w-5" /> Acceso a Ikusi · Central de Operaciones
+                      <LogIn className="h-5 w-5" /> Acceso a Finanzas SMO
                     </span>
                     <ArrowRight className="h-5 w-5" />
                   </Button>
