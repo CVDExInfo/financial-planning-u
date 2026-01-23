@@ -91,6 +91,9 @@ jobs:
             # - ci/forbidden-rubros.txt itself
             # - test files that explicitly test legacy mapping
             # - LEGACY_RUBRO_ID_MAP definitions (these are intentional)
+            # - Documentation markdown files (*.md)
+            # - data/rubros.taxonomy.json (canonical taxonomy itself)
+            # - scripts that reference legacy IDs for migration
             MATCHES=$(git grep -n "$literal" -- \
               ':!node_modules' \
               ':!.git' \
@@ -99,6 +102,9 @@ jobs:
               ':!ci/forbidden-rubros.txt' \
               ':!**/canonical-taxonomy.ts' \
               ':!**/__tests__/**' \
+              ':!*.md' \
+              ':!data/rubros.taxonomy.json' \
+              ':!scripts/**' \
               || true)
             
             if [ -n "$MATCHES" ]; then
