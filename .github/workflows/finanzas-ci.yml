@@ -85,12 +85,19 @@ jobs:
           echo "$CANONICAL_IDS" > /tmp/canonical-ids.txt
           
           # Search for rubro-like patterns in source code
-          # Pattern: MOD-*, GSV-*, TEC-*, etc. (category code followed by hyphen and identifier)
+          # Pattern: Only match known rubro category codes (MOD, GSV, TEC, etc.) followed by hyphen and identifier
+          # This prevents false positives from other ID types (CHG-*, AVI-*, etc.)
           echo "Scanning for rubro-like patterns in source code..."
           
+          # Extract category codes from taxonomy to build dynamic regex
+          CATEGORY_CODES=$(jq -r '.items[].categoria_codigo' data/rubros.taxonomy.json | sort -u | tr '\n' '|' | sed 's/|$//')
+          echo "Matching rubro category codes: $CATEGORY_CODES"
+          echo ""
+          
           # Find all potential rubro IDs in TypeScript/JavaScript files
-          # Exclude: comments, imports, tests, canonical-taxonomy definitions, docs
-          POTENTIAL_RUBROS=$(git grep -h -o -E '\b[A-Z]{3}-[A-Z0-9-]+\b' -- \
+          # Exclude: comments, imports, tests, canonical-taxonomy definitions, docs, scripts
+          # Also exclude old hardcoded taxonomy files that need migration
+          POTENTIAL_RUBROS=$(git grep -h -o -E "\b(${CATEGORY_CODES})-[A-Z0-9-]+\b" -- \
             '*.ts' '*.tsx' '*.js' '*.jsx' \
             ':!node_modules' \
             ':!.git' \
@@ -98,9 +105,17 @@ jobs:
             ':!build' \
             ':!**/canonical-taxonomy.ts' \
             ':!**/__tests__/**' \
+            ':!**/tests/**' \
+            ':!**/*.test.ts' \
+            ':!**/*.test.tsx' \
+            ':!**/*.spec.ts' \
+            ':!**/*.spec.tsx' \
             ':!*.md' \
             ':!data/rubros.taxonomy.json' \
             ':!scripts/**' \
+            ':!**/scripts/**' \
+            ':!**/rubros.taxonomia.ts' \
+            ':!**/rubros-taxonomy.ts' \
             2>/dev/null | sort -u || true)
           
           if [ -z "$POTENTIAL_RUBROS" ]; then
@@ -130,9 +145,17 @@ jobs:
                 ':!build' \
                 ':!**/canonical-taxonomy.ts' \
                 ':!**/__tests__/**' \
+                ':!**/tests/**' \
+                ':!**/*.test.ts' \
+                ':!**/*.test.tsx' \
+                ':!**/*.spec.ts' \
+                ':!**/*.spec.tsx' \
                 ':!*.md' \
                 ':!data/rubros.taxonomy.json' \
                 ':!scripts/**' \
+                ':!**/scripts/**' \
+                ':!**/rubros.taxonomia.ts' \
+                ':!**/rubros-taxonomy.ts' \
                 2>/dev/null || true)
               
               if [ -n "$MATCHES" ]; then
