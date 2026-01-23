@@ -117,8 +117,8 @@ describe("allocations handler - robust GET with fallbacks", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     // Check that allocations are returned with normalized fields
-    expect(body).toHaveLength(mockAllocations.length);
-    body.forEach((item: any, idx: number) => {
+    expect(body.data).toHaveLength(mockAllocations.length);
+    body.data.forEach((item: any, idx: number) => {
       expect(item).toMatchObject({
         pk: mockAllocations[idx].pk,
         sk: mockAllocations[idx].sk,
@@ -195,8 +195,8 @@ describe("allocations handler - robust GET with fallbacks", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     // Check that allocations are returned with normalized fields
-    expect(body).toHaveLength(mockAllocations.length);
-    expect(body[0]).toMatchObject({
+    expect(body.data).toHaveLength(mockAllocations.length);
+    expect(body.data[0]).toMatchObject({
       pk: mockAllocations[0].pk,
       sk: mockAllocations[0].sk,
       rubroId: mockAllocations[0].rubroId,
@@ -204,8 +204,8 @@ describe("allocations handler - robust GET with fallbacks", () => {
       planned: mockAllocations[0].planned,
     });
     // Verify normalization added expected fields
-    expect(body[0]).toHaveProperty('amount');
-    expect(body[0]).toHaveProperty('monthIndex');
+    expect(body.data[0]).toHaveProperty('amount');
+    expect(body.data[0]).toHaveProperty('monthIndex');
     // Calls: 1) empty query, 2) baseline lookup, 3) successful query, 4+) baseline metadata for normalization
     expect(mockDdbSend).toHaveBeenCalled();
     
@@ -271,8 +271,8 @@ describe("allocations handler - robust GET with fallbacks", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     // Check that allocations are returned with normalized fields
-    expect(body).toHaveLength(mockAllocations.length);
-    expect(body[0]).toMatchObject({
+    expect(body.data).toHaveLength(mockAllocations.length);
+    expect(body.data[0]).toMatchObject({
       pk: mockAllocations[0].pk,
       sk: mockAllocations[0].sk,
       rubroId: mockAllocations[0].rubroId,
@@ -280,8 +280,8 @@ describe("allocations handler - robust GET with fallbacks", () => {
       planned: mockAllocations[0].planned,
     });
     // Verify normalization added expected fields
-    expect(body[0]).toHaveProperty('amount');
-    expect(body[0]).toHaveProperty('monthIndex');
+    expect(body.data[0]).toHaveProperty('amount');
+    expect(body.data[0]).toHaveProperty('monthIndex');
     // Calls: 1) empty query, 2) baseline lookup, 3) successful query, 4+) baseline metadata for normalization
     expect(mockDdbSend).toHaveBeenCalled();
     
@@ -313,7 +313,7 @@ describe("allocations handler - robust GET with fallbacks", () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toEqual([]);
+    expect(body.data).toEqual([]);
   });
 
   it("should handle baseline lookup failure gracefully", async () => {
@@ -337,7 +337,7 @@ describe("allocations handler - robust GET with fallbacks", () => {
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
-    expect(body).toEqual([]);
+    expect(body.data).toEqual([]);
   });
 
   describe("contract month index (M1..M60) integration tests", () => {
@@ -414,22 +414,22 @@ describe("allocations handler - robust GET with fallbacks", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       
-      expect(body).toHaveLength(4);
+      expect(body.data).toHaveLength(4);
       
       // Verify each allocation has the correct month_index computed from calendar key
-      const june2025 = body.find((a: any) => a.calendarMonthKey === "2025-06");
+      const june2025 = body.data.find((a: any) => a.calendarMonthKey === "2025-06");
       expect(june2025.month_index).toBe(1); // M1
       expect(june2025.monthIndex).toBe(1);
       
-      const dec2025 = body.find((a: any) => a.calendarMonthKey === "2025-12");
+      const dec2025 = body.data.find((a: any) => a.calendarMonthKey === "2025-12");
       expect(dec2025.month_index).toBe(7); // M7
       expect(dec2025.monthIndex).toBe(7);
       
-      const june2026 = body.find((a: any) => a.calendarMonthKey === "2026-06");
+      const june2026 = body.data.find((a: any) => a.calendarMonthKey === "2026-06");
       expect(june2026.month_index).toBe(13); // M13
       expect(june2026.monthIndex).toBe(13);
       
-      const nov2026 = body.find((a: any) => a.calendarMonthKey === "2026-11");
+      const nov2026 = body.data.find((a: any) => a.calendarMonthKey === "2026-11");
       expect(nov2026.month_index).toBe(18); // M18
       expect(nov2026.monthIndex).toBe(18);
     });
@@ -561,11 +561,11 @@ describe("allocations handler - robust GET with fallbacks", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       
-      expect(body).toHaveLength(1);
+      expect(body.data).toHaveLength(1);
       // Should fall back to month-of-year (11)
-      expect(body[0].month_index).toBe(11);
-      expect(body[0].monthIndex).toBe(11);
-      expect(body[0].calendarMonthKey).toBe("2026-11");
+      expect(body.data[0].month_index).toBe(11);
+      expect(body.data[0].monthIndex).toBe(11);
+      expect(body.data[0].calendarMonthKey).toBe("2026-11");
     });
   });
 });
