@@ -17,9 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
-/**
- * ResourceLink - small presentational link for the Resources tile
- */
+/** Small presentational ResourceLink */
 function ResourceLink({
   href,
   title,
@@ -69,16 +67,12 @@ export function LoginPage() {
   // Vite-backed portal URLs
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
   const PMO_PORTAL_LOGIN = rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/";
-  if (!rawActaUrl) {
-    console.warn("[LoginPage] VITE_ACTA_BASE_URL no está definido; usando fallback para PMO Platform.");
-  }
+  if (!rawActaUrl) console.warn("[LoginPage] VITE_ACTA_BASE_URL no está definido; usando fallback para PMO Platform.");
 
   const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL?.trim();
   const PREFACTURAS_PORTAL_LOGIN =
     rawPrefacturasUrl && rawPrefacturasUrl.length > 0 ? rawPrefacturasUrl : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
-  if (!rawPrefacturasUrl) {
-    console.warn("[LoginPage] VITE_PREFACTURAS_URL no está definido; usando fallback para Prefacturas.");
-  }
+  if (!rawPrefacturasUrl) console.warn("[LoginPage] VITE_PREFACTURAS_URL no está definido; usando fallback para Prefacturas.");
 
   const sessionEmail = useMemo(() => (isAuthenticated && session.user ? session.user.email ?? session.user.login : null), [
     isAuthenticated,
@@ -97,7 +91,7 @@ export function LoginPage() {
     try {
       if (normalizedPath.startsWith("/pmo")) localStorage.setItem("cv.module", "pmo");
     } catch {
-      // ignore localStorage errors
+      // ignore
     }
 
     if (!isAuthenticated) {
@@ -117,14 +111,12 @@ export function LoginPage() {
     }
 
     try {
-      const nw = window.open(url, "_blank");
-      if (nw) {
+      const w = window.open(url, "_blank");
+      if (w) {
         try {
-          // defensive noopener
-          // eslint-disable-next-line no-unused-expressions
-          (nw as Window & { opener: Window | null }).opener = null;
+          (w as Window & { opener: Window | null }).opener = null;
         } catch {
-          // ignore cross-origin restrictions
+          // ignore cross-origin
         }
       } else {
         setAccessMessage("No pudimos abrir el portal solicitado. Intenta nuevamente o contacta soporte.");
@@ -169,7 +161,6 @@ export function LoginPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.06),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(59,130,246,0.04),transparent_42%)] opacity-40" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:140px_140px] opacity-10" />
 
-      {/* Wrapper and centered card */}
       <div className="relative w-full px-4 py-12">
         <div className="mx-auto max-w-6xl">
           {/* Header */}
@@ -179,12 +170,11 @@ export function LoginPage() {
                 <Logo className="h-10 w-auto text-emerald-200" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-emerald-300">Ikusi - Central de Operaciones</span>
+                {/* Keep one H1 only (no duplicate badge) */}
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Ikusi · Central de Operaciones</h1>
                 <div className="mt-1 text-sm text-slate-300">
                   <p className="font-semibold text-emerald-200">Dirección de Operaciones IKUSI Colombia</p>
                   <p className="mt-1 max-w-2xl">Existimos para entregar excelencia con empatía y actitud que inspiran confianza</p>
-                  <p className="mt-1 italic text-xs text-slate-400">Centrado</p>
                 </div>
               </div>
             </div>
@@ -203,7 +193,7 @@ export function LoginPage() {
 
           <Card className="relative overflow-hidden border border-slate-700/40 bg-slate-900/70 shadow-xl">
             <div className="relative grid gap-8 p-8 lg:grid-cols-4 lg:p-10">
-              {/* Left (3/4) */}
+              {/* Left (3/4) - now a 3-tile balanced grid */}
               <div className="lg:col-span-3">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 rounded-full bg-emerald-800/10 px-4 py-1.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-700/10">
@@ -219,40 +209,33 @@ export function LoginPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                {/* Balanced 3-tile grid for left column */}
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* Tile 1: Otros recursos (combine Accesos por rol + Sesión y seguridad) */}
                   <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
-                    <p className="text-sm font-semibold text-emerald-200">Accesos por rol</p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      PMO, SDM, Ingenieros y Vendors ven únicamente los módulos y rutas habilitados para su rol.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
-                    <p className="text-sm font-semibold text-emerald-200">Sesión y seguridad</p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      El acceso a Ikusi · Central de Operaciones se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
-                    <p className="text-sm font-semibold text-emerald-200">Horas Extras</p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      Accede al módulo de horas extras para gestionar solicitudes y autorizaciones.
-                    </p>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Horas Extras - módulo interno Ikusi"
-                        className="h-10 px-3"
-                        onClick={() => handleAccess("/horas-extras")}
-                        disabled={isLoading}
-                      >
-                        Ir a Horas Extras
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
+                    <p className="text-sm font-semibold text-emerald-200">Otros recursos</p>
+                    <div className="mt-2 text-sm text-slate-300 space-y-2">
+                      <div>
+                        <p className="font-medium">Accesos por rol</p>
+                        <p>PMO, SDM, Ingenieros y Vendors ven únicamente los módulos y rutas habilitados para su rol.</p>
+                      </div>
+                      <div>
+                        <p className="font-medium mt-2">Sesión y seguridad</p>
+                        <p>El acceso a Ikusi · Central de Operaciones se realiza mediante Cognito Hosted UI. Los accesos directos abren las aplicaciones correspondientes sin modificar la configuración de autenticación.</p>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Tile 2: Documentación / Políticas */}
+                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
+                    <p className="text-sm font-semibold text-emerald-200">Políticas y guías</p>
+                    <p className="mt-2 text-sm text-slate-300">Accede a las guías operativas y procedimientos que rigen las actividades de operación.</p>
+                  </div>
+
+                  {/* Tile 3: Soporte / Contacto */}
+                  <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-900/60">
+                    <p className="text-sm font-semibold text-emerald-200">Soporte y contacto</p>
+                    <p className="mt-2 text-sm text-slate-300">¿Necesitas ayuda o acceso? Contacta a tu administrador o al equipo de soporte local.</p>
                   </div>
                 </div>
               </div>
@@ -265,9 +248,7 @@ export function LoginPage() {
                     Accede con tu cuenta corporativa a las herramientas habilitadas según tu rol. Gestor de Actas y Prefacturas están disponibles como accesos directos.
                   </p>
 
-                  {isAuthenticated && (
-                    <p className="mt-3 rounded-md bg-emerald-800/10 px-3 py-2 text-xs text-emerald-200">Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}.</p>
-                  )}
+                  {isAuthenticated && <p className="mt-3 rounded-md bg-emerald-800/10 px-3 py-2 text-xs text-emerald-200">Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}.</p>}
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -315,7 +296,21 @@ export function LoginPage() {
                     <ArrowRight className="h-5 w-5" />
                   </Button>
 
-                  {/* Centrix external portal (added) */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    aria-label="Horas Extras - módulo interno Ikusi"
+                    className="h-12 w-full justify-between border border-slate-700/30 text-slate-100"
+                    onClick={() => handleAccess("/horas-extras")}
+                    disabled={isLoading}
+                  >
+                    <span className="flex items-center gap-2 font-semibold">
+                      <ExternalLink className="h-5 w-5" /> Horas Extras
+                    </span>
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+
                   <Button
                     type="button"
                     variant="ghost"
@@ -332,7 +327,7 @@ export function LoginPage() {
                   </Button>
                 </div>
 
-                {/* Resources tile */}
+                {/* Resources tile (Horas Extras removed from here) */}
                 <div className="rounded-xl border border-slate-700/40 p-4 bg-slate-800/60">
                   <p className="text-sm font-semibold text-emerald-200 mb-3">Recursos</p>
                   <div className="grid gap-2">
