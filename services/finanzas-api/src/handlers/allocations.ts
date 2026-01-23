@@ -122,8 +122,19 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
     return baselineCache[bid];
   }
 
+  // Helper to perform basic normalization on an item
+  function basicNormalize(it: any) {
+    return {
+      ...it,
+      amount: coerceNumber(it.amount ?? it.planned ?? it.monto_planeado ?? 0),
+      rubroId: it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null,
+      rubro_id: it.rubro_id || it.rubroId || null,
+      line_item_id: it.line_item_id || it.lineItemId || it.rubroId || null,
+    };
+  }
+
   // Filter out null/undefined items before processing
-  const validItems = (items || []).filter(item => item != null);
+  const validItems = items.filter(item => item != null);
 
   const results = await Promise.allSettled(validItems.map(async (it: any) => {
     try {
@@ -248,12 +259,8 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
       };
     } catch (err: any) {
       console.warn(`[allocations] Failed to normalize item:`, err?.message || err, it);
-      // Return the item as-is with minimal normalization on error
-      return {
-        ...it,
-        amount: coerceNumber(it.amount ?? it.planned ?? it.monto_planeado ?? 0),
-        rubroId: it.rubroId || it.rubro_id || null,
-      };
+      // Return the item with minimal normalization on error
+      return basicNormalize(it);
     }
   }));
 
