@@ -97,7 +97,9 @@ jobs:
           # Find all potential rubro IDs in TypeScript/JavaScript files
           # Exclude: comments, imports, tests, canonical-taxonomy definitions, docs, scripts
           # Also exclude old hardcoded taxonomy files that need migration
-          POTENTIAL_RUBROS=$(git grep -h -o -E "\b(${CATEGORY_CODES})-[A-Z0-9-]+\b" -- \
+          # Use negative lookbehind to avoid matching composite IDs like "AR-MOD-ING-001"
+          # where the rubro code appears after another prefix
+          POTENTIAL_RUBROS=$(git grep -h -o -P "(?<![A-Z]-)(${CATEGORY_CODES})-[A-Z0-9-]+\b" -- \
             '*.ts' '*.tsx' '*.js' '*.jsx' \
             ':!node_modules' \
             ':!.git' \
@@ -137,7 +139,8 @@ jobs:
             if ! grep -q "^${rubro}$" /tmp/canonical-ids.txt; then
               # Found a non-canonical ID, now check if it's actually used in code
               # (not just in a comment or string for documentation)
-              MATCHES=$(git grep -n "\b${rubro}\b" -- \
+              # Use same pattern with negative lookbehind to avoid composite IDs
+              MATCHES=$(git grep -n -P "(?<![A-Z]-)${rubro}\b" -- \
                 '*.ts' '*.tsx' '*.js' '*.jsx' \
                 ':!node_modules' \
                 ':!.git' \
