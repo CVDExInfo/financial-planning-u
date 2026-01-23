@@ -47,10 +47,12 @@ if (!allocationsPath) {
     'Ingeniero Delivery',
     'mod-sdm-service-delivery-manager',
     'mod-sdm-sdm',
+    'MOD-PM',  // Added: Legacy PMO identifier
+    'MOD-PMO', // Added: Legacy PMO variant
   ];
   
   console.log('\nMOD-LEAD aliases:');
-  newAliases.filter(a => a.toLowerCase().includes('lead') || a.toLowerCase().includes('ingeniero'))
+  newAliases.filter(a => a.toLowerCase().includes('lead') || a.toLowerCase().includes('ingeniero') || a.toLowerCase().includes('pm'))
     .forEach(alias => {
       const canonical = getCanonicalRubroId(alias);
       const valid = isValidRubroId(alias);

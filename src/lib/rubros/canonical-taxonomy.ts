@@ -185,9 +185,23 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'service-delivery-manager': 'MOD-SDM',
   'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
+  'Project Manager': 'MOD-LEAD', // Add title case variant
+  'mod-pm-project-manager': 'MOD-LEAD',
   'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
-  'mod-pm': 'MOD-LEAD', // Lowercase variant
-  'mod-pmo': 'MOD-LEAD', // Another PM variant
+  'MOD-PMO': 'MOD-LEAD', // Legacy PMO variant
+  
+  // Category-suffixed patterns - Generated when allocation materializers or 
+  // PMO Estimator append the Spanish categoria name to the rubro_id 
+  // (e.g., 'TEC-HW-RPL' + 'Equipos y Tecnología' → 'tec-hw-rpl-equipos-y-tecnologia')
+  // These appear in DynamoDB allocation table SKs and cause console warnings.
+  // Source: finanzas-api materializers & PMO Estimator baseline generation
+  // Added: 2026-01-20 to fix console warnings in SDMT Forecast (issue #948)
+  'tec-hw-rpl-equipos-y-tecnolog-a': 'TEC-HW-RPL',
+  'tec-hw-rpl-equipos-y-tecnologia': 'TEC-HW-RPL',
+  'tec-itsm-equipos-y-tecnolog-a': 'TEC-ITSM',
+  'tec-itsm-equipos-y-tecnologia': 'TEC-ITSM',
+  'inf-cloud-infraestructura-nube-data-center': 'INF-CLOUD',
+  'inf-rack-infraestructura-nube-data-center': 'INF-RACK',
 };
 
 // Build indexes for fast lookup
