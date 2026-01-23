@@ -68,7 +68,7 @@ import {
   getChangeType,
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
-import { normalizeForecastCells, normalizeLineItemFromApi, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
