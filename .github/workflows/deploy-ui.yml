@@ -49,7 +49,7 @@ env:
   VITE_ENABLE_RUBROS_ADAPTER: ${{ vars.VITE_ENABLE_RUBROS_ADAPTER || 'false' }}
   # Multi-SPA Integration URLs
   # CloudFront for Acta (Gestor de Actas)
-  VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net/login' }}
+  VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net/' }}
   # Prefacturas direct URL
   VITE_PREFACTURAS_URL: ${{ vars.VITE_PREFACTURAS_URL || 'https://df7rl707jhpas.cloudfront.net/prefacturas/facturas' }}
 
