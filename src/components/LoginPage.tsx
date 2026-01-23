@@ -310,7 +310,7 @@ export function LoginPage() {
                 <Button
                   type="button"
                   size="lg"
-                  aria-label="Acceso a Finanzas SDM - módulo principal"
+                  aria-label="Acceso a Finanzas - inicia sesión con Cognito Hosted UI"
                   className="h-12 w-full justify-between bg-emerald-500 text-emerald-950 hover:bg-emerald-400 dark:text-emerald-50"
                   onClick={() => handleAccess("/", { requiresRoleCheck: false })}
                   disabled={isLoading}
@@ -327,7 +327,7 @@ export function LoginPage() {
                   type="button"
                   variant="secondary"
                   size="lg"
-                  aria-label="Entrar a PMO Platform - acceso directo"
+                  aria-label="Gestor de Actas - acceso directo (se abre en nueva pestaña)"
                   className="h-12 w-full justify-between bg-slate-800 text-slate-50 hover:bg-slate-700 dark:bg-slate-800/90"
                   onClick={() =>
                     handlePortalAccess(PMO_PORTAL_LOGIN, { requiresRoleCheck: true })
@@ -346,7 +346,7 @@ export function LoginPage() {
                   type="button"
                   variant="outline"
                   size="lg"
-                  aria-label="Entrar a Prefacturas Portal - se abre en nueva ventana"
+                  aria-label="Prefacturas Proveedores - acceso directo (se abre en nueva pestaña)"
                   className="h-12 w-full justify-between border-slate-200 bg-white text-slate-900 hover:bg-slate-100 dark:border-white/20 dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
                   onClick={() => handlePortalAccess(PREFACTURAS_PORTAL_LOGIN)}
                   disabled={isLoading}
