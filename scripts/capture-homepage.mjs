@@ -8,7 +8,7 @@ import { chromium } from '@playwright/test';
   const page = await context.newPage();
   
   try {
-    await page.goto('http://localhost:5173/finanzas/', { waitUntil: 'networkidle', timeout: 10000 });
+    await page.goto('http://localhost:5174/finanzas/', { waitUntil: 'networkidle', timeout: 10000 });
     await page.waitForTimeout(2000);
     
     await page.screenshot({ 
