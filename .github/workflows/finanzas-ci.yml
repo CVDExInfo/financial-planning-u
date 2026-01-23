@@ -58,74 +58,110 @@ jobs:
   # the canonical-projects seed script.
 
   check-forbidden-rubros:
-    name: Check for forbidden rubro literals
+    name: Check for non-canonical rubro literals
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Scan for forbidden rubro literals
+      - name: Scan for non-canonical rubro literals
         run: |
-          echo "Checking for forbidden rubro literals..."
+          echo "Checking for non-canonical rubro literals..."
+          echo "Loading canonical IDs from data/rubros.taxonomy.json..."
           
-          # Read forbidden literals from file (skip comments and empty lines)
-          FORBIDDEN_LITERALS=$(grep -v '^#' ci/forbidden-rubros.txt | grep -v '^$' || true)
+          # Extract canonical IDs from taxonomy JSON
+          if ! command -v jq &> /dev/null; then
+            echo "Installing jq..."
+            sudo apt-get update -qq && sudo apt-get install -qq -y jq
+          fi
           
-          if [ -z "$FORBIDDEN_LITERALS" ]; then
-            echo "⚠️  No forbidden literals defined in ci/forbidden-rubros.txt"
-            echo "   This check will pass but is not effective."
+          CANONICAL_IDS=$(jq -r '.items[].linea_codigo' data/rubros.taxonomy.json | sort -u)
+          CANONICAL_COUNT=$(echo "$CANONICAL_IDS" | wc -l)
+          
+          echo "Loaded $CANONICAL_COUNT canonical rubro IDs"
+          echo ""
+          
+          # Create a temporary file with canonical IDs for fast lookup
+          echo "$CANONICAL_IDS" > /tmp/canonical-ids.txt
+          
+          # Search for rubro-like patterns in source code
+          # Pattern: MOD-*, GSV-*, TEC-*, etc. (category code followed by hyphen and identifier)
+          echo "Scanning for rubro-like patterns in source code..."
+          
+          # Find all potential rubro IDs in TypeScript/JavaScript files
+          # Exclude: comments, imports, tests, canonical-taxonomy definitions, docs
+          POTENTIAL_RUBROS=$(git grep -h -o -E '\b[A-Z]{3}-[A-Z0-9-]+\b' -- \
+            '*.ts' '*.tsx' '*.js' '*.jsx' \
+            ':!node_modules' \
+            ':!.git' \
+            ':!dist' \
+            ':!build' \
+            ':!**/canonical-taxonomy.ts' \
+            ':!**/__tests__/**' \
+            ':!*.md' \
+            ':!data/rubros.taxonomy.json' \
+            ':!scripts/**' \
+            2>/dev/null | sort -u || true)
+          
+          if [ -z "$POTENTIAL_RUBROS" ]; then
+            echo "✅ No rubro-like patterns found in source code"
             exit 0
           fi
           
-          FOUND_VIOLATIONS=0
-          
-          # Check each forbidden literal
-          while IFS= read -r literal; do
-            [ -z "$literal" ] && continue
-            
-            echo ""
-            echo "Searching for: '$literal'"
-            
-            # Search in source files, excluding:
-            # - node_modules, .git, dist, build directories
-            # - ci/forbidden-rubros.txt itself
-            # - test files that explicitly test legacy mapping
-            # - LEGACY_RUBRO_ID_MAP definitions (these are intentional)
-            # - Documentation markdown files (*.md)
-            # - data/rubros.taxonomy.json (canonical taxonomy itself)
-            # - scripts that reference legacy IDs for migration
-            MATCHES=$(git grep -n "$literal" -- \
-              ':!node_modules' \
-              ':!.git' \
-              ':!dist' \
-              ':!build' \
-              ':!ci/forbidden-rubros.txt' \
-              ':!**/canonical-taxonomy.ts' \
-              ':!**/__tests__/**' \
-              ':!*.md' \
-              ':!data/rubros.taxonomy.json' \
-              ':!scripts/**' \
-              || true)
-            
-            if [ -n "$MATCHES" ]; then
-              echo "❌ Found forbidden literal '$literal':"
-              echo "$MATCHES"
-              FOUND_VIOLATIONS=1
-            else
-              echo "✅ Not found"
-            fi
-          done <<< "$FORBIDDEN_LITERALS"
-          
+          echo "Found $(echo "$POTENTIAL_RUBROS" | wc -l) unique rubro-like patterns"
           echo ""
+          
+          FOUND_VIOLATIONS=0
+          NON_CANONICAL_IDS=""
+          
+          # Check each potential rubro against canonical list
+          while IFS= read -r rubro; do
+            [ -z "$rubro" ] && continue
+            
+            # Check if it's in the canonical list
+            if ! grep -q "^${rubro}$" /tmp/canonical-ids.txt; then
+              # Found a non-canonical ID, now check if it's actually used in code
+              # (not just in a comment or string for documentation)
+              MATCHES=$(git grep -n "\b${rubro}\b" -- \
+                '*.ts' '*.tsx' '*.js' '*.jsx' \
+                ':!node_modules' \
+                ':!.git' \
+                ':!dist' \
+                ':!build' \
+                ':!**/canonical-taxonomy.ts' \
+                ':!**/__tests__/**' \
+                ':!*.md' \
+                ':!data/rubros.taxonomy.json' \
+                ':!scripts/**' \
+                2>/dev/null || true)
+              
+              if [ -n "$MATCHES" ]; then
+                echo "❌ Non-canonical rubro ID: $rubro"
+                echo "$MATCHES" | head -5
+                echo ""
+                FOUND_VIOLATIONS=1
+                NON_CANONICAL_IDS="${NON_CANONICAL_IDS}${rubro}\n"
+              fi
+            fi
+          done <<< "$POTENTIAL_RUBROS"
+          
           if [ $FOUND_VIOLATIONS -eq 1 ]; then
-            echo "❌ FAIL: Found forbidden rubro literals in codebase"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ FAIL: Found non-canonical rubro IDs in source code"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo ""
-            echo "These literals should not be used. Use canonical taxonomy IDs instead."
-            echo "See /data/rubros.taxonomy.json for valid canonical IDs."
+            echo "The following rubro IDs are NOT in data/rubros.taxonomy.json:"
+            echo -e "$NON_CANONICAL_IDS"
             echo ""
-            echo "If you need to reference legacy IDs for mapping purposes,"
-            echo "add them to the LEGACY_RUBRO_ID_MAP in canonical-taxonomy.ts"
+            echo "Action required:"
+            echo "1. If these are legitimate rubros, add them to data/rubros.taxonomy.json"
+            echo "2. If these are legacy IDs, add mapping in LEGACY_RUBRO_ID_MAP (canonical-taxonomy.ts)"
+            echo "3. If these are typos or mistakes, correct them to use canonical IDs"
+            echo ""
+            echo "See data/rubros.taxonomy.json for the complete list of canonical IDs"
             exit 1
           else
-            echo "✅ PASS: No forbidden rubro literals found"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ PASS: All rubro IDs in source code are canonical"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           fi
