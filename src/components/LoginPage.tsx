@@ -1,9 +1,7 @@
 /* src/components/LoginPage.tsx
-   Layout updated to match the provided table mock:
-   - Top centered title block
-   - Main card: left "Portal corporativo cifrado" + right "Accesos rápidos"
-   - Lower 3-column area: Recursos | Otras Plataformas | Accesos rápidos
-   Behavior: auth/navigation unchanged; portals open directly.
+   Final: table-aligned layout (logo left, centered titles, portal left, summary right,
+   three-column Recursos | Otras Plataformas | Accesos rápidos).
+   Keeps auth/navigation and portal behavior intact.
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,16 +40,14 @@ function ResourceLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={ariaLabel ?? `${title} - ${subtitle ?? ""}`}
-      className="flex items-center justify-between gap-4 rounded-lg border border-slate-200/60 bg-white/80 px-3 py-2 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+      className="flex items-center justify-between gap-4 rounded-lg border border-slate-200/60 bg-white/90 px-3 py-3 hover:bg-emerald-50 transition-colors dark:border-white/10 dark:bg-slate-900/60 dark:hover:bg-slate-800"
     >
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+      <div className="flex-1 min-w-0 text-left">
+        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
           {title}
         </div>
         {subtitle && (
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-            {subtitle}
-          </p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 truncate">{subtitle}</p>
         )}
       </div>
       <ExternalLink className="h-4 w-4 text-slate-400 flex-shrink-0" aria-hidden="true" />
@@ -64,14 +60,14 @@ export function LoginPage() {
   const { login, isLoading, isAuthenticated, session, canAccessRoute } = useAuth();
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
+  // Derive initial appearance from DOM / preferences when available
   const initialAppearance = useMemo<"light" | "dark">(() => {
     if (typeof document !== "undefined") {
       const root = document.documentElement;
       if (root.dataset.appearance === "dark" || root.classList.contains("dark")) return "dark";
       if (root.dataset.appearance === "light") return "light";
-      if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+      if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches)
         return "dark";
-      }
     }
     return "light";
   }, []);
@@ -102,14 +98,14 @@ export function LoginPage() {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
     if (requiresRoleCheck && !canAccessRoute(normalizedPath)) {
-      setAccessMessage("Necesitas permisos para acceder. Contacta con tu administrador de sistemas.");
+      setAccessMessage("Acceso restringido a roles autorizados. Solicita permisos si necesitas entrar.");
       return;
     }
 
     try {
       if (normalizedPath.startsWith("/pmo")) localStorage.setItem("cv.module", "pmo");
     } catch {
-      // ignore
+      // ignore storage errors
     }
 
     if (!isAuthenticated) {
@@ -125,9 +121,8 @@ export function LoginPage() {
     { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {},
   ) => {
     setAccessMessage(null);
-
     if (requiresRoleCheck && !canAccessRoute("/pmo/prefactura/estimator")) {
-      setAccessMessage("Necesitas permisos para acceder. Contacta con tu administrador de sistemas.");
+      setAccessMessage("Acceso restringido al portal PMO Prefacturas. Solicita permisos al administrador si necesitas entrar.");
       return;
     }
 
@@ -169,12 +164,12 @@ export function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
-      {/* Decorative background */}
+      {/* Background grids */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(56,189,248,0.18),transparent_42%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.14),transparent_38%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.2),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.25),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.18),transparent_30%)]" />
       <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-slate-50/70 to-slate-100/75 dark:from-slate-950 dark:via-slate-950/90 dark:to-slate-900/80" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:140px_140px] opacity-25 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
 
-      {/* Header: logo left, centered titles, appearance toggle right */}
+      {/* Header grid: logo left, centered titles, appearance toggle right */}
       <div className="relative mx-auto w-full max-w-6xl px-6 py-6 sm:px-8 lg:px-8">
         <div className="grid grid-cols-12 items-center gap-4">
           <div className="col-span-2 flex items-center">
@@ -184,10 +179,10 @@ export function LoginPage() {
           </div>
 
           <div className="col-span-8 text-center">
-            <div className="text-base font-semibold text-emerald-600 dark:text-emerald-200/90">
+            <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">
               Ikusi · Central de Operaciones
             </div>
-            <div className="text-base font-semibold text-slate-900 dark:text-slate-50 mt-1">
+            <div className="text-base font-semibold text-emerald-600 dark:text-emerald-200 mt-1">
               Dirección de Operaciones IKUSI Colombia
             </div>
             <p className="mt-4 text-center text-lg text-slate-700 dark:text-slate-200/90 font-medium">
@@ -219,23 +214,23 @@ export function LoginPage() {
         </div>
       </div>
 
-      {/* Centered card */}
+      {/* Centered card with portal + summary + three-column area */}
       <div className="relative w-full flex justify-center px-6 pb-16 sm:px-8 lg:pb-20">
         <Card className="mx-auto w-full max-w-6xl relative overflow-hidden border border-slate-200/80 bg-white/90 shadow-xl shadow-emerald-200/40 backdrop-blur dark:border-white/10 dark:bg-slate-950/70 dark:shadow-2xl dark:shadow-emerald-900/30">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-95 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
           <div className="relative grid gap-6 p-8 lg:grid-cols-3 lg:p-10">
-            {/* Left large portal area (spans 2 cols on lg) */}
+            {/* Left: wide portal panel */}
             <div className="lg:col-span-2">
-              <div className="rounded-md border border-emerald-600/30 p-6">
+              <div className="rounded-md border-2 border-emerald-700/30 p-6">
                 <div className="text-xl font-semibold text-emerald-700">Portal corporativo cifrado</div>
-                <div className="mt-4 text-emerald-600 font-medium">Ikusi · Central de Operaciones</div>
+                <div className="mt-3 text-emerald-600 font-medium">Ikusi · Central de Operaciones</div>
                 <p className="mt-4 text-base text-slate-700 dark:text-slate-200/90">
                   Plataforma operativa para SDM, PMO, ingenieros y proveedores — un punto único para acceder a recursos, gestionar flujos de trabajo, tramitar aprobaciones y facilitar la operación diaria del equipo.
                 </p>
               </div>
             </div>
 
-            {/* Right quick summary */}
+            {/* Right: compact summary */}
             <div className="flex flex-col gap-4">
               <div className="rounded-xl border border-slate-200/80 bg-white/90 p-5 text-slate-900 shadow-lg dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-50">
                 <div className="text-sm font-semibold text-emerald-700">Accesos rápidos</div>
@@ -245,33 +240,32 @@ export function LoginPage() {
               </div>
             </div>
 
-            {/* Three-column area below */}
+            {/* Three-column row: Recursos | Otras Plataformas | Accesos rápidos */}
             <div className="col-span-full mt-6 grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
-              {/* Left column - Recursos */}
-              <div>
+              {/* Recursos */}
+              <div className="text-center">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">Recursos</h3>
-
-                <div className="rounded-xl border border-slate-200/80 bg-white/90 p-4 text-slate-900 shadow-md dark:border-white/10 dark:bg-slate-900/80 dark:text-white">
+                <div className="rounded-xl border border-slate-200/80 bg-white/90 p-6 text-slate-900 shadow-md dark:border-white/10 dark:bg-slate-900/80 dark:text-white text-left">
                   <p className="text-sm font-semibold">Sesión y seguridad</p>
                   <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
                     El acceso a Ikusi · Central de Operaciones se realiza mediante Cognito Hosted.
                   </p>
 
-                  <div className="mt-4">
+                  <div className="mt-5">
                     <p className="text-sm font-semibold">Accesos por rol</p>
                     <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
                       PMO, SDM, Ingenieros y Vendors ven únicamente los módulos y rutas habilitados para su rol.
                     </p>
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-5">
                     <p className="text-sm font-semibold">Políticas y guías</p>
                     <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
                       Accede a las guías operativas y procedimientos que rigen las actividades de operación.
                     </p>
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-5">
                     <p className="text-sm font-semibold">Soporte y contacto</p>
                     <p className="mt-2 text-sm text-slate-700 dark:text-slate-200/80">
                       ¿Necesitas ayuda o acceso? Contacta a tu administrador o al equipo de soporte local.
@@ -280,10 +274,9 @@ export function LoginPage() {
                 </div>
               </div>
 
-              {/* Middle column - Otras Plataformas */}
-              <div>
+              {/* Otras Plataformas */}
+              <div className="text-center">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">Otras Plataformas</h3>
-
                 <div className="space-y-3">
                   <ResourceLink
                     href="https://ikusi.my.salesforce.com/"
@@ -306,8 +299,8 @@ export function LoginPage() {
                 </div>
               </div>
 
-              {/* Right column - Accesos rápidos */}
-              <div>
+              {/* Accesos rápidos column */}
+              <div className="text-center">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-4">Accesos rápidos</h3>
 
                 <div className="space-y-3">
@@ -326,7 +319,7 @@ export function LoginPage() {
                     variant="secondary"
                     size="md"
                     className="w-full justify-center"
-                    onClick={() => handlePortalAccess(PMO_PORTAL_LOGIN)}
+                    onClick={() => handlePortalAccess(PMO_PORTAL_LOGIN, { requiresRoleCheck: true })}
                     disabled={isLoading}
                   >
                     Gestor de Actas
@@ -368,9 +361,9 @@ export function LoginPage() {
               </div>
             </div>
 
-            {/* Bottom microcopy area */}
+            {/* Bottom microcopy */}
             <div className="col-span-full mt-6 px-6 pb-8">
-              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+              <p className="text-xs text-slate-600 dark:text-slate-400 italic text-center">
                 Compatible con laptop y tablet. El diseño se adapta para evitar que el logo o las descripciones se solapen.
               </p>
             </div>
