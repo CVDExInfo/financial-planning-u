@@ -7,6 +7,8 @@ import {
   deriveCostType,
 } from '../monthlySnapshotTypes';
 import { isLabor } from '@/lib/rubros-category-utils';
+import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
+import { getCanonicalRubroId, getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -157,6 +159,34 @@ export function useMonthlySnapshotData({
   showOnlyVariance,
   costTypeFilter,
 }: UseMonthlySnapshotDataParams): MonthlySnapshotDataResult {
+  // Build improved meta maps with canonical taxonomy support
+  const lineItemMetaMap = useMemo(() => {
+    const m = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
+    lineItems.forEach(li => {
+      const normalized = normalizeRubroId(li.id || '');
+      const canonical = getCanonicalRubroId(normalized);
+      const taxonomy = getTaxonomyById(normalized);
+      
+      // Prefer taxonomy description if available, otherwise use line item description
+      const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
+      const category = taxonomy?.categoria || li.category || '';
+      
+      // Add entries for normalized ID, canonical ID, and any taxonomy ID
+      if (normalized) {
+        m.set(normalized, { description: desc, category, canonicalId: canonical });
+      }
+      if (canonical && canonical !== normalized) {
+        m.set(canonical, { description: desc, category, canonicalId: canonical });
+      }
+      // Also index by taxonomyId if present
+      const taxonomyId = (li as any).taxonomyId || (li as any).rubro_taxonomy_id;
+      if (taxonomyId && !m.has(taxonomyId)) {
+        m.set(taxonomyId, { description: desc, category, canonicalId: canonical });
+      }
+    });
+    return m;
+  }, [lineItems]);
+
   const lineItemCategoryMap = useMemo(() => {
     const map = new Map<string, string | undefined>();
     lineItems.forEach((item) => {
@@ -178,8 +208,9 @@ export function useMonthlySnapshotData({
       monthBudget,
       useMonthlyBudget,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
-  }, [forecastData, actualMonthIndex, groupingMode, monthBudget, useMonthlyBudget, lineItemCategoryMap]);
+  }, [forecastData, actualMonthIndex, groupingMode, monthBudget, useMonthlyBudget, lineItemCategoryMap, lineItemMetaMap]);
 
   const filteredRows = useMemo(() => {
     return filterSnapshotRows({ rows: snapshotRows, costTypeFilter, searchQuery, showOnlyVariance });
@@ -218,6 +249,7 @@ interface BuildSnapshotRowsParams {
   monthBudget: number | null;
   useMonthlyBudget: boolean;
   lineItemCategoryMap: Map<string, string | undefined>;
+  lineItemMetaMap: Map<string, { description?: string; category?: string; canonicalId?: string }>;
 }
 
 export function buildSnapshotRows({
@@ -227,6 +259,7 @@ export function buildSnapshotRows({
   monthBudget,
   useMonthlyBudget,
   lineItemCategoryMap,
+  lineItemMetaMap,
 }: BuildSnapshotRowsParams): SnapshotRow[] {
   const monthData = forecastData.filter((cell) => cell.month === actualMonthIndex);
 
@@ -251,8 +284,15 @@ export function buildSnapshotRows({
       const projectId = cell.projectId || 'unknown';
       const projectName = cell.projectName || 'Proyecto desconocido';
       const rubroId = cell.rubroId || cell.line_item_id;
-      const rubroName = cell.description || 'Sin descripción';
-      const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
+      const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+      
+      // Resolve rubro name and category using lineItemMetaMap
+      const meta = lineItemMetaMap.get(cell.line_item_id) || 
+                   lineItemMetaMap.get(rubroId) || 
+                   lineItemMetaMap.get(canonical);
+      
+      const rubroName = cell.description || meta?.description || 'Sin descripción';
+      const resolvedCategory = cell.category || meta?.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
       
       // Prefer explicit category, but fall back to descriptive fields when category missing.
       // Fallback order: cell.description → rubroName → cell.projectName → empty string
@@ -328,10 +368,17 @@ export function buildSnapshotRows({
 
   monthData.forEach((cell) => {
     const rubroId = cell.rubroId || cell.line_item_id;
-    const rubroName = cell.description || cell.category || 'Sin categoría';
+    const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+    
+    // Resolve rubro name and category using lineItemMetaMap
+    const meta = lineItemMetaMap.get(cell.line_item_id) || 
+                 lineItemMetaMap.get(rubroId) || 
+                 lineItemMetaMap.get(canonical);
+    
+    const rubroName = cell.description || meta?.description || cell.category || 'Sin categoría';
     const projectId = cell.projectId || 'unknown';
     const projectName = cell.projectName || 'Proyecto desconocido';
-    const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
+    const resolvedCategory = cell.category || meta?.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
     
     // Prefer explicit category, but fall back to descriptive fields when category missing.
     // Fallback order: cell.description → projectName → rubroName → empty string
