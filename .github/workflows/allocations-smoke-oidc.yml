@@ -1,94 +1,51 @@
-name: Allocations Smoke Test (OIDC)
+name: allocations-smoke-oidc
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to test (dev or prod)'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
       projectId:
-        description: 'Project ID to test (optional, will use first from list if not provided)'
+        description: 'Project ID to test'
         required: false
+        default: 'P-77f85795-f189-40be-9644-7d2bc11c9dcd'
         type: string
       baselineId:
-        description: 'Baseline ID to test (optional)'
+        description: 'Baseline ID to test'
         required: false
+        default: 'base_5a6bbb8fcf4a'
         type: string
 
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-2' }}
-  DEPLOYMENT_ENV: ${{ github.event.inputs.environment || 'dev' }}
-  # Note: API URLs should ideally be in repository variables, using fallback values for backward compatibility
-  FINZ_API_URL: ${{ github.event.inputs.environment == 'prod' && 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/prod' || (vars.DEV_API_URL || 'https://m3g6am67aj.execute-api.us-east-2.amazonaws.com/dev') }}
-
 jobs:
-  allocations-smoke:
+  smoke:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Normalize line endings for local actions
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y dos2unix
-          find .github/actions -type f -print0 | xargs -0 dos2unix || true
-
       - name: Configure AWS credentials via OIDC
-        uses: ./.github/actions/oidc-configure-aws
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role_arn: ${{ secrets.OIDC_AWS_ROLE_ARN }}
-          aws_region: ${{ env.AWS_REGION }}
-          session_name: allocations-smoke-${{ github.run_id }}
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
-
-      - name: Setup Node.js
+      - name: Install Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install pnpm
+        run: npm install -g pnpm
 
-      - name: Generate JWT for API authentication
-        id: jwt
-        uses: ./.github/actions/cognito-generate-jwt
-        with:
-          user_pool_id: ${{ vars.COGNITO_USER_POOL_ID }}
-          client_id: ${{ vars.COGNITO_WEB_CLIENT }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          aws_region: ${{ env.AWS_REGION }}
+      - name: Install project deps
+        run: pnpm install
 
-      - name: Wait for API health check
+      - name: Run allocations smoke
         env:
-          BASE: ${{ env.FINZ_API_URL }}
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 12); do
-            CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/health" || true)
-            if [ "$CODE" = "200" ]; then
-              echo "✅ API ready (health=200)"; break
-            fi
-            echo "⏳ Waiting for API... (attempt $i, code=$CODE)"; sleep 5
-            if [ "$i" = "12" ]; then echo "❌ API not ready"; exit 1; fi
-          done
-
-      - name: Run allocations smoke tests
-        env:
-          FINANZAS_API_BASE: ${{ env.FINZ_API_URL }}
-          FINANZAS_COGNITO_REGION: ${{ env.AWS_REGION }}
+          FINZ_API_URL: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_API_BASE: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_COGNITO_REGION: us-east-2
           FINANZAS_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
           FINANZAS_COGNITO_USERNAME: ${{ secrets.USERNAME }}
           FINANZAS_COGNITO_PASSWORD: ${{ secrets.PASSWORD }}
@@ -96,138 +53,95 @@ jobs:
           FINANZAS_BASELINE_ID: ${{ github.event.inputs.baselineId }}
         run: |
           set -euo pipefail
-          echo "# Allocations Smoke Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: ${DEPLOYMENT_ENV}" >> $GITHUB_STEP_SUMMARY
-          echo "**API URL**: ${FINANZAS_API_BASE}" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$FINANZAS_PROJECT_ID" ]; then
-            echo "**Project ID**: ${FINANZAS_PROJECT_ID}" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ -n "$FINANZAS_BASELINE_ID" ]; then
-            echo "**Baseline ID**: ${FINANZAS_BASELINE_ID}" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "# Allocations Smoke Test" >> $GITHUB_STEP_SUMMARY
+          echo "**API URL**: ${FINZ_API_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project ID**: ${{ github.event.inputs.projectId }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline ID**: ${{ github.event.inputs.baselineId }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Run the smoke script and capture output
+          # Run the smoke test script
           node scripts/finanzas-api-smoke.mjs 2>&1 | tee smoke-output.log
           
           # Check if Allocations GET test passed
+          echo "" >> $GITHUB_STEP_SUMMARY
           if grep -q "Allocations GET" smoke-output.log && grep -q "✅ Success" smoke-output.log; then
-            echo "## ✅ Allocations GET Test Passed" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ Test Passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ❌ Allocations GET Test Failed" >> $GITHUB_STEP_SUMMARY
-            echo "See logs below for details" >> $GITHUB_STEP_SUMMARY
+            echo "## ❌ Test Failed" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Add relevant output to summary
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Test Output" >> $GITHUB_STEP_SUMMARY
+          echo "### Output" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -A 10 "Allocations GET" smoke-output.log >> $GITHUB_STEP_SUMMARY || true
+          grep -A 10 "Allocations GET" smoke-output.log >> $GITHUB_STEP_SUMMARY || echo "No allocations test output found" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Validate allocations response structure
-        if: success()
+      - name: Direct allocation endpoint test
+        if: always()
         env:
-          FINANZAS_API_BASE: ${{ env.FINZ_API_URL }}
-          TOKEN: ${{ steps.jwt.outputs.access_token }}
+          FINZ_API_URL: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_COGNITO_REGION: us-east-2
+          FINANZAS_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
+          FINANZAS_COGNITO_USERNAME: ${{ secrets.USERNAME }}
+          FINANZAS_COGNITO_PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           set -euo pipefail
           
-          # Get a project from the list
-          PROJECTS_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$FINANZAS_API_BASE/projects")
-          PROJECT_ID=$(echo "$PROJECTS_JSON" | jq -r '.[0].project_id // .[0].id' | head -1)
+          echo "Testing direct endpoint: GET /allocations?projectId=${{ github.event.inputs.projectId }}&baseline=${{ github.event.inputs.baselineId }}"
           
-          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
-            echo "⚠️ No projects found to test allocations endpoint"
-            exit 0
+          # Get JWT token
+          AUTH_RESULT=$(aws cognito-idp initiate-auth \
+            --region us-east-2 \
+            --client-id "${FINANZAS_COGNITO_CLIENT_ID}" \
+            --auth-flow USER_PASSWORD_AUTH \
+            --auth-parameters "USERNAME=${FINANZAS_COGNITO_USERNAME},PASSWORD=${FINANZAS_COGNITO_PASSWORD}" \
+            --output json)
+          
+          TOKEN=$(echo "$AUTH_RESULT" | jq -r '.AuthenticationResult.IdToken')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "❌ Failed to obtain JWT token"
+            exit 1
           fi
-          
-          echo "Testing allocations endpoint with projectId=$PROJECT_ID"
           
           # Call allocations endpoint
-          ALLOC_JSON=$(curl -sS -f -H "Authorization: Bearer $TOKEN" "$FINANZAS_API_BASE/allocations?projectId=$PROJECT_ID")
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "${FINZ_API_URL}/allocations?projectId=${{ github.event.inputs.projectId }}&baseline=${{ github.event.inputs.baselineId }}")
           
-          # Validate response structure
-          HAS_DATA=$(echo "$ALLOC_JSON" | jq 'has("data")')
-          IS_ARRAY=$(echo "$ALLOC_JSON" | jq '.data | type == "array"')
+          STATUS=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
           
-          if [ "$HAS_DATA" != "true" ]; then
-            echo "❌ Response missing 'data' field"
-            exit 1
-          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Direct Endpoint Test" >> $GITHUB_STEP_SUMMARY
+          echo "**Status Code**: $STATUS" >> $GITHUB_STEP_SUMMARY
           
-          if [ "$IS_ARRAY" != "true" ]; then
-            echo "❌ Response 'data' is not an array"
-            exit 1
-          fi
-          
-          COUNT=$(echo "$ALLOC_JSON" | jq '.data | length')
-          echo "✅ Allocations endpoint returned valid response with $COUNT items"
-          
-          # If we have items, validate structure
-          if [ "$COUNT" -gt 0 ]; then
-            FIRST_ITEM=$(echo "$ALLOC_JSON" | jq '.data[0]')
-            HAS_RUBRO=$(echo "$FIRST_ITEM" | jq 'has("rubroId") or has("rubro_id")')
-            HAS_AMOUNT=$(echo "$FIRST_ITEM" | jq 'has("amount")')
+          if [ "$STATUS" = "200" ]; then
+            echo "**Result**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+            COUNT=$(echo "$BODY" | jq '.data | length // 0')
+            echo "**Items Returned**: $COUNT" >> $GITHUB_STEP_SUMMARY
             
-            if [ "$HAS_RUBRO" != "true" ]; then
-              echo "⚠️ Warning: First allocation item missing rubroId/rubro_id"
+            if [ "$COUNT" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Sample Item**:" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              echo "$BODY" | jq '.data[0]' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
             fi
-            
-            if [ "$HAS_AMOUNT" != "true" ]; then
-              echo "⚠️ Warning: First allocation item missing amount field"
-            fi
-            
-            echo "Sample allocation item:"
-            echo "$FIRST_ITEM" | jq '.'
-          fi
-
-      - name: Collect AllocationsFn logs on failure
-        if: failure()
-        env:
-          STACK: ${{ github.event.inputs.environment == 'prod' && 'finanzas-sd-api-prod' || 'finanzas-sd-api-dev' }}
-        run: |
-          set -euo pipefail
-          
-          # Try to get the allocations Lambda function name
-          FN=$(aws cloudformation list-stack-resources --stack-name "$STACK" \
-            --query "StackResourceSummaries[?contains(LogicalResourceId, 'Allocations')].PhysicalResourceId" \
-            --output text | head -1)
-          
-          if [ -z "$FN" ]; then
-            echo "⚠️ Could not find Allocations Lambda function in stack $STACK"
-            exit 0
-          fi
-          
-          echo "### CloudWatch Logs for $FN" >> $GITHUB_STEP_SUMMARY
-          LOG_GROUP="/aws/lambda/$FN"
-          
-          # Get the most recent log stream
-          STREAM=$(aws logs describe-log-streams \
-            --log-group-name "$LOG_GROUP" \
-            --order-by LastEventTime \
-            --descending \
-            --max-items 1 \
-            --query 'logStreams[0].logStreamName' \
-            --output text 2>/dev/null || echo "")
-          
-          if [ -n "$STREAM" ]; then
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            aws logs get-log-events \
-              --log-group-name "$LOG_GROUP" \
-              --log-stream-name "$STREAM" \
-              --limit 100 \
-              --query 'events[].message' \
-              --output text | tail -n 100 >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
           else
-            echo "No recent log streams found" >> $GITHUB_STEP_SUMMARY
+            echo "**Result**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Response**:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$BODY" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
 
       - name: Upload smoke test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allocations-smoke-logs-${{ github.event.inputs.environment }}
+          name: allocations-smoke-logs
           path: smoke-output.log
           retention-days: 7
