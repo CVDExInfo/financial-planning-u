@@ -10,7 +10,7 @@ import { isLaborByKey } from './lib/taxonomyLookup';
 import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 /**
- * ForecastRow extends ForecastCell with optional project metadata
+ * ForecastRow extends ForecastCell with optional project metadata and budget data
  * This type is also used in SDMTForecast.tsx and PortfolioSummaryView.tsx
  * TODO: Consider extracting to shared types file if more components need it
  */
@@ -21,6 +21,7 @@ export type ForecastRow = ForecastCell & {
   description?: string;
   category?: string;
   isLabor?: boolean;
+  budget?: number; // Monthly budget allocation for this row's month
 };
 
 /**
