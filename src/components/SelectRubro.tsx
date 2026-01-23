@@ -29,6 +29,8 @@ import {
   CANONICAL_RUBROS_TAXONOMY,
   isValidRubroId,
   type CanonicalRubroTaxonomy,
+  getAllCategories,
+  getRubrosByCategory,
 } from '@/lib/rubros/canonical-taxonomy';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -79,56 +81,49 @@ export function SelectRubro({
 }: SelectRubroProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Filter rubros based on props
-  const filteredRubros = useMemo(() => {
-    let rubros = CANONICAL_RUBROS_TAXONOMY;
-
-    // Apply category filter
-    if (categoryFilter) {
-      rubros = rubros.filter(r => r.categoria_codigo === categoryFilter);
-    }
-
-    // Apply type filter
-    if (typeFilter) {
-      if (typeFilter === 'labor') {
-        rubros = rubros.filter(r => r.categoria_codigo === 'MOD');
-      } else {
-        rubros = rubros.filter(r => r.categoria_codigo !== 'MOD');
-      }
-    }
-
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      rubros = rubros.filter(r => 
-        r.linea_codigo.toLowerCase().includes(term) ||
-        r.linea_gasto.toLowerCase().includes(term) ||
-        r.descripcion.toLowerCase().includes(term) ||
-        r.categoria.toLowerCase().includes(term)
-      );
-    }
-
-    return rubros;
-  }, [categoryFilter, typeFilter, searchTerm]);
-
-  // Group rubros by category for organized display
+  // Group rubros by category for organized display using canonical helpers
   const groupedRubros = useMemo(() => {
-    const groups = new Map<string, CanonicalRubroTaxonomy[]>();
+    // Use getAllCategories helper for consistent category listing
+    const categories = getAllCategories();
     
-    for (const rubro of filteredRubros) {
-      const category = rubro.categoria_codigo;
-      if (!groups.has(category)) {
-        groups.set(category, []);
-      }
-      groups.get(category)!.push(rubro);
-    }
-
-    return Array.from(groups.entries()).map(([code, rubros]) => ({
-      code,
-      name: rubros[0].categoria,
-      rubros: rubros.sort((a, b) => a.linea_codigo.localeCompare(b.linea_codigo)),
-    }));
-  }, [filteredRubros]);
+    return categories
+      .map(categoryCode => {
+        // Use getRubrosByCategory helper for consistent grouping
+        const categoryRubros = getRubrosByCategory(categoryCode)
+          .filter(r => {
+            // Apply category filter
+            if (categoryFilter && r.categoria_codigo !== categoryFilter) return false;
+            
+            // Apply type filter
+            if (typeFilter) {
+              if (typeFilter === 'labor' && r.categoria_codigo !== 'MOD') return false;
+              if (typeFilter === 'non-labor' && r.categoria_codigo === 'MOD') return false;
+            }
+            
+            // Apply search filter
+            if (searchTerm) {
+              const term = searchTerm.toLowerCase();
+              return (
+                r.linea_codigo.toLowerCase().includes(term) ||
+                r.linea_gasto.toLowerCase().includes(term) ||
+                r.descripcion.toLowerCase().includes(term) ||
+                r.categoria.toLowerCase().includes(term)
+              );
+            }
+            return true;
+          })
+          .sort((a, b) => a.linea_codigo.localeCompare(b.linea_codigo));
+        
+        if (categoryRubros.length === 0) return null;
+        
+        return {
+          code: categoryCode,
+          name: categoryRubros[0].categoria,
+          rubros: categoryRubros,
+        };
+      })
+      .filter((group): group is { code: string; name: string; rubros: CanonicalRubroTaxonomy[] } => group !== null);
+  }, [categoryFilter, typeFilter, searchTerm]);
 
   // Validate current value
   const isValid = value ? isValidRubroId(value) : true;
