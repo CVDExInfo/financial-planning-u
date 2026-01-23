@@ -1,7 +1,11 @@
 /* src/components/LoginPage.tsx
-   Consolidated: screenshot layout + Ikusi enterprise copy + consistent spacing/typography,
-   Row 2 titles: Recursos operativos | Plataformas externas | Módulos internos,
-   Recursos converted to actionable/link tiles, balanced grid heights, and light/dark support.
+   Final (consolidated):
+   - Light-mode default + optional dark toggle
+   - Single hero ("Acceso operativo") in Row 1 (removed extra tile)
+   - Row 2: Recursos operativos / Plataformas externas / Módulos internos
+   - 5 internal modules, no restrictions/disable
+   - External platforms include Planview + ProjectPlace in correct order
+   - Rebalanced spacing + smaller button sizing + consistent hover states
 */
 
 import { useEffect, useMemo, useRef, useState, type ElementType } from "react";
@@ -12,8 +16,7 @@ import {
   Building2,
   ExternalLink,
   FileSpreadsheet,
-  Headset,
-  Lock,
+  LifeBuoy,
   MoonStar,
   ShieldCheck,
   SunMedium,
@@ -25,165 +28,165 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
-/** External platform link tile (new tab) */
-function ExternalPlatformLink({
-  href,
-  title,
-  subtitle,
-  ariaLabel,
-}: {
-  href: string;
-  title: string;
-  subtitle?: string;
-  ariaLabel?: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={ariaLabel ?? `${title}${subtitle ? ` - ${subtitle}` : ""} (se abre en nueva pestaña)`}
-      className="group flex items-center justify-between gap-4 rounded-xl border border-slate-200/70 bg-white/80 px-4 py-4 shadow-sm transition-all hover:-translate-y-[1px] hover:bg-emerald-50/60 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 dark:border-white/10 dark:bg-slate-900/45 dark:hover:bg-slate-900/60"
-    >
-      <div className="min-w-0 flex-1 text-left">
-        <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{title}</div>
-        {subtitle && (
-          <p className="mt-1 truncate text-xs text-slate-600 dark:text-slate-300/90">{subtitle}</p>
-        )}
-      </div>
-      <ExternalLink
-        className="h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[1px]"
-        aria-hidden="true"
-      />
-    </a>
-  );
-}
+type Appearance = "light" | "dark";
 
-type TileAction =
-  | { type: "internal"; onClick: () => void }
-  | { type: "external"; href: string; newTab?: boolean };
-
-function ResourceTile({
-  title,
-  subtitle,
-  icon: Icon,
-  badge,
-  action,
-}: {
+type TileLinkProps = {
   title: string;
   subtitle: string;
   icon: ElementType;
   badge?: string;
-  action: TileAction;
-}) {
+  href?: string; // if omitted, will show a friendly message instead of navigating
+  openInNewTab?: boolean;
+  ariaLabel?: string;
+  onMissingHref?: () => void;
+};
+
+function TileLink({
+  title,
+  subtitle,
+  icon: Icon,
+  badge,
+  href,
+  openInNewTab = true,
+  ariaLabel,
+  onMissingHref,
+}: TileLinkProps) {
   const base =
-    "group flex w-full items-start justify-between gap-4 rounded-xl border px-4 py-4 text-left shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60";
+    "group flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0";
+  const surface =
+    "border-slate-200/70 bg-white/75 hover:bg-emerald-50/60 hover:border-emerald-200/70 dark:border-white/10 dark:bg-slate-950/35 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25";
 
-  const shell =
-    "border-slate-200/70 bg-white/80 hover:-translate-y-[1px] hover:bg-emerald-50/60 hover:shadow-md dark:border-white/10 dark:bg-slate-900/45 dark:hover:bg-slate-900/60";
-
-  const content = (
-    <>
-      <span className="mt-0.5 grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border border-slate-200/60 bg-slate-50/70 text-slate-700 dark:border-white/10 dark:bg-black/10 dark:text-slate-200">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
-            {title}
-          </span>
-          {badge ? (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
-              {badge}
-            </span>
-          ) : null}
-        </span>
-
-        <span className="mt-1 block text-xs text-slate-600 dark:text-slate-300/90">{subtitle}</span>
-      </span>
-
-      {action.type === "external" ? (
-        <ExternalLink
-          className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[1px]"
-          aria-hidden="true"
-        />
-      ) : (
-        <ArrowRight
-          className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[2px]"
-          aria-hidden="true"
-        />
-      )}
-    </>
+  const Left = (
+    <span className="mt-0.5 grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border border-slate-200/70 bg-white/80 text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-100">
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </span>
   );
 
-  if (action.type === "external") {
+  const Right = href ? (
+    openInNewTab ? (
+      <ExternalLink
+        className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[1px]"
+        aria-hidden="true"
+      />
+    ) : (
+      <ArrowRight
+        className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[2px]"
+        aria-hidden="true"
+      />
+    )
+  ) : (
+    <ArrowRight
+      className="mt-1 h-4 w-4 flex-shrink-0 text-slate-300"
+      aria-hidden="true"
+    />
+  );
+
+  const Content = (
+    <span className="min-w-0 flex-1">
+      <span className="flex items-center gap-2">
+        <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
+          {title}
+        </span>
+        {badge ? (
+          <span className="flex-shrink-0 rounded-full border border-emerald-200/70 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200">
+            {badge}
+          </span>
+        ) : null}
+      </span>
+      <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-200/80">
+        {subtitle}
+      </span>
+    </span>
+  );
+
+  if (!href) {
     return (
-      <a
-        href={action.href}
-        target={action.newTab === false ? undefined : "_blank"}
-        rel={action.newTab === false ? undefined : "noopener noreferrer"}
-        className={`${base} ${shell}`}
+      <button
+        type="button"
+        className={`${base} ${surface}`}
+        onClick={onMissingHref}
+        aria-label={ariaLabel ?? `${title} - ${subtitle}`}
       >
-        {content}
-      </a>
+        {Left}
+        {Content}
+        {Right}
+      </button>
     );
   }
 
   return (
-    <button type="button" className={`${base} ${shell}`} onClick={action.onClick}>
-      {content}
-    </button>
+    <a
+      href={href}
+      target={openInNewTab ? "_blank" : undefined}
+      rel={openInNewTab ? "noopener noreferrer" : undefined}
+      className={`${base} ${surface}`}
+      aria-label={ariaLabel ?? `${title} - ${subtitle}${openInNewTab ? " (se abre en nueva pestaña)" : ""}`}
+    >
+      {Left}
+      {Content}
+      {Right}
+    </a>
   );
 }
 
-type QuickVariant = "primary" | "neutral" | "outline";
+type QuickVariant = "primary" | "surface";
 
 function QuickAccessButton({
   label,
-  description,
+  subLabel,
   icon: Icon,
   onClick,
   disabled,
-  variant = "neutral",
+  variant = "surface",
 }: {
   label: string;
-  description?: string;
+  subLabel: string;
   icon: ElementType;
   onClick: () => void;
   disabled?: boolean;
   variant?: QuickVariant;
 }) {
   const base =
-    "group w-full rounded-xl px-4 py-3 flex items-center justify-between gap-3 border transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:opacity-55 disabled:cursor-not-allowed";
+    "group w-full rounded-xl px-4 py-3 flex items-center justify-between gap-3 border shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0 disabled:opacity-60 disabled:cursor-not-allowed";
 
+  // Light-mode readability first; dark-mode is optional
   const variants: Record<QuickVariant, string> = {
     primary:
-      "bg-gradient-to-r from-emerald-500/95 to-emerald-400/90 text-emerald-950 border-emerald-300/20 hover:brightness-[1.02] hover:-translate-y-[1px] hover:shadow-md hover:shadow-emerald-500/20 dark:text-emerald-50",
-    neutral:
-      "bg-white/80 text-slate-900 border-slate-200/70 hover:bg-slate-50 hover:-translate-y-[1px] hover:shadow-md dark:bg-slate-900/45 dark:text-slate-50 dark:border-white/10 dark:hover:bg-slate-900/60",
-    outline:
-      "bg-transparent text-slate-900 border-slate-200/80 hover:bg-slate-50 hover:-translate-y-[1px] hover:shadow-md dark:text-slate-50 dark:border-white/20 dark:hover:bg-white/5",
+      "bg-emerald-500 text-emerald-950 border-emerald-400/30 hover:bg-emerald-400 hover:-translate-y-[1px] hover:shadow-md hover:shadow-emerald-300/30 dark:text-emerald-950",
+    surface:
+      "bg-white text-slate-900 border-slate-200/80 hover:bg-emerald-50/70 hover:border-emerald-200/80 hover:-translate-y-[1px] hover:shadow-md dark:bg-slate-950/35 dark:text-slate-50 dark:border-white/10 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25",
   };
 
+  const iconBox =
+    variant === "primary"
+      ? "bg-black/10 border-black/10"
+      : "bg-slate-50 border-slate-200/70 dark:bg-slate-900/50 dark:border-white/10";
+
+  const subText =
+    variant === "primary"
+      ? "text-emerald-950/80"
+      : "text-slate-600 dark:text-slate-200/75";
+
   return (
-    <button type="button" className={`${base} ${variants[variant]}`} onClick={onClick} disabled={disabled}>
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-black/5 border border-slate-200/60 dark:bg-black/10 dark:border-white/10">
+    <button
+      type="button"
+      className={`${base} ${variants[variant]}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <span className={`grid place-items-center h-9 w-9 rounded-lg border ${iconBox}`}>
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
+
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">{label}</span>
-          {description ? (
-            <span className="mt-0.5 hidden truncate text-xs text-slate-600/90 dark:text-slate-300/80 lg:block">
-              {description}
-            </span>
-          ) : null}
+          <span className={`block truncate text-xs ${subText}`}>{subLabel}</span>
         </span>
       </span>
 
       <ArrowRight
-        className="h-4 w-4 opacity-80 transition-transform group-hover:translate-x-[2px]"
+        className="h-4 w-4 opacity-75 transition-transform group-hover:translate-x-[2px]"
         aria-hidden="true"
       />
     </button>
@@ -192,58 +195,43 @@ function QuickAccessButton({
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading, isAuthenticated, session, canAccessRoute } = useAuth();
+  const { login, isLoading, isAuthenticated, session } = useAuth();
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
-  const initialAppearance = useMemo<"light" | "dark">(() => {
+  // Default should be LIGHT (per request). Only honor explicit DOM setting if present.
+  const initialAppearance = useMemo<Appearance>(() => {
     if (typeof document !== "undefined") {
       const root = document.documentElement;
       if (root.dataset.appearance === "dark" || root.classList.contains("dark")) return "dark";
       if (root.dataset.appearance === "light") return "light";
-      if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches)
-        return "dark";
     }
-    return "dark"; // dark-first
+    return "light";
   }, []);
 
-  const [appearance, setAppearance] = useState<"light" | "dark">(initialAppearance);
+  const [appearance, setAppearance] = useState<Appearance>(initialAppearance);
   const previousAppearance = useRef<string | undefined>(undefined);
 
+  // External portals (fallbacks preserved)
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
-  const PMO_PORTAL_LOGIN =
-    rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/";
+  const ACTAS_PORTAL_URL =
+    rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/login";
 
   const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL?.trim();
-  const PREFACTURAS_PORTAL_LOGIN =
+  const PREFACTURAS_PORTAL_URL =
     rawPrefacturasUrl && rawPrefacturasUrl.length > 0
       ? rawPrefacturasUrl
       : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
 
-  const rawCentrixUrl = import.meta.env.VITE_CENTRIX_URL?.trim();
-  const CENTRIX_URL = rawCentrixUrl && rawCentrixUrl.length > 0 ? rawCentrixUrl : null;
+  // Resource URLs (configure in env; if empty we show a message)
+  const SECURITY_GUIDE_URL = import.meta.env.VITE_SECURITY_GUIDE_URL?.trim() ?? "";
+  const ROLE_GUIDE_URL = import.meta.env.VITE_ROLE_GUIDE_URL?.trim() ?? "";
+  const POLICIES_GUIDE_URL = import.meta.env.VITE_POLICIES_GUIDE_URL?.trim() ?? "";
+  const SUPPORT_URL =
+    (import.meta.env.VITE_SUPPORT_URL?.trim() ?? "") || "https://ikusi.service-now.com/colombia";
 
-  const sessionEmail = useMemo(
-    () => (isAuthenticated && session.user ? session.user.email ?? session.user.login : null),
-    [isAuthenticated, session.user],
-  );
-
-  const handleAccess = (
-    path: string,
-    { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {},
-  ) => {
+  const handleAccess = (path: string) => {
     setAccessMessage(null);
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-    if (requiresRoleCheck && !canAccessRoute(normalizedPath)) {
-      setAccessMessage("Acceso restringido. Solicita permisos si necesitas entrar.");
-      return;
-    }
-
-    try {
-      if (normalizedPath.startsWith("/pmo")) localStorage.setItem("cv.module", "pmo");
-    } catch {
-      // ignore storage errors
-    }
 
     if (!isAuthenticated) {
       login();
@@ -253,29 +241,14 @@ export function LoginPage() {
     navigate(normalizedPath);
   };
 
-  const handlePortalAccess = (
-    url: string,
-    { requiresRoleCheck = false }: { requiresRoleCheck?: boolean } = {},
-  ) => {
+  const handlePortalAccess = (url: string) => {
     setAccessMessage(null);
-
-    if (requiresRoleCheck && !canAccessRoute("/pmo/prefactura/estimator")) {
-      setAccessMessage("Acceso restringido al portal. Solicita permisos al administrador si necesitas entrar.");
-      return;
-    }
-
     try {
       window.location.assign(url);
     } catch {
       setAccessMessage("No pudimos abrir el portal solicitado. Intenta nuevamente o contacta soporte.");
     }
   };
-
-  // Disable restricted module for nicer UX
-  const canOpenActasPortal = useMemo(
-    () => canAccessRoute("/pmo/prefactura/estimator"),
-    [canAccessRoute],
-  );
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -295,7 +268,6 @@ export function LoginPage() {
     () => () => {
       if (typeof document === "undefined") return;
       const root = document.documentElement;
-
       if (previousAppearance.current === "dark") {
         root.dataset.appearance = "dark";
         root.classList.add("dark");
@@ -310,40 +282,46 @@ export function LoginPage() {
     [],
   );
 
+  const sessionEmail =
+    isAuthenticated && session?.user ? (session.user.email ?? session.user.login ?? null) : null;
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
-      {/* Decorative gradients / grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.16),transparent_42%),radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.14),transparent_45%),radial-gradient(circle_at_60%_85%,rgba(14,116,144,0.14),transparent_40%)] dark:bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.20),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.22),transparent_40%),radial-gradient(circle_at_60%_85%,rgba(14,116,144,0.18),transparent_32%)]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-slate-50/70 to-slate-100/75 dark:from-slate-950 dark:via-slate-950/90 dark:to-slate-900/80" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:140px_140px] opacity-25 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
+      {/* Decorative gradients + grid */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.14),transparent_38%),radial-gradient(circle_at_82%_6%,rgba(56,189,248,0.14),transparent_42%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.12),transparent_38%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.20),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.16),transparent_30%)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-slate-50/75 to-slate-100/80 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-900/85" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[size:140px_140px] opacity-20 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
 
       {/* Header */}
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <header className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-12 items-center gap-4">
-          <div className="col-span-2 flex items-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-emerald-200 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/40">
-              <Logo className="h-10" />
+          {/* Larger logo */}
+          <div className="col-span-12 sm:col-span-3 flex items-center justify-center sm:justify-start">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-2 ring-emerald-200/80 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/30">
+              <Logo className="h-12" />
             </div>
           </div>
 
-          <div className="col-span-8 text-center">
-            <div className="text-xl font-semibold tracking-tight sm:text-2xl">
+          {/* Title */}
+          <div className="col-span-12 sm:col-span-6 text-center">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
               Central de Operaciones
-            </div>
-            <div className="mt-1 text-sm font-semibold text-emerald-700 sm:text-base dark:text-emerald-200/90">
+            </h1>
+            <p className="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-200/90">
               Dirección de Operaciones · Ikusi Colombia
-            </div>
-            <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 sm:text-base dark:text-slate-200/90">
+            </p>
+            <p className="mt-3 text-base text-slate-600 dark:text-slate-200/85">
               Acceso centralizado, seguro y alineado a tu rol.
             </p>
           </div>
 
-          <div className="col-span-2 flex justify-end">
+          {/* Appearance toggle */}
+          <div className="col-span-12 sm:col-span-3 flex justify-center sm:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="gap-2 border-slate-200/70 bg-white/80 text-slate-800 shadow-sm hover:bg-emerald-50 dark:border-white/15 dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-900/75"
+              className="gap-2 border-slate-200/80 bg-white/70 text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-900/70"
               onClick={() => setAppearance(appearance === "dark" ? "light" : "dark")}
             >
               {appearance === "dark" ? (
@@ -360,109 +338,102 @@ export function LoginPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main card */}
-      <div className="relative flex w-full justify-center px-4 pb-14 sm:px-6 lg:px-8 lg:pb-20">
-        <Card className="relative mx-auto w-full max-w-6xl overflow-hidden border border-slate-200/80 bg-white/85 shadow-xl shadow-emerald-200/40 backdrop-blur dark:border-white/10 dark:bg-slate-950/60 dark:shadow-2xl dark:shadow-emerald-900/30">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-95 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
+      <section className="relative mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8 lg:pb-16">
+        <Card className="relative overflow-hidden border border-slate-200/80 bg-white/80 shadow-xl shadow-emerald-200/40 backdrop-blur dark:border-white/10 dark:bg-slate-950/65 dark:shadow-2xl dark:shadow-emerald-900/25">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-90 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
 
-          <div className="relative grid gap-8 p-6 lg:grid-cols-3 lg:p-10">
-            {/* Row 1: left hero (2/3) */}
-            <div className="lg:col-span-2">
-              <div className="rounded-2xl border border-emerald-200/70 bg-white/75 p-7 shadow-sm dark:border-emerald-400/25 dark:bg-slate-950/25">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
-                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                  Portal corporativo seguro
-                </div>
+          <div className="relative grid gap-6 p-6 lg:p-8">
+            {/* Hero (single) */}
+            <div className="rounded-2xl border border-emerald-200/70 bg-white/70 p-6 shadow-sm dark:border-emerald-400/25 dark:bg-slate-950/30">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-white/15">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Portal corporativo seguro
+              </div>
 
-                <h1 className="mt-4 text-3xl font-semibold tracking-tight leading-tight sm:text-4xl">
+              <div className="mt-5 space-y-2">
+                <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight">
                   Acceso operativo
-                </h1>
-
-                <p className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-200/90">
+                </h2>
+                <p className="text-sm sm:text-base font-semibold text-emerald-700 dark:text-emerald-200/90">
                   Ikusi · Operaciones
                 </p>
-
-                <p className="mt-5 max-w-3xl text-sm text-slate-700 sm:text-base dark:text-slate-200/90">
+                <p className="mt-3 max-w-4xl text-base text-slate-700 dark:text-slate-200/90">
                   Plataforma operativa para SDM, PMO, ingenieros y proveedores. Centraliza recursos,
                   flujos de trabajo y aprobaciones para facilitar la operación diaria.
                 </p>
 
-                <p className="mt-4 text-xs text-slate-500 dark:text-slate-300/70">
+                <p className="mt-4 text-sm text-slate-500 dark:text-slate-300/70">
                   Acceso centralizado · Seguridad corporativa · Trazabilidad operativa
-                </p>
-              </div>
-            </div>
-
-            {/* Row 1: right intro (1/3) */}
-            <div className="flex flex-col gap-4">
-              <div className="rounded-2xl border border-slate-200/70 bg-white/75 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
-                <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-200">
-                  Acceso por rol
-                </div>
-                <p className="mt-3 text-sm text-slate-700 leading-relaxed dark:text-slate-200/90">
-                  Inicia sesión con tu cuenta corporativa. Verás únicamente los módulos habilitados según tu rol.
                 </p>
 
                 {isAuthenticated ? (
-                  <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
-                    Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}. Continúa sin volver a iniciar sesión.
+                  <p className="mt-4 inline-flex items-center rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
+                    Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}. Puedes continuar sin volver a iniciar sesión.
                   </p>
-                ) : (
-                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300/70">
-                    Inicia sesión para habilitar navegación y módulos internos.
-                  </p>
-                )}
+                ) : null}
               </div>
             </div>
 
             {/* Access message */}
-            {accessMessage && (
-              <div className="lg:col-span-3">
-                <div
-                  role="status"
-                  className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-inner shadow-amber-100 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
-                >
-                  {accessMessage}
-                </div>
+            {accessMessage ? (
+              <div
+                role="status"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-inner shadow-amber-100 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
+              >
+                {accessMessage}
               </div>
-            )}
+            ) : null}
 
-            {/* Row 2: 3-column grid (md=2 cols, lg=3 cols). Third spans full width on md. */}
-            <div className="lg:col-span-3 mt-2 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
+            {/* Row 2 headings + cards */}
+            <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
               {/* Recursos operativos */}
-              <section className="flex h-full flex-col">
-                <h3 className="mb-4 text-center text-lg font-semibold text-slate-900 md:text-xl dark:text-slate-50">
+              <div className="flex flex-col h-full">
+                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
                   Recursos operativos
                 </h3>
 
-                <div className="flex h-full flex-1 flex-col rounded-2xl border border-slate-200/70 bg-white/75 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
                   <div className="space-y-3">
-                    <ResourceTile
-                      title="Sesión y seguridad"
-                      subtitle="El acceso se autentica mediante AWS Cognito (Hosted UI)."
+                    <TileLink
                       icon={ShieldCheck}
+                      title="Sesión y seguridad"
                       badge="Seguridad"
-                      action={{ type: "internal", onClick: () => handleAccess("/recursos/seguridad") }}
+                      subtitle="El acceso se autentica mediante AWS Cognito (Hosted UI)."
+                      href={SECURITY_GUIDE_URL || undefined}
+                      onMissingHref={() =>
+                        setAccessMessage("Enlace de 'Sesión y seguridad' no configurado (VITE_SECURITY_GUIDE_URL).")
+                      }
                     />
-                    <ResourceTile
+
+                    <TileLink
+                      icon={Users}
                       title="Acceso por rol"
                       subtitle="Los módulos visibles se ajustan según tu rol corporativo."
-                      icon={Users}
-                      action={{ type: "internal", onClick: () => handleAccess("/recursos/acceso-por-rol") }}
+                      href={ROLE_GUIDE_URL || undefined}
+                      onMissingHref={() =>
+                        setAccessMessage("Enlace de 'Acceso por rol' no configurado (VITE_ROLE_GUIDE_URL).")
+                      }
                     />
-                    <ResourceTile
-                      title="Políticas y guías"
-                      subtitle="Consulta lineamientos, procedimientos y guías vigentes de operación."
+
+                    <TileLink
                       icon={BookOpen}
-                      action={{ type: "internal", onClick: () => handleAccess("/recursos/politicas") }}
+                      title="Políticas y guías"
+                      subtitle="Lineamientos, procedimientos y guías vigentes de operación."
+                      href={POLICIES_GUIDE_URL || undefined}
+                      onMissingHref={() =>
+                        setAccessMessage("Enlace de 'Políticas y guías' no configurado (VITE_POLICIES_GUIDE_URL).")
+                      }
                     />
-                    <ResourceTile
+
+                    <TileLink
+                      icon={LifeBuoy}
                       title="Soporte y contacto"
                       subtitle="Canal oficial para incidencias, solicitudes y soporte local."
-                      icon={Headset}
-                      action={{ type: "external", href: "https://ikusi.service-now.com/colombia" }}
+                      href={SUPPORT_URL}
+                      ariaLabel="Soporte y contacto - se abre en nueva pestaña"
                     />
                   </div>
 
@@ -470,33 +441,45 @@ export function LoginPage() {
                     Nota: algunos recursos pueden requerir autenticación adicional.
                   </p>
                 </div>
-              </section>
+              </div>
 
               {/* Plataformas externas */}
-              <section className="flex h-full flex-col">
-                <h3 className="mb-4 text-center text-lg font-semibold text-slate-900 md:text-xl dark:text-slate-50">
+              <div className="flex flex-col h-full">
+                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
                   Plataformas externas
                 </h3>
 
-                <div className="flex h-full flex-1 flex-col rounded-2xl border border-slate-200/70 bg-white/75 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30 flex flex-col">
                   <div className="space-y-3">
-                    <ExternalPlatformLink
-                      href="https://ikusi.my.salesforce.com/"
+                    <TileLink
+                      icon={ExternalLink}
                       title="Salesforce"
                       subtitle="Acceso al CRM corporativo"
-                      ariaLabel="Salesforce - Acceso al CRM corporativo"
+                      href="https://ikusi.my.salesforce.com/"
                     />
-                    <ExternalPlatformLink
-                      href="https://ikusi.service-now.com/colombia"
+                    <TileLink
+                      icon={ExternalLink}
+                      title="Planview"
+                      subtitle="Gestión de portafolio y demanda"
+                      href="https://ikusi.id.planview.com/"
+                    />
+                    <TileLink
+                      icon={ExternalLink}
+                      title="ProjectPlace"
+                      subtitle="Seguimiento de proyectos y tableros"
+                      href="https://service.projectplace.com/login"
+                    />
+                    <TileLink
+                      icon={ExternalLink}
                       title="ServiceNow"
                       subtitle="Incidencias y solicitudes (Colombia)"
-                      ariaLabel="ServiceNow - Incidencias y solicitudes Colombia"
+                      href="https://ikusi.service-now.com/colombia"
                     />
-                    <ExternalPlatformLink
-                      href="https://id.cisco.com/oauth2/default/v1/authorize?response_type=code&scope=openid%20profile%20address%20offline_access%20cci_coimemberOf%20email&client_id=cae-okta-web-gslb-01&state=e73wpl5CQD4G50dLMpSuqGjcpLc&redirect_uri=https%3A%2F%2Fccrc.cisco.com%2Fcb%2Fsso&nonce=pfDuXeO_o1BnKoOUdbwlNkx94k0P2BHYr5_zvC75EXw"
+                    <TileLink
+                      icon={ExternalLink}
                       title="Cisco CCW"
                       subtitle="Pedidos y licencias"
-                      ariaLabel="Cisco CCW - Pedidos y licencias"
+                      href="https://id.cisco.com/oauth2/default/v1/authorize?response_type=code&scope=openid%20profile%20address%20offline_access%20cci_coimemberOf%20email&client_id=cae-okta-web-gslb-01&state=e73wpl5CQD4G50dLMpSuqGjcpLc&redirect_uri=https%3A%2F%2Fccrc.cisco.com%2Fcb%2Fsso&nonce=pfDuXeO_o1BnKoOUdbwlNkx94k0P2BHYr5_zvC75EXw"
                     />
                   </div>
 
@@ -504,80 +487,80 @@ export function LoginPage() {
                     ¿Necesitas acceso? Solicítalo a tu administrador.
                   </p>
                 </div>
-              </section>
+              </div>
 
-              {/* Módulos internos (span full width on md) */}
-              <section className="flex h-full flex-col md:col-span-2 lg:col-span-1">
-                <h3 className="mb-4 text-center text-lg font-semibold text-slate-900 md:text-xl dark:text-slate-50">
+              {/* Módulos internos */}
+              <div className="flex flex-col h-full">
+                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
                   Módulos internos
                 </h3>
 
-                <div className="flex h-full flex-1 flex-col rounded-2xl border border-slate-200/70 bg-white/75 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
+                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
                   <div className="space-y-3">
                     <QuickAccessButton
                       label="Finanzas · SMO"
-                      description="Gestión y operación financiera"
+                      subLabel="Gestión y operación financiera"
                       icon={Building2}
                       variant="primary"
-                      onClick={() => handleAccess("/", { requiresRoleCheck: false })}
+                      onClick={() => handleAccess("/")}
                       disabled={isLoading}
                     />
 
                     <QuickAccessButton
-                      label={canOpenActasPortal ? "Gestión de Actas" : "Gestión de Actas · Restringido"}
-                      description="Seguimiento y actas operativas"
-                      icon={canOpenActasPortal ? ShieldCheck : Lock}
-                      variant="neutral"
-                      onClick={() => handlePortalAccess(PMO_PORTAL_LOGIN, { requiresRoleCheck: true })}
-                      disabled={isLoading || !canOpenActasPortal}
+                      label="Gestión de Actas"
+                      subLabel="Seguimiento y actas operativas"
+                      icon={ShieldCheck}
+                      variant="surface"
+                      onClick={() => handlePortalAccess(ACTAS_PORTAL_URL)}
+                      disabled={isLoading}
                     />
 
                     <QuickAccessButton
                       label="Prefacturas a Proveedores"
-                      description="Registro y consulta de prefacturas"
+                      subLabel="Registro y consulta de prefacturas"
                       icon={FileSpreadsheet}
-                      variant="outline"
-                      onClick={() => handlePortalAccess(PREFACTURAS_PORTAL_LOGIN)}
+                      variant="surface"
+                      onClick={() => handlePortalAccess(PREFACTURAS_PORTAL_URL)}
                       disabled={isLoading}
                     />
 
                     <QuickAccessButton
                       label="Horas extra"
-                      description="Autorizaciones y control"
+                      subLabel="Autorizaciones y control"
                       icon={ExternalLink}
-                      variant="neutral"
-                      onClick={() => handlePortalAccess("https://extra-hours-ikusi-ui--valencia94.github.app")}
+                      variant="surface"
+                      onClick={() =>
+                        handlePortalAccess("https://extra-hours-ikusi-ui--valencia94.github.app")
+                      }
                       disabled={isLoading}
                     />
 
-                    {CENTRIX_URL ? (
-                      <QuickAccessButton
-                        label="Centrix"
-                        description="Plataforma adicional"
-                        icon={ExternalLink}
-                        variant="neutral"
-                        onClick={() => handlePortalAccess(CENTRIX_URL)}
-                        disabled={isLoading}
-                      />
-                    ) : null}
+                    <QuickAccessButton
+                      label="Centrix"
+                      subLabel="Acceso al portal corporativo"
+                      icon={ExternalLink}
+                      variant="surface"
+                      onClick={() => handlePortalAccess("https://centrix.example")}
+                      disabled={isLoading}
+                    />
                   </div>
 
-                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300/70">
+                  <p className="mt-4 text-sm text-slate-600 dark:text-slate-200/75">
                     La disponibilidad de módulos depende de tu rol y permisos asignados.
                   </p>
                 </div>
-              </section>
+              </div>
             </div>
 
-            {/* Bottom microcopy */}
-            <div className="lg:col-span-3 mt-2">
-              <p className="text-center text-xs text-slate-500 dark:text-slate-300/70 italic">
+            {/* Footer microcopy */}
+            <div className="mt-6">
+              <p className="text-xs text-slate-500 dark:text-slate-300/70 italic text-center">
                 Optimizado para laptop y tablet. El contenido se ajusta para mantener legibilidad y jerarquía visual.
               </p>
             </div>
           </div>
         </Card>
-      </div>
+      </section>
     </main>
   );
 }
