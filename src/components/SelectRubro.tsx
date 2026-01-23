@@ -27,8 +27,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   CANONICAL_RUBROS_TAXONOMY,
-  getAllCategories,
-  getRubrosByCategory,
   isValidRubroId,
   type CanonicalRubroTaxonomy,
 } from '@/lib/rubros/canonical-taxonomy';
