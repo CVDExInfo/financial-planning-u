@@ -1,0 +1,147 @@
+name: allocations-smoke-oidc
+
+on:
+  workflow_dispatch:
+    inputs:
+      projectId:
+        description: 'Project ID to test'
+        required: false
+        default: 'P-77f85795-f189-40be-9644-7d2bc11c9dcd'
+        type: string
+      baselineId:
+        description: 'Baseline ID to test'
+        required: false
+        default: 'base_5a6bbb8fcf4a'
+        type: string
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install project deps
+        run: pnpm install
+
+      - name: Run allocations smoke
+        env:
+          FINZ_API_URL: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_API_BASE: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_COGNITO_REGION: us-east-2
+          FINANZAS_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
+          FINANZAS_COGNITO_USERNAME: ${{ secrets.USERNAME }}
+          FINANZAS_COGNITO_PASSWORD: ${{ secrets.PASSWORD }}
+          FINANZAS_PROJECT_ID: ${{ github.event.inputs.projectId }}
+          FINANZAS_BASELINE_ID: ${{ github.event.inputs.baselineId }}
+        run: |
+          set -euo pipefail
+          echo "# Allocations Smoke Test" >> $GITHUB_STEP_SUMMARY
+          echo "**API URL**: ${FINZ_API_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project ID**: ${{ github.event.inputs.projectId }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline ID**: ${{ github.event.inputs.baselineId }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run the smoke test script
+          node scripts/finanzas-api-smoke.mjs 2>&1 | tee smoke-output.log
+          
+          # Check if Allocations GET test passed
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if grep -q "Allocations GET" smoke-output.log && grep -q "✅ Success" smoke-output.log; then
+            echo "## ✅ Test Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Test Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -A 10 "Allocations GET" smoke-output.log >> $GITHUB_STEP_SUMMARY || echo "No allocations test output found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Direct allocation endpoint test
+        if: always()
+        env:
+          FINZ_API_URL: ${{ secrets.FINZ_API_URL }}
+          FINANZAS_COGNITO_REGION: us-east-2
+          FINANZAS_COGNITO_CLIENT_ID: ${{ vars.COGNITO_WEB_CLIENT }}
+          FINANZAS_COGNITO_USERNAME: ${{ secrets.USERNAME }}
+          FINANZAS_COGNITO_PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          set -euo pipefail
+          
+          echo "Testing direct endpoint: GET /allocations?projectId=${{ github.event.inputs.projectId }}&baseline=${{ github.event.inputs.baselineId }}"
+          
+          # Get JWT token
+          AUTH_RESULT=$(aws cognito-idp initiate-auth \
+            --region us-east-2 \
+            --client-id "${FINANZAS_COGNITO_CLIENT_ID}" \
+            --auth-flow USER_PASSWORD_AUTH \
+            --auth-parameters "USERNAME=${FINANZAS_COGNITO_USERNAME},PASSWORD=${FINANZAS_COGNITO_PASSWORD}" \
+            --output json)
+          
+          TOKEN=$(echo "$AUTH_RESULT" | jq -r '.AuthenticationResult.IdToken')
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "❌ Failed to obtain JWT token"
+            exit 1
+          fi
+          
+          # Call allocations endpoint
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "${FINZ_API_URL}/allocations?projectId=${{ github.event.inputs.projectId }}&baseline=${{ github.event.inputs.baselineId }}")
+          
+          STATUS=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Direct Endpoint Test" >> $GITHUB_STEP_SUMMARY
+          echo "**Status Code**: $STATUS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$STATUS" = "200" ]; then
+            echo "**Result**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+            COUNT=$(echo "$BODY" | jq '.data | length // 0')
+            echo "**Items Returned**: $COUNT" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$COUNT" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Sample Item**:" >> $GITHUB_STEP_SUMMARY
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              echo "$BODY" | jq '.data[0]' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "**Result**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Response**:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$BODY" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Upload smoke test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allocations-smoke-logs
+          path: smoke-output.log
+          retention-days: 7

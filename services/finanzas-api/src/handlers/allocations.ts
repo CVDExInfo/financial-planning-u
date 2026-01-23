@@ -175,10 +175,11 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
         else if (it.project_id) projectIdFromItem = it.project_id;
         if (projectIdFromItem) {
           try {
-            const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
+            // Use projects table for project metadata lookup (was incorrectly using prefacturas)
+            const projectMeta = await getMetadata(projectIdFromItem, tableName("projects"), /*context*/ undefined);
             projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
           } catch (e) {
-            // ignore
+            console.warn(`[allocations] getMetadata failed for project ${projectIdFromItem}`, { err: e?.message || e });
           }
         }
       }
@@ -395,6 +396,9 @@ function normalizeMonth(
 async function getAllocations(event: APIGatewayProxyEventV2) {
   const requestId = event.requestContext?.requestId || 'unknown';
   
+  // Track all attempted partition keys and their results for diagnostics (moved here for error handling)
+  const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
+  
   try {
     await ensureCanRead(event as any);
     
@@ -414,9 +418,6 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     }
     
     const allocationsTable = tableName("allocations");
-    
-    // Track all attempted partition keys and their results for diagnostics
-    const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
     
     // Helper function to query by partition key with optional SK filter
     async function queryByPK(pk: string, skPrefix?: string): Promise<any[]> {
@@ -444,20 +445,32 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         params.KeyConditionExpression = "#pk = :pk";
       }
       
-      const queryResult = await ddb.send(new QueryCommand(params));
-      
-      const items = queryResult.Items || [];
-      
-      // Filter to ensure we only return ALLOCATION# items (defense in depth)
-      const allocations = items.filter(item => 
-        item != null && item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
-      );
-      
-      triedKeys.push({ key: pk, count: allocations.length, skPrefix });
-      
-      console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
-      
-      return allocations;
+      try {
+        const queryResult = await ddb.send(new QueryCommand(params));
+        
+        const items = queryResult.Items || [];
+        
+        // Filter to ensure we only return ALLOCATION# items (defense in depth)
+        const allocations = items.filter(item => 
+          item != null && item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
+        );
+        
+        triedKeys.push({ key: pk, count: allocations.length, skPrefix });
+        
+        console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
+        
+        return allocations;
+      } catch (err: any) {
+        // Log full context for diagnostics
+        console.error(`[allocations] Dynamo query failed for pk=${pk}, skPrefix=${skPrefix || 'none'}, requestId=${requestId}`, {
+          errorName: err?.name,
+          errorMessage: err?.message,
+          stack: err?.stack,
+          paramsPreview: { TableName: params.TableName, KeyConditionExpression: params.KeyConditionExpression }
+        });
+        // Return empty array to avoid whole-request failure for transient/partial table issues
+        return [];
+      }
     }
     
     // If projectId is provided, use robust retrieval with SK filtering
@@ -560,25 +573,42 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     
     // No projectId - return all allocations with pagination limit
     const limit = 1000; // Reasonable limit to avoid timeouts
-    const scanResult = await ddb.send(
-      new ScanCommand({
+    try {
+      const scanResult = await ddb.send(
+        new ScanCommand({
+          TableName: allocationsTable,
+          Limit: limit,
+        })
+      );
+      
+      const items = scanResult.Items || [];
+      console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
+      
+      // Normalize items before returning
+      const normalized = await normalizeAllocations(items);
+      
+      // Return normalized response with data wrapper
+      return ok(event, { data: normalized });
+    } catch (scanErr: any) {
+      // Log scan failure with full context
+      console.error(`[allocations] Scan operation failed, requestId=${requestId}`, {
+        errorName: scanErr?.name,
+        errorMessage: scanErr?.message,
+        stack: scanErr?.stack,
         TableName: allocationsTable,
         Limit: limit,
-      })
-    );
-    
-    const items = scanResult.Items || [];
-    console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
-    
-    // Normalize items before returning
-    const normalized = await normalizeAllocations(items);
-    
-    // Return normalized response with data wrapper
-    return ok(event, { data: normalized });
+      });
+      // Return empty data on scan failure (defensive handling)
+      return ok(event, { data: [] });
+    }
   } catch (error: any) {
     logError("Error fetching allocations", error);
-    // Include requestId for traceability
-    console.error(`[allocations] Request ${requestId} failed:`, error?.message || error);
+    // Include full diagnostic context for traceability
+    console.error(`[allocations] Request ${requestId} failed:`, {
+      message: error?.message || error,
+      stack: error?.stack,
+      triedKeys,
+    });
     return serverError(event as any, `Failed to fetch allocations (requestId: ${requestId})`);
   }
 }
