@@ -122,127 +122,145 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
     return baselineCache[bid];
   }
 
-  return Promise.all(items.map(async (it: any) => {
-    // Canonicalize rubro/line item id
-    const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
+  // Filter out null/undefined items before processing
+  const validItems = (items || []).filter(item => item != null);
 
-    // Canonical amount: try multiple fields in priority order
-    let amount = coerceNumber(
-      it.amount ?? 
-      it.planned ?? 
-      it.monto_planeado ?? 
-      it.monto_proyectado ?? 
-      it.monto_real ?? 
-      it.forecast
-    );
+  const results = await Promise.allSettled(validItems.map(async (it: any) => {
+    try {
+      // Canonicalize rubro/line item id
+      const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
 
-    // Month indices / calendar key - now with robust normalization
-    // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
-    let projectStartDate: string | undefined;
+      // Canonical amount: try multiple fields in priority order
+      let amount = coerceNumber(
+        it.amount ?? 
+        it.planned ?? 
+        it.monto_planeado ?? 
+        it.monto_proyectado ?? 
+        it.monto_real ?? 
+        it.forecast
+      );
 
-    // Prefer baseline to obtain start_date (baseline includes project info)
-    const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
-    if (bidForMonth) {
-      try {
-        const baseline = await loadBaseline(bidForMonth);
-        projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
-        // baseline may also have durationMonths; we already use that elsewhere
-      } catch (e) {
-        // ignore; we'll try project metadata next
-      }
-    }
+      // Month indices / calendar key - now with robust normalization
+      // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
+      let projectStartDate: string | undefined;
 
-    // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
-    if (!projectStartDate) {
-      let projectIdFromItem: string | undefined;
-      if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
-      else if (it.projectId) projectIdFromItem = it.projectId;
-      else if (it.project_id) projectIdFromItem = it.project_id;
-      if (projectIdFromItem) {
+      // Prefer baseline to obtain start_date (baseline includes project info)
+      const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
+      if (bidForMonth) {
         try {
-          const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
-          projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
+          const baseline = await loadBaseline(bidForMonth);
+          projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
+          // baseline may also have durationMonths; we already use that elsewhere
         } catch (e) {
-          // ignore
+          // ignore; we'll try project metadata next
         }
       }
-    }
 
-    // Now compute monthIndex/calendarMonthKey robustly
-    let monthIndex = undefined;
-    let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
-    if (calendarMonthKey) {
-      try {
-        const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
-        monthIndex = normalized.monthIndex;
-        calendarMonthKey = normalized.calendarMonthKey;
-      } catch (e) {
-        // fallback to previous parsing logic if normalizeMonth throws
-        monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
+      // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
+      if (!projectStartDate) {
+        let projectIdFromItem: string | undefined;
+        if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
+        else if (it.projectId) projectIdFromItem = it.projectId;
+        else if (it.project_id) projectIdFromItem = it.project_id;
+        if (projectIdFromItem) {
+          try {
+            const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
+            projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
+          } catch (e) {
+            // ignore
+          }
+        }
       }
-    } else {
-      // existing handling for numeric month inputs - unchanged
-      monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
-    }
 
-    // If labour-like rubro and amount==0, try to derive from baseline labour estimates
-    // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
-    // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
-    // Note: If your taxonomy includes labour rubros that don't start with "MOD",
-    // consider enhancing this to check against a canonical labour category list.
-    const isMOD = /^MOD/i.test(String(rubroId));
-    if (isMOD && !amount) {
-      // Prefer explicit baselineId else fallback to provided candidate
-      const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
-      if (bid) {
+      // Now compute monthIndex/calendarMonthKey robustly
+      let monthIndex = undefined;
+      let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+      if (calendarMonthKey) {
         try {
-          const baseline = await loadBaseline(bid);
-          if (baseline) {
-            const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
-            // Attempt match by rubroId or line_item_id
-            const matched = (laborEstimates || []).find((le: any) => {
-              const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
-              return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
-            });
-            if (matched) {
-              // Derivation requires either:
-              // 1) total_cost field (preferred), or
-              // 2) hourly_rate + hours_per_month fields (fallback)
-              // If neither is available, derivation is skipped and amount remains 0
-              if (matched.total_cost || matched.totalCost) {
-                const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
-                const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
-                if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
-              } else if (matched.hourly_rate || matched.hourlyRate) {
-                const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
-                const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
-                const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
-                const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
-                const base = hr * hours * fte;
-                amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
-              }
-              if (amount && amount > 0) {
-                console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
+          const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
+          monthIndex = normalized.monthIndex;
+          calendarMonthKey = normalized.calendarMonthKey;
+        } catch (e) {
+          // fallback to previous parsing logic if normalizeMonth throws
+          monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
+        }
+      } else {
+        // existing handling for numeric month inputs - unchanged
+        monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
+      }
+
+      // If labour-like rubro and amount==0, try to derive from baseline labour estimates
+      // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
+      // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
+      // Note: If your taxonomy includes labour rubros that don't start with "MOD",
+      // consider enhancing this to check against a canonical labour category list.
+      const isMOD = /^MOD/i.test(String(rubroId));
+      if (isMOD && !amount) {
+        // Prefer explicit baselineId else fallback to provided candidate
+        const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
+        if (bid) {
+          try {
+            const baseline = await loadBaseline(bid);
+            if (baseline) {
+              const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
+              // Attempt match by rubroId or line_item_id
+              const matched = (laborEstimates || []).find((le: any) => {
+                const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
+                return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
+              });
+              if (matched) {
+                // Derivation requires either:
+                // 1) total_cost field (preferred), or
+                // 2) hourly_rate + hours_per_month fields (fallback)
+                // If neither is available, derivation is skipped and amount remains 0
+                if (matched.total_cost || matched.totalCost) {
+                  const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
+                  const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
+                  if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
+                } else if (matched.hourly_rate || matched.hourlyRate) {
+                  const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
+                  const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
+                  const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
+                  const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
+                  const base = hr * hours * fte;
+                  amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
+                }
+                if (amount && amount > 0) {
+                  console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
+                }
               }
             }
+          } catch (e: any) {
+            console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
           }
-        } catch (e: any) {
-          console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
         }
       }
-    }
 
-    return {
-      ...it,
-      amount,
-      month_index: monthIndex,
-      monthIndex,
-      calendarMonthKey,
-      rubroId,
-      rubro_id: it.rubro_id ?? rubroId,
-      line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
-    };
+      return {
+        ...it,
+        amount,
+        month_index: monthIndex,
+        monthIndex,
+        calendarMonthKey,
+        rubroId,
+        rubro_id: it.rubro_id ?? rubroId,
+        line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
+      };
+    } catch (err: any) {
+      console.warn(`[allocations] Failed to normalize item:`, err?.message || err, it);
+      // Return the item as-is with minimal normalization on error
+      return {
+        ...it,
+        amount: coerceNumber(it.amount ?? it.planned ?? it.monto_planeado ?? 0),
+        rubroId: it.rubroId || it.rubro_id || null,
+      };
+    }
   }));
+
+  // Extract successful results, filtering out any failures
+  return results
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+    .map(r => r.value);
 }
 
 /**
@@ -425,7 +443,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       
       // Filter to ensure we only return ALLOCATION# items (defense in depth)
       const allocations = items.filter(item => 
-        item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
+        item != null && item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
       );
       
       triedKeys.push({ key: pk, count: allocations.length, skPrefix });
