@@ -1,22 +1,25 @@
 /* src/components/LoginPage.tsx
-   Final (mint/ice light theme):
-   - Light-mode default + optional dark toggle
-   - Single hero ("Acceso operativo")
-   - Row 2: Recursos operativos / Plataformas externas / Módulos internos
-   - 5 internal modules (no restrictions/disable)
-   - External platforms include Planview + ProjectPlace in correct order
-   - Light theme tuned to mint/ice look (less slate, softer grid)
+   Final: Ikusi “Central de Operaciones” layout with:
+   - Light mode default + optional dark toggle (persisted)
+   - Single hero section (no right-side “Acceso por rol” tile)
+   - Row 2: 3 equal columns with balanced spacing + equal-height tiles
+   - 5 “Módulos internos” (no access restrictions / no role gating)
+   - “Plataformas externas” includes Salesforce, Planview, ProjectPlace, then the rest
+   - Centrix URL updated
+   - Improved hover/contrast so ALL tiles feel interactive (not only Finance)
 */
 
-import { useEffect, useMemo, useRef, useState, type ElementType } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   BookOpen,
   Building2,
+  Clock3,
   ExternalLink,
   FileSpreadsheet,
-  LifeBuoy,
+  Headphones,
+  LayoutGrid,
   MoonStar,
   ShieldCheck,
   SunMedium,
@@ -29,232 +32,176 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 type Appearance = "light" | "dark";
+type TileKind = "action" | "external";
 
-type TileLinkProps = {
-  title: string;
-  subtitle: string;
-  icon: ElementType;
-  badge?: string;
-  href?: string;
-  openInNewTab?: boolean;
-  ariaLabel?: string;
-  onMissingHref?: () => void;
-};
-
-function TileLink({
+function Tile({
+  kind,
   title,
   subtitle,
-  icon: Icon,
   badge,
+  icon: Icon,
+  onClick,
   href,
-  openInNewTab = true,
+  targetBlank = false,
+  variant = "neutral",
   ariaLabel,
-  onMissingHref,
-}: TileLinkProps) {
+}: {
+  kind: TileKind;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  icon: React.ElementType;
+  onClick?: () => void;
+  href?: string;
+  targetBlank?: boolean;
+  variant?: "neutral" | "primary";
+  ariaLabel?: string;
+}) {
   const base =
-    "group flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0";
+    "group w-full min-h-[72px] rounded-2xl border px-4 py-3.5 flex items-center justify-between gap-4 " +
+    "transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 " +
+    "hover:-translate-y-[1px] hover:shadow-md";
 
-  // Mint/ice light surface + clear hover (not too green)
-  const surface =
-    "border-slate-200/70 bg-white/80 hover:bg-emerald-50/60 hover:border-emerald-200/70 hover:-translate-y-[1px] hover:shadow-md " +
-    "dark:border-white/10 dark:bg-slate-950/35 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25";
+  const neutral =
+    "bg-white/70 border-slate-200/70 text-slate-900 hover:bg-emerald-50/60 hover:border-emerald-300/60 " +
+    "dark:bg-slate-950/35 dark:border-white/10 dark:text-slate-50 dark:hover:bg-slate-900/60 dark:hover:border-emerald-400/25";
 
-  const Left = (
-    <span className="mt-0.5 grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg border border-slate-200/70 bg-white text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-100">
-      <Icon className="h-4 w-4" aria-hidden="true" />
-    </span>
-  );
+  const primary =
+    "bg-gradient-to-r from-emerald-600 to-emerald-500 border-emerald-500/40 text-white " +
+    "hover:brightness-[1.02] hover:shadow-emerald-500/20 " +
+    "dark:from-emerald-500 dark:to-emerald-400 dark:border-emerald-300/25";
 
-  const Right = href ? (
-    openInNewTab ? (
+  const rightIcon =
+    kind === "external" ? (
       <ExternalLink
-        className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[1px]"
+        className="h-4 w-4 opacity-70 transition-transform group-hover:translate-x-[2px]"
         aria-hidden="true"
       />
     ) : (
       <ArrowRight
-        className="mt-1 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform group-hover:translate-x-[2px]"
+        className="h-4 w-4 opacity-70 transition-transform group-hover:translate-x-[2px]"
         aria-hidden="true"
       />
-    )
-  ) : (
-    <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-slate-300" aria-hidden="true" />
-  );
+    );
 
-  const Content = (
-    <span className="min-w-0 flex-1">
-      <span className="flex items-center gap-2">
-        <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
-          {title}
+  const content = (
+    <>
+      <span className="flex items-center gap-3 min-w-0">
+        <span
+          className={
+            "grid place-items-center h-10 w-10 rounded-xl border " +
+            "bg-white/70 border-slate-200/70 text-slate-700 " +
+            "dark:bg-white/5 dark:border-white/10 dark:text-slate-200 " +
+            (variant === "primary" ? " !bg-black/10 !border-white/15 !text-white" : "")
+          }
+          aria-hidden="true"
+        >
+          <Icon className="h-4 w-4" />
         </span>
-        {badge ? (
-          <span className="flex-shrink-0 rounded-full border border-emerald-200/70 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-200">
-            {badge}
+
+        <span className="min-w-0 text-left">
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold truncate">{title}</span>
+            {badge ? (
+              <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset">
+                <span
+                  className={
+                    "rounded-full px-2 py-0.5 " +
+                    "bg-emerald-50 text-emerald-800 ring-emerald-200/70 " +
+                    "dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-400/20"
+                  }
+                >
+                  {badge}
+                </span>
+              </span>
+            ) : null}
           </span>
-        ) : null}
+
+          <span className="mt-1 block text-xs leading-snug text-slate-600 dark:text-slate-200/80 truncate">
+            {subtitle}
+          </span>
+        </span>
       </span>
-      <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-200/80">
-        {subtitle}
-      </span>
-    </span>
+
+      {rightIcon}
+    </>
   );
 
-  if (!href) {
+  const computedAria =
+    ariaLabel ??
+    `${title} — ${subtitle}${kind === "external" && targetBlank ? " (se abre en nueva pestaña)" : ""}`;
+
+  if (href) {
     return (
-      <button
-        type="button"
-        className={`${base} ${surface}`}
-        onClick={onMissingHref}
-        aria-label={ariaLabel ?? `${title} - ${subtitle}`}
+      <a
+        href={href}
+        target={targetBlank ? "_blank" : undefined}
+        rel={targetBlank ? "noopener noreferrer" : undefined}
+        aria-label={computedAria}
+        className={`${base} ${variant === "primary" ? primary : neutral}`}
       >
-        {Left}
-        {Content}
-        {Right}
-      </button>
+        {content}
+      </a>
     );
   }
 
   return (
-    <a
-      href={href}
-      target={openInNewTab ? "_blank" : undefined}
-      rel={openInNewTab ? "noopener noreferrer" : undefined}
-      className={`${base} ${surface}`}
-      aria-label={
-        ariaLabel ?? `${title} - ${subtitle}${openInNewTab ? " (se abre en nueva pestaña)" : ""}`
-      }
-    >
-      {Left}
-      {Content}
-      {Right}
-    </a>
-  );
-}
-
-type QuickVariant = "primary" | "surface";
-
-function QuickAccessButton({
-  label,
-  subLabel,
-  icon: Icon,
-  onClick,
-  disabled,
-  variant = "surface",
-}: {
-  label: string;
-  subLabel: string;
-  icon: ElementType;
-  onClick: () => void;
-  disabled?: boolean;
-  variant?: QuickVariant;
-}) {
-  const base =
-    "group w-full rounded-xl px-4 py-3 flex items-center justify-between gap-3 border shadow-sm transition-all " +
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0 " +
-    "disabled:opacity-60 disabled:cursor-not-allowed";
-
-  const variants: Record<QuickVariant, string> = {
-    primary:
-      "bg-emerald-500 text-emerald-950 border-emerald-400/30 hover:bg-emerald-400 hover:-translate-y-[1px] " +
-      "hover:shadow-md hover:shadow-emerald-300/30 dark:text-emerald-950",
-    surface:
-      // Make non-primary buttons readable in LIGHT mode (no black slabs)
-      "bg-white/90 text-slate-900 border-slate-200/80 hover:bg-emerald-50/70 hover:border-emerald-200/80 hover:-translate-y-[1px] hover:shadow-md " +
-      "dark:bg-slate-950/35 dark:text-slate-50 dark:border-white/10 dark:hover:bg-slate-900/45 dark:hover:border-emerald-400/25",
-  };
-
-  const iconBox =
-    variant === "primary"
-      ? "bg-black/10 border-black/10"
-      : "bg-emerald-50/40 border-slate-200/70 dark:bg-slate-900/50 dark:border-white/10";
-
-  const subText =
-    variant === "primary"
-      ? "text-emerald-950/80"
-      : "text-slate-600 dark:text-slate-200/75";
-
-  return (
     <button
       type="button"
-      className={`${base} ${variants[variant]}`}
+      aria-label={computedAria}
       onClick={onClick}
-      disabled={disabled}
+      className={`${base} ${variant === "primary" ? primary : neutral}`}
     >
-      <span className="flex items-center gap-3 min-w-0">
-        <span className={`grid place-items-center h-9 w-9 rounded-lg border ${iconBox}`}>
-          <Icon className="h-4 w-4" aria-hidden="true" />
-        </span>
-
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{label}</span>
-          <span className={`block truncate text-xs ${subText}`}>{subLabel}</span>
-        </span>
-      </span>
-
-      <ArrowRight
-        className="h-4 w-4 opacity-75 transition-transform group-hover:translate-x-[2px]"
-        aria-hidden="true"
-      />
+      {content}
     </button>
   );
 }
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading, isAuthenticated, session } = useAuth();
-  const [accessMessage, setAccessMessage] = useState<string | null>(null);
+  const { login, isAuthenticated } = useAuth();
 
-  // Default is LIGHT
+  // Default = LIGHT (persist user choice)
   const initialAppearance = useMemo<Appearance>(() => {
-    if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      if (root.dataset.appearance === "dark" || root.classList.contains("dark")) return "dark";
-      if (root.dataset.appearance === "light") return "light";
-    }
+    if (typeof window === "undefined") return "light";
+    const stored = window.localStorage.getItem("ikusi.appearance");
+    if (stored === "dark" || stored === "light") return stored;
+    // explicit default requested: light (ignore system unless already set elsewhere)
     return "light";
   }, []);
 
   const [appearance, setAppearance] = useState<Appearance>(initialAppearance);
   const previousAppearance = useRef<string | undefined>(undefined);
 
-  // External portals (fallbacks preserved)
+  // Portals (environment overrides preserved)
   const rawActaUrl = import.meta.env.VITE_ACTA_BASE_URL?.trim();
-  const ACTAS_PORTAL_URL =
+  const PMO_PORTAL_LOGIN =
     rawActaUrl && rawActaUrl.length > 0 ? rawActaUrl : "https://d7t9x3j66yd8k.cloudfront.net/login";
 
   const rawPrefacturasUrl = import.meta.env.VITE_PREFACTURAS_URL?.trim();
-  const PREFACTURAS_PORTAL_URL =
+  const PREFACTURAS_PORTAL_LOGIN =
     rawPrefacturasUrl && rawPrefacturasUrl.length > 0
       ? rawPrefacturasUrl
       : "https://df7rl707jhpas.cloudfront.net/prefacturas/facturas";
 
-  // Internal / resource URLs (env-driven; no placeholders)
-  const SECURITY_GUIDE_URL = import.meta.env.VITE_SECURITY_GUIDE_URL?.trim() ?? "";
-  const ROLE_GUIDE_URL = import.meta.env.VITE_ROLE_GUIDE_URL?.trim() ?? "";
-  const POLICIES_GUIDE_URL = import.meta.env.VITE_POLICIES_GUIDE_URL?.trim() ?? "";
-  const SUPPORT_URL =
-    (import.meta.env.VITE_SUPPORT_URL?.trim() ?? "") || "https://ikusi.service-now.com/colombia";
-  const HOURS_EXTRA_URL = import.meta.env.VITE_HOURS_EXTRA_URL?.trim() ?? "https://extra-hours-ikusi-ui--valencia94.github.app";
-  const CENTRIX_URL = import.meta.env.VITE_CENTRIX_URL?.trim() ?? "";
+  const CENTRIX_URL = "https://newcentrix.labikusi.com/";
 
-  const handleAccess = (path: string) => {
-    setAccessMessage(null);
+  const openInternalRoute = (path: string) => {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
+    // Keep your auth behavior for internal navigation
     if (!isAuthenticated) {
       login();
       return;
     }
-
     navigate(normalizedPath);
   };
 
-  const handlePortalAccess = (url: string) => {
-    setAccessMessage(null);
+  const openPortalSameTab = (url: string) => {
     try {
       window.location.assign(url);
     } catch {
-      setAccessMessage("No pudimos abrir el portal solicitado. Intenta nuevamente o contacta soporte.");
+      // no-op: browser blocked or navigation error
     }
   };
 
@@ -270,12 +217,19 @@ export function LoginPage() {
     root.dataset.appearance = appearance;
     if (appearance === "dark") root.classList.add("dark");
     else root.classList.remove("dark");
+
+    try {
+      window.localStorage.setItem("ikusi.appearance", appearance);
+    } catch {
+      // ignore
+    }
   }, [appearance]);
 
   useEffect(
     () => () => {
       if (typeof document === "undefined") return;
       const root = document.documentElement;
+
       if (previousAppearance.current === "dark") {
         root.dataset.appearance = "dark";
         root.classList.add("dark");
@@ -290,43 +244,140 @@ export function LoginPage() {
     [],
   );
 
-  const sessionEmail =
-    isAuthenticated && session?.user ? (session.user.email ?? session.user.login ?? null) : null;
+  const recursos = [
+    {
+      title: "Sesión y seguridad",
+      subtitle: "El acceso se autentica mediante AWS Cognito (Hosted UI).",
+      badge: "Seguridad",
+      icon: ShieldCheck,
+      href: "https://ikusi.service-now.com/colombia",
+      targetBlank: true,
+    },
+    {
+      title: "Acceso por rol",
+      subtitle: "Los módulos visibles se ajustan según tu rol corporativo.",
+      icon: Users,
+      href: "https://ikusi.service-now.com/colombia",
+      targetBlank: true,
+    },
+    {
+      title: "Políticas y guías",
+      subtitle: "Consulta lineamientos, procedimientos y guías vigentes de operación.",
+      icon: BookOpen,
+      href: "https://ikusi.service-now.com/colombia",
+      targetBlank: true,
+    },
+    {
+      title: "Soporte y contacto",
+      subtitle: "Canal oficial para incidencias, solicitudes y soporte local.",
+      icon: Headphones,
+      href: "https://ikusi.service-now.com/colombia",
+      targetBlank: true,
+    },
+  ] as const;
+
+  const plataformas = [
+    {
+      title: "Salesforce",
+      subtitle: "Acceso al CRM corporativo",
+      href: "https://ikusi.my.salesforce.com/",
+    },
+    {
+      title: "Planview",
+      subtitle: "Gestión de portafolio y demanda",
+      href: "https://ikusi.id.planview.com/",
+    },
+    {
+      title: "ProjectPlace",
+      subtitle: "Seguimiento de proyectos y tableros",
+      href: "https://service.projectplace.com/login",
+    },
+    {
+      title: "ServiceNow",
+      subtitle: "Incidencias y solicitudes (Colombia)",
+      href: "https://ikusi.service-now.com/colombia",
+    },
+    {
+      title: "Cisco CCW",
+      subtitle: "Pedidos y licencias",
+      href: "https://id.cisco.com/oauth2/default/v1/authorize?response_type=code&scope=openid%20profile%20address%20offline_access%20cci_coimemberOf%20email&client_id=cae-okta-web-gslb-01&state=e73wpl5CQD4G50dLMpSuqGjcpLc&redirect_uri=https%3A%2F%2Fccrc.cisco.com%2Fcb%2Fsso&nonce=pfDuXeO_o1BnKoOUdbwlNkx94k0P2BHYr5_zvC75EXw",
+    },
+  ] as const;
+
+  const modulos = [
+    {
+      title: "Finanzas · SMO",
+      subtitle: "Gestión y operación financiera",
+      icon: Building2,
+      variant: "primary" as const,
+      onClick: () => openInternalRoute("/"),
+    },
+    {
+      title: "Gestión de Actas",
+      subtitle: "Seguimiento y actas operativas",
+      icon: LayoutGrid,
+      variant: "neutral" as const,
+      onClick: () => openPortalSameTab(PMO_PORTAL_LOGIN),
+    },
+    {
+      title: "Prefacturas a Proveedores",
+      subtitle: "Registro y consulta de prefacturación",
+      icon: FileSpreadsheet,
+      variant: "neutral" as const,
+      onClick: () => openPortalSameTab(PREFACTURAS_PORTAL_LOGIN),
+    },
+    {
+      title: "Horas extra",
+      subtitle: "Autorizaciones y control",
+      icon: Clock3,
+      variant: "neutral" as const,
+      onClick: () => openPortalSameTab("https://extra-hours-ikusi-ui--valencia94.github.app"),
+    },
+    {
+      title: "Centrix",
+      subtitle: "Acceso al portal corporativo",
+      icon: ExternalLink,
+      variant: "neutral" as const,
+      onClick: () => openPortalSameTab(CENTRIX_URL),
+    },
+  ] as const;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-emerald-50 via-white to-sky-50 text-slate-900 transition-colors dark:from-slate-950 dark:via-slate-950/95 dark:to-slate-900 dark:text-slate-50">
-      {/* Mint/ice background (light) + existing dark gradients */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(16,185,129,0.12),transparent_40%),radial-gradient(circle_at_82%_10%,rgba(56,189,248,0.12),transparent_42%),radial-gradient(circle_at_60%_86%,rgba(14,116,144,0.10),transparent_40%)] dark:bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.20),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.16),transparent_30%)]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-emerald-50/40 to-sky-50/55 dark:from-slate-950 dark:via-slate-950/92 dark:to-slate-900/85" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.045)_1px,transparent_1px)] bg-[size:140px_140px] opacity-15 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-30" />
+    <main className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-50">
+      {/* Background (light + dark variants) */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(16,185,129,0.16),transparent_45%),radial-gradient(circle_at_82%_0%,rgba(56,189,248,0.12),transparent_48%),radial-gradient(circle_at_60%_88%,rgba(14,116,144,0.12),transparent_45%)] dark:bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.18),transparent_42%),radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.14),transparent_45%),radial-gradient(circle_at_60%_85%,rgba(14,116,144,0.18),transparent_40%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(2,6,23,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(2,6,23,0.05)_1px,transparent_1px)] bg-[size:160px_160px] opacity-35 dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] dark:opacity-25" />
 
       {/* Header */}
-      <header className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <header className="relative mx-auto w-full max-w-6xl px-6 pt-8 pb-6 sm:px-8">
         <div className="grid grid-cols-12 items-center gap-4">
-          <div className="col-span-12 sm:col-span-3 flex items-center justify-center sm:justify-start">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/80 ring-2 ring-emerald-200/80 shadow-inner dark:bg-emerald-500/10 dark:ring-emerald-400/30">
-              <Logo className="h-12" />
+          {/* Logo */}
+          <div className="col-span-12 sm:col-span-2 flex justify-center sm:justify-start">
+            <div className="rounded-2xl border border-emerald-200/70 bg-white/75 px-5 py-4 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-slate-950/35">
+              <Logo className="h-12 sm:h-14" />
             </div>
           </div>
 
-          <div className="col-span-12 sm:col-span-6 text-center">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+          {/* Titles */}
+          <div className="col-span-12 sm:col-span-8 text-center">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">
               Central de Operaciones
             </h1>
-            <p className="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-200/90">
+            <div className="mt-2 text-sm sm:text-base font-semibold text-emerald-700 dark:text-emerald-300">
               Dirección de Operaciones · Ikusi Colombia
-            </p>
-            <p className="mt-3 text-base text-slate-600 dark:text-slate-200/85">
-              Acceso centralizado, seguro y alineado a tu rol.
+            </div>
+            <p className="mt-3 text-base text-slate-600 dark:text-slate-200">
+              Existimos para entregar excelencia con empatía y actitud que inspiran confianza.
             </p>
           </div>
 
-          <div className="col-span-12 sm:col-span-3 flex justify-center sm:justify-end">
+          {/* Appearance toggle */}
+          <div className="col-span-12 sm:col-span-2 flex justify-center sm:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="gap-2 border-slate-200/80 bg-white/75 text-slate-700 shadow-sm hover:bg-white hover:text-slate-900 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-900/70"
+              className="gap-2 border-slate-200/70 bg-white/70 text-slate-900 shadow-sm hover:bg-white/90 dark:border-white/15 dark:bg-slate-950/35 dark:text-slate-100 dark:hover:bg-slate-900/50"
               onClick={() => setAppearance(appearance === "dark" ? "light" : "dark")}
             >
               {appearance === "dark" ? (
@@ -345,224 +396,126 @@ export function LoginPage() {
         </div>
       </header>
 
-      {/* Main card */}
-      <section className="relative mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8 lg:pb-16">
-        <Card className="relative overflow-hidden border border-slate-200/70 bg-white/75 shadow-xl shadow-emerald-200/25 backdrop-blur dark:border-white/10 dark:bg-slate-950/65 dark:shadow-2xl dark:shadow-emerald-900/25">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 opacity-90 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
+      {/* Main container */}
+      <section className="relative mx-auto w-full max-w-6xl px-6 pb-14 sm:px-8">
+        <Card className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white/55 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-950/35">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-sky-500/5 to-indigo-500/10 dark:from-emerald-500/10 dark:via-sky-500/5 dark:to-indigo-500/10" />
 
-          <div className="relative grid gap-6 p-6 lg:p-8">
-            {/* Hero */}
-            <div className="rounded-2xl border border-emerald-200/70 bg-white/75 p-6 shadow-sm dark:border-emerald-400/25 dark:bg-slate-950/30">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-white/15">
+          <div className="relative p-6 sm:p-8 lg:p-10">
+            {/* Hero (single section) */}
+            <div className="rounded-3xl border border-emerald-200/70 bg-white/55 p-7 shadow-sm dark:border-emerald-400/20 dark:bg-slate-950/25">
+              <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-900 ring-emerald-200/70 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-400/20">
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                 Portal corporativo seguro
               </div>
 
-              <div className="mt-5 space-y-2">
-                <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight">
+              <div className="mt-6">
+                <h2 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-950 dark:text-white">
                   Acceso operativo
                 </h2>
-                <p className="text-sm sm:text-base font-semibold text-emerald-700 dark:text-emerald-200/90">
+                <div className="mt-2 text-base font-semibold text-emerald-700 dark:text-emerald-300">
                   Ikusi · Operaciones
-                </p>
-                <p className="mt-3 max-w-4xl text-base text-slate-700 dark:text-slate-200/90">
-                  Plataforma operativa para SDM, PMO, ingenieros y proveedores. Centraliza recursos,
-                  flujos de trabajo y aprobaciones para facilitar la operación diaria.
+                </div>
+
+                <p className="mt-5 max-w-4xl text-lg leading-relaxed text-slate-700 dark:text-slate-200">
+                  Plataforma operativa para SDM, PMO, ingenieros y proveedores. Centraliza recursos, flujos de
+                  trabajo y aprobaciones para facilitar la operación diaria.
                 </p>
 
-                <p className="mt-4 text-sm text-slate-500 dark:text-slate-300/70">
+                <p className="mt-6 text-sm text-slate-500 dark:text-slate-300/80">
                   Acceso centralizado · Seguridad corporativa · Trazabilidad operativa
                 </p>
-
-                {isAuthenticated ? (
-                  <p className="mt-4 inline-flex items-center rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-400/30">
-                    Sesión activa{sessionEmail ? `: ${sessionEmail}` : ""}. Puedes continuar sin volver a iniciar sesión.
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            {/* Access message */}
-            {accessMessage ? (
-              <div
-                role="status"
-                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-inner shadow-amber-100 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
-              >
-                {accessMessage}
-              </div>
-            ) : null}
-
             {/* Row 2 */}
-            <div className="mt-2 grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
+            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
               {/* Recursos operativos */}
-              <div className="flex flex-col h-full">
-                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
+              <div className="flex flex-col">
+                <h3 className="text-lg font-bold text-center text-slate-900 dark:text-slate-100">
                   Recursos operativos
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
+                <div className="mt-4 flex-1 rounded-3xl border border-slate-200/70 bg-white/55 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
                   <div className="space-y-3">
-                    <TileLink
-                      icon={ShieldCheck}
-                      title="Sesión y seguridad"
-                      badge="Seguridad"
-                      subtitle="El acceso se autentica mediante AWS Cognito."
-                      href={SECURITY_GUIDE_URL || undefined}
-                      onMissingHref={() =>
-                        setAccessMessage("Enlace de 'Sesión y seguridad' no configurado (VITE_SECURITY_GUIDE_URL).")
-                      }
-                    />
-
-                    <TileLink
-                      icon={Users}
-                      title="Acceso por rol"
-                      subtitle="Los módulos se ajustan según tu rol corporativo."
-                      href={ROLE_GUIDE_URL || undefined}
-                      onMissingHref={() =>
-                        setAccessMessage("Enlace de 'Acceso por rol' no configurado (VITE_ROLE_GUIDE_URL).")
-                      }
-                    />
-
-                    <TileLink
-                      icon={BookOpen}
-                      title="Políticas y guías"
-                      subtitle="Lineamientos, procedimientos y guías vigentes de operación."
-                      href={POLICIES_GUIDE_URL || undefined}
-                      onMissingHref={() =>
-                        setAccessMessage("Enlace de 'Políticas y guías' no configurado (VITE_POLICIES_GUIDE_URL).")
-                      }
-                    />
-
-                    <TileLink
-                      icon={LifeBuoy}
-                      title="Soporte y contacto"
-                      subtitle="Canal oficial para incidencias, solicitudes y soporte local."
-                      href={SUPPORT_URL}
-                      ariaLabel="Soporte y contacto - se abre en nueva pestaña"
-                    />
+                    {recursos.map((r) => (
+                      <Tile
+                        key={r.title}
+                        kind="external"
+                        title={r.title}
+                        subtitle={r.subtitle}
+                        badge={"badge" in r ? (r as any).badge : undefined}
+                        icon={r.icon}
+                        href={r.href}
+                        targetBlank={r.targetBlank}
+                      />
+                    ))}
                   </div>
 
-                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300/70">
+                  <p className="mt-5 text-xs text-slate-500 dark:text-slate-300/70">
                     Nota: algunos recursos pueden requerir autenticación adicional.
                   </p>
                 </div>
               </div>
 
               {/* Plataformas externas */}
-              <div className="flex flex-col h-full">
-                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
+              <div className="flex flex-col">
+                <h3 className="text-lg font-bold text-center text-slate-900 dark:text-slate-100">
                   Plataformas externas
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30 flex flex-col">
+                <div className="mt-4 flex-1 rounded-3xl border border-slate-200/70 bg-white/55 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
                   <div className="space-y-3">
-                    <TileLink
-                      icon={ExternalLink}
-                      title="Salesforce"
-                      subtitle="Acceso al CRM corporativo"
-                      href="https://ikusi.my.salesforce.com/"
-                    />
-                    <TileLink
-                      icon={ExternalLink}
-                      title="Planview"
-                      subtitle="Gestión de portafolio y demanda"
-                      href="https://ikusi.id.planview.com/"
-                    />
-                    <TileLink
-                      icon={ExternalLink}
-                      title="ProjectPlace"
-                      subtitle="Seguimiento de proyectos y tableros"
-                      href="https://service.projectplace.com/login"
-                    />
-                    <TileLink
-                      icon={ExternalLink}
-                      title="ServiceNow"
-                      subtitle="Incidencias y solicitudes (Colombia)"
-                      href="https://ikusi.service-now.com/colombia"
-                    />
-                    <TileLink
-                      icon={ExternalLink}
-                      title="Cisco CCW"
-                      subtitle="Pedidos y licencias"
-                      href="https://id.cisco.com/oauth2/default/v1/authorize?response_type=code&scope=openid%20profile%20address%20offline_access%20cci_coimemberOf%20email&client_id=cae-okta-web-gslb-01&state=e73wpl5CQD4G50dLMpSuqGjcpLc&redirect_uri=https%3A%2F%2Fccrc.cisco.com%2Fcb%2Fsso&nonce=pfDuXeO_o1BnKoOUdbwlNkx94k0P2BHYr5_zvC75EXw"
-                    />
+                    {plataformas.map((p) => (
+                      <Tile
+                        key={p.title}
+                        kind="external"
+                        title={p.title}
+                        subtitle={p.subtitle}
+                        icon={ExternalLink}
+                        href={p.href}
+                        targetBlank
+                      />
+                    ))}
                   </div>
 
-                  <p className="mt-4 text-xs text-slate-500 dark:text-slate-300/70 italic">
+                  <p className="mt-5 text-xs italic text-slate-500 dark:text-slate-300/70">
                     ¿Necesitas acceso? Solicítalo a tu administrador.
                   </p>
                 </div>
               </div>
 
               {/* Módulos internos */}
-              <div className="flex flex-col h-full">
-                <h3 className="text-lg md:text-xl font-semibold text-center text-slate-900 dark:text-slate-50 mb-3">
+              <div className="flex flex-col">
+                <h3 className="text-lg font-bold text-center text-slate-900 dark:text-slate-100">
                   Módulos internos
                 </h3>
 
-                <div className="flex-1 rounded-2xl border border-slate-200/70 bg-white/75 p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/30">
+                <div className="mt-4 flex-1 rounded-3xl border border-slate-200/70 bg-white/55 p-6 shadow-sm dark:border-white/10 dark:bg-slate-950/25">
                   <div className="space-y-3">
-                    <QuickAccessButton
-                      label="Finanzas · SMO"
-                      subLabel="Gestión y operación financiera"
-                      icon={Building2}
-                      variant="primary"
-                      onClick={() => handleAccess("/")}
-                      disabled={isLoading}
-                    />
-
-                    <QuickAccessButton
-                      label="Gestión de Actas"
-                      subLabel="Seguimiento y actas operativas"
-                      icon={ShieldCheck}
-                      variant="surface"
-                      onClick={() => handlePortalAccess(ACTAS_PORTAL_URL)}
-                      disabled={isLoading}
-                    />
-
-                    <QuickAccessButton
-                      label="Prefacturas a Proveedores"
-                      subLabel="Registro y consulta de prefacturas"
-                      icon={FileSpreadsheet}
-                      variant="surface"
-                      onClick={() => handlePortalAccess(PREFACTURAS_PORTAL_URL)}
-                      disabled={isLoading}
-                    />
-
-                    <QuickAccessButton
-                      label="Horas extra"
-                      subLabel="Autorizaciones y control"
-                      icon={ExternalLink}
-                      variant="surface"
-                      onClick={() => handlePortalAccess(HOURS_EXTRA_URL)}
-                      disabled={isLoading}
-                    />
-
-                    <QuickAccessButton
-                      label="Centrix"
-                      subLabel="Acceso al portal corporativo"
-                      icon={ExternalLink}
-                      variant="surface"
-                      onClick={() => {
-                        if (!CENTRIX_URL) {
-                          setAccessMessage("Enlace de Centrix no configurado (VITE_CENTRIX_URL).");
-                          return;
-                        }
-                        handlePortalAccess(CENTRIX_URL);
-                      }}
-                      disabled={isLoading}
-                    />
+                    {modulos.map((m) => (
+                      <Tile
+                        key={m.title}
+                        kind="action"
+                        title={m.title}
+                        subtitle={m.subtitle}
+                        icon={m.icon}
+                        onClick={m.onClick}
+                        variant={m.variant}
+                      />
+                    ))}
                   </div>
 
-                  <p className="mt-4 text-sm text-slate-600 dark:text-slate-200/75">
+                  <p className="mt-5 text-sm text-slate-600 dark:text-slate-200/80">
                     La disponibilidad de módulos depende de tu rol y permisos asignados.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6">
-              <p className="text-xs text-slate-500 dark:text-slate-300/70 italic text-center">
+            {/* Footer microcopy */}
+            <div className="mt-10">
+              <p className="text-center text-xs italic text-slate-500 dark:text-slate-300/70">
                 Optimizado para laptop y tablet. El contenido se ajusta para mantener legibilidad y jerarquía visual.
               </p>
             </div>
