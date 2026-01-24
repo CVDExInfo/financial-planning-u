@@ -26,14 +26,35 @@ jest.mock("../../src/lib/canonical-taxonomy", () => ({
       "mod-pm": "MOD-LEAD",
       "MOD-PM": "MOD-LEAD",
     };
-    return map[id] || (id.startsWith("MOD-") ? id : null);
+    const mapped = map[id];
+    if (mapped) return mapped;
+    
+    // If it starts with MOD- and is uppercase, treat as canonical
+    if (id.match(/^[A-Z]{3}-[A-Z0-9-]+$/)) return id;
+    
+    return null;
   }),
-  normalizeRubroId: jest.fn((s: string) => ({
-    canonicalId: s,
-    isLegacy: false,
-    isValid: true,
-    warning: undefined,
-  })),
+  normalizeRubroId: jest.fn((s: string) => {
+    // Legacy mappings for testing
+    const legacyMap: Record<string, string> = {
+      "MOD-PM": "MOD-LEAD",
+      "mod-pm": "MOD-LEAD",
+      "RB0002": "MOD-LEAD",
+      "RB0003": "MOD-SDM",
+      "mod-lead-ingeniero-delivery": "MOD-LEAD",
+      "mod-sdm-service-delivery-manager": "MOD-SDM",
+    };
+    
+    const canonical = legacyMap[s] || s;
+    const isLegacy = !!legacyMap[s];
+    
+    return {
+      canonicalId: canonical,
+      isLegacy,
+      isValid: true,
+      warning: isLegacy ? `Legacy rubro_id '${s}' mapped to canonical '${canonical}'` : undefined,
+    };
+  }),
   getAllCanonicalIds: jest.fn(() => ["MOD-LEAD", "MOD-SDM", "MOD-ING"]),
 }));
 
