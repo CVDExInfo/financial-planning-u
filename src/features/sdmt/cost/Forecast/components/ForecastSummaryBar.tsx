@@ -177,7 +177,7 @@ export function ForecastSummaryBar({
   const budgetHealth = getBudgetHealthStatus();
 
   return (
-    <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
+    <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 to-background">
       <CardContent className="p-4">
         <div className="flex flex-col gap-3">
           {/* Title and Budget Health Pill Row */}
