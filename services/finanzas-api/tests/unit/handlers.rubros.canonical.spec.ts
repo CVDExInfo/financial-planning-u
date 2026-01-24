@@ -56,6 +56,7 @@ jest.mock("../../src/lib/canonical-taxonomy", () => ({
     };
   }),
   getAllCanonicalIds: jest.fn(() => ["MOD-LEAD", "MOD-SDM", "MOD-ING"]),
+  ensureTaxonomyLoaded: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Mock DynamoDB
