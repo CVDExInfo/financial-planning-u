@@ -198,6 +198,19 @@ jobs:
             echo "Pre-merge checks script not found, skipping..."
           fi
 
+      - name: Check for forbidden legacy rubro tokens
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running forbidden rubro tokens check..."
+          if [ -f ./ci/check-forbidden-rubros.sh ]; then
+            chmod +x ./ci/check-forbidden-rubros.sh
+            ./ci/check-forbidden-rubros.sh
+          else
+            echo "::error::Forbidden rubros check script not found at ci/check-forbidden-rubros.sh"
+            exit 1
+          fi
+
       - name: Verify allocations retrieval (preflight check)
         shell: bash
         env:

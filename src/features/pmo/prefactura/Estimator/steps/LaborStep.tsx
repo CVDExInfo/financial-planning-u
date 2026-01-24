@@ -19,10 +19,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Calculator } from "lucide-react";
+import { Plus, Trash2, Calculator, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -92,6 +94,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   const [laborEstimates, setLaborEstimates] = useState<LaborEstimate[]>(
     data.length > 0 ? data : []
   );
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const addLaborItem = () => {
     const newItem: LaborEstimate = {
@@ -180,19 +183,50 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   };
 
   const handleNext = () => {
+    // Clear previous validation errors
+    setValidationError(null);
+    
+    // Validate that all labor estimates have valid canonical rubro IDs
+    const invalidEstimates = laborEstimates.filter((estimate) => {
+      const canonical = getCanonicalRubroId(estimate.rubroId || "");
+      return !canonical || !estimate.rubroId;
+    });
+    
+    if (invalidEstimates.length > 0) {
+      setValidationError(
+        `Please select a valid role for all labor items. ${invalidEstimates.length} item(s) have invalid or missing roles.`
+      );
+      console.error("❌ Validation failed: Invalid or missing rubro IDs", {
+        invalidCount: invalidEstimates.length,
+        invalidItems: invalidEstimates.map((item, idx) => ({
+          index: laborEstimates.indexOf(item),
+          rubroId: item.rubroId,
+          role: item.role,
+        })),
+      });
+      return;
+    }
+    
+    // Normalize all rubroIds to canonical form before submitting
+    const canonicalizedEstimates = laborEstimates.map((estimate) => ({
+      ...estimate,
+      rubroId: getCanonicalRubroId(estimate.rubroId || "") || estimate.rubroId,
+    }));
+    
     const totalCost = getTotalCost();
-    console.log("💼 Labor estimates submitted:", {
-      itemCount: laborEstimates.length,
+    console.log("💼 Labor estimates submitted (canonical IDs enforced):", {
+      itemCount: canonicalizedEstimates.length,
       totalCost,
-      averageCostPerRole: totalCost / (laborEstimates.length || 1),
-      roles: laborEstimates.map((l) => ({
+      averageCostPerRole: totalCost / (canonicalizedEstimates.length || 1),
+      roles: canonicalizedEstimates.map((l) => ({
         role: l.role,
+        rubroId: l.rubroId, // Now canonical
         fteCount: l.fte_count,
         monthlyRate: l.hourly_rate * l.hours_per_month,
       })),
       timestamp: new Date().toISOString(),
     });
-    setData(laborEstimates);
+    setData(canonicalizedEstimates);
     onNext();
   };
 
@@ -204,6 +238,14 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
           Define la composición de tu equipo, tarifas y duración para proyecciones precisas de costos laborales
         </p>
       </div>
+
+      {/* Validation Error Alert */}
+      {validationError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{validationError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Add Labor Item */}
       <div className="flex justify-between items-center">
