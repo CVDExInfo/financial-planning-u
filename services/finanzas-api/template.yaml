@@ -49,8 +49,8 @@ Parameters:
     Description: Optional S3 bucket for taxonomy fallback (if local file missing in Lambda)
   TaxonomyS3Key:
     Type: String
-    Default: 'rubros.taxonomy.json'
-    Description: S3 object key for taxonomy file (default is rubros.taxonomy.json)
+    Default: 'taxonomy/rubros.taxonomy.json'
+    Description: S3 object key for taxonomy file (default is taxonomy/rubros.taxonomy.json)
 
 Conditions:
   HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]

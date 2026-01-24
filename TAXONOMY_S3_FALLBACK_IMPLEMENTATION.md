@@ -193,23 +193,39 @@ GET /projects//rubros
 ### 1. Set GitHub Secrets/Variables
 
 ```bash
-# Required
-TAXONOMY_S3_BUCKET=<your-taxonomy-bucket-name>
+# Required - use existing bucket
+TAXONOMY_S3_BUCKET=ukusi-ui-finanzas-prod
 
-# Optional (defaults to rubros.taxonomy.json)
-TAXONOMY_S3_KEY=rubros.taxonomy.json
+# Optional (defaults to taxonomy/rubros.taxonomy.json)
+TAXONOMY_S3_KEY=taxonomy/rubros.taxonomy.json
 ```
 
-### 2. Deploy Sequence
+### 2. Upload Taxonomy to S3 (one-time setup)
+
+```bash
+# Upload to the recommended location
+aws s3 cp data/rubros.taxonomy.json \
+  s3://ukusi-ui-finanzas-prod/taxonomy/rubros.taxonomy.json \
+  --acl bucket-owner-full-control \
+  --sse AES256
+  
+# Verify upload
+aws s3api head-object \
+  --bucket ukusi-ui-finanzas-prod \
+  --key taxonomy/rubros.taxonomy.json
+```
+
+### 3. Deploy Sequence
 
 ```bash
 # 1. Ensure taxonomy is in S3
-# (taxonomy-sync.yml workflow should have run)
+# (taxonomy-sync.yml workflow uploads automatically on each change)
 
 # 2. Deploy API with bucket parameter
 sam deploy \
   --parameter-overrides \
-    TaxonomyS3Bucket=<your-taxonomy-bucket-name> \
+    TaxonomyS3Bucket=ukusi-ui-finanzas-prod \
+    TaxonomyS3Key=taxonomy/rubros.taxonomy.json \
   ...other params...
 
 # 3. Verify
@@ -217,7 +233,19 @@ curl https://api.../projects/P-TEST/rubros
 # Should return 200, not 500
 ```
 
-### 3. Rollback Procedure
+### 4. IAM Permission Required
+
+Ensure Lambda execution role has:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject"],
+  "Resource": "arn:aws:s3:::ukusi-ui-finanzas-prod/taxonomy/*"
+}
+```
+
+### 5. Rollback Procedure
 
 If issues occur:
 

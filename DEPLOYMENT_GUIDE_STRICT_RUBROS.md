@@ -282,20 +282,46 @@ The backend Lambda functions are designed to gracefully handle missing taxonomy 
 2. **S3 Fallback**: If the local file is missing and `TAXONOMY_S3_BUCKET` is set, the handler calls `ensureTaxonomyLoaded()` which fetches the taxonomy from S3.
 3. **Graceful Degradation**: If both sources fail, the taxonomy remains empty and warnings are logged (no crashes).
 
+### Recommended S3 Configuration:
+
+**Use the existing bucket**: `ukusi-ui-finanzas-prod`  
+**Recommended path**: `taxonomy/rubros.taxonomy.json`
+
+This keeps the taxonomy organized in a dedicated folder within the existing bucket, avoiding the need for a separate bucket.
+
 ### Configuration Steps:
 
-1. Set `TAXONOMY_S3_BUCKET` in your deployment workflow or SAM parameters:
+1. Upload taxonomy to S3 (one-time or via CI):
    ```bash
-   TaxonomyS3Bucket=your-taxonomy-bucket-name
+   aws s3 cp data/rubros.taxonomy.json \
+     s3://ukusi-ui-finanzas-prod/taxonomy/rubros.taxonomy.json \
+     --acl bucket-owner-full-control \
+     --sse AES256
    ```
 
-2. Ensure the GitHub Actions `taxonomy-sync.yml` workflow has uploaded the taxonomy to S3.
+2. Set GitHub secret/variable for automated uploads:
+   ```bash
+   TAXONOMY_S3_BUCKET=ukusi-ui-finanzas-prod
+   ```
 
-3. Verify Lambda IAM role has `s3:GetObject` permission for the taxonomy bucket.
+3. Set SAM parameters during deployment:
+   ```bash
+   TaxonomyS3Bucket=ukusi-ui-finanzas-prod
+   TaxonomyS3Key=taxonomy/rubros.taxonomy.json  # default, can be omitted
+   ```
 
-4. Check CloudWatch logs for:
+4. Verify Lambda IAM role has `s3:GetObject` permission:
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": ["s3:GetObject"],
+     "Resource": "arn:aws:s3:::ukusi-ui-finanzas-prod/taxonomy/*"
+   }
+   ```
+
+5. Check CloudWatch logs for:
    - `[canonical-taxonomy] loaded taxonomy from local file:` (local success)
-   - `[canonical-taxonomy] loaded taxonomy from S3:` (S3 fallback success)
+   - `[canonical-taxonomy] loaded taxonomy from S3: ukusi-ui-finanzas-prod/taxonomy/rubros.taxonomy.json` (S3 fallback success)
    - No `ServerError` or 500 responses on rubros endpoints
 
 ## Testing Checklist
