@@ -1,9 +1,12 @@
 /**
  * Canonical Rubros Taxonomy for Backend
  * 
- * Lightweight version of the taxonomy for backend validation and mapping.
- * Synced with frontend canonical taxonomy.
+ * Imports and validates the canonical taxonomy from /data/rubros.taxonomy.json
+ * This is the single source of truth synced with frontend canonical taxonomy.
  */
+
+import * as fs from 'fs';
+import * as path from 'path';
 
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
@@ -21,29 +24,28 @@ export interface CanonicalRubroTaxonomy {
   isActive: boolean;
 }
 
+// Load taxonomy from JSON file
+const taxonomyPath = path.join(__dirname, '../../../../data/rubros.taxonomy.json');
+const taxonomyData = JSON.parse(fs.readFileSync(taxonomyPath, 'utf-8'));
+
+// Build CANONICAL_RUBROS_TAXONOMY from JSON
+export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (taxonomyData.items || []).map((item: any) => ({
+  id: item.linea_codigo,
+  categoria_codigo: item.categoria_codigo,
+  categoria: item.categoria,
+  linea_codigo: item.linea_codigo,
+  linea_gasto: item.linea_gasto,
+  descripcion: item.descripcion,
+  tipo_ejecucion: item.tipo_ejecucion as TipoEjecucion,
+  tipo_costo: item.tipo_costo as TipoCosto,
+  fuente_referencia: item.fuente_referencia,
+  isActive: true,
+}));
+
 // Canonical taxonomy IDs (for quick validation)
-export const CANONICAL_IDS = new Set([
-  'MOD-ING', 'MOD-LEAD', 'MOD-SDM', 'MOD-PM', 'MOD-OT', 'MOD-CONT', 'MOD-EXT',
-  'GSV-REU', 'GSV-RPT', 'GSV-AUD', 'GSV-TRN',
-  'REM-MANT-P', 'REM-MANT-C', 'REM-HH-EXT', 'REM-TRNS', 'REM-VIAT', 'REM-CONS',
-  'TEC-LIC-MON', 'TEC-ITSM', 'TEC-LAB', 'TEC-HW-RPL', 'TEC-HW-FIELD', 'TEC-SUP-VND',
-  'INF-CLOUD', 'INF-DC-EN', 'INF-RACK', 'INF-BCK',
-  'TEL-CCTS', 'TEL-UCAAS', 'TEL-SIMS', 'TEL-NUM',
-  'SEC-SOC', 'SEC-VA', 'SEC-COMP',
-  'LOG-SPARES', 'LOG-RMA', 'LOG-ENV',
-  'RIE-PEN', 'RIE-CTR', 'RIE-SEG',
-  'ADM-PMO', 'ADM-BILL', 'ADM-FIN', 'ADM-LIC', 'ADM-LEG',
-  'QLT-ISO', 'QLT-KAIZ', 'QLT-SAT',
-  'PLT-PLANV', 'PLT-SFDC', 'PLT-SAP', 'PLT-DLAKE',
-  'DEP-HW', 'DEP-SW',
-  'NOC-MON', 'NOC-ALR', 'NOC-PLN',
-  'COL-UCC', 'COL-STG', 'COL-EMAIL',
-  'VIA-INT', 'VIA-CLI',
-  'INV-ALM', 'INV-SGA', 'INV-SEG',
-  'LIC-FW', 'LIC-NET', 'LIC-EDR',
-  'CTR-SLA', 'CTR-OLA',
-  'INN-POC', 'INN-AUT',
-]);
+export const CANONICAL_IDS = new Set(
+  CANONICAL_RUBROS_TAXONOMY.map(r => r.linea_codigo)
+);
 
 /**
  * Legacy ID Mapping - maps old rubro_ids to canonical linea_codigo
@@ -60,9 +62,9 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0001': 'MOD-ING',
   'RB0002': 'MOD-LEAD',
   'RB0003': 'MOD-SDM',
-  'RB0004': 'MOD-OT',
-  'RB0005': 'MOD-CONT',
-  'RB0006': 'MOD-EXT',
+  'RB0004': 'MOD-IN3',      // MOD-OT → MOD-IN3 (Ingeniero Soporte N3)
+  'RB0005': 'MOD-IN2',      // MOD-CONT → MOD-IN2 (Ingeniero Soporte N2 externo)
+  'RB0006': 'MOD-IN2',      // MOD-EXT → MOD-IN2 (Ingeniero Soporte N2 externo)
   'RB0007': 'GSV-REU',
   'RB0008': 'GSV-RPT',
   'RB0009': 'GSV-AUD',
@@ -158,24 +160,44 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
 };
 
 /**
+ * Normalize a key for case-insensitive comparison
+ */
+function normalizeKey(s?: string): string {
+  return (s || '').toString().trim().toUpperCase();
+}
+
+/**
  * Get canonical rubro_id from any legacy format
  * 
  * @param legacyId - Any rubro ID (canonical or legacy)
- * @returns Canonical linea_codigo, or the input if already canonical
+ * @returns Canonical linea_codigo, or the input unchanged if unknown
  */
-export function getCanonicalRubroId(legacyId: string): string {
+export function getCanonicalRubroId(legacyId?: string): string | null {
+  if (!legacyId) return null;
+  
+  const normalized = normalizeKey(legacyId);
+  
   // Check if it's a legacy ID that needs mapping
   const mapped = LEGACY_RUBRO_ID_MAP[legacyId];
   if (mapped) {
     return mapped;
   }
   
-  // Check if it's already a canonical ID
-  if (CANONICAL_IDS.has(legacyId)) {
-    return legacyId;
+  // Check case-insensitive legacy mapping
+  const normalizedLegacy = Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalized
+  );
+  if (normalizedLegacy) {
+    return LEGACY_RUBRO_ID_MAP[normalizedLegacy];
   }
   
-  // Unknown ID - log warning and return as-is
+  // Check if it's already a canonical ID
+  const canonical = Array.from(CANONICAL_IDS).find(id => normalizeKey(id) === normalized);
+  if (canonical) {
+    return canonical;
+  }
+  
+  // Unknown ID - log warning and return unchanged (for graceful degradation)
   console.warn(`[canonical-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
   return legacyId;
 }
@@ -183,16 +205,17 @@ export function getCanonicalRubroId(legacyId: string): string {
 /**
  * Validate if a rubro_id is valid (canonical or has legacy mapping)
  */
-export function isValidRubroId(rubroId: string): boolean {
-  // Check canonical
-  if (CANONICAL_IDS.has(rubroId)) {
-    return true;
-  }
+export function isValidRubroId(rubroId?: string): boolean {
+  if (!rubroId) return false;
   
-  // Check legacy mapping
-  if (LEGACY_RUBRO_ID_MAP[rubroId]) {
-    return true;
-  }
+  const normalized = normalizeKey(rubroId);
+  
+  // Check if it's in the legacy map
+  if (LEGACY_RUBRO_ID_MAP[rubroId]) return true;
+  if (Object.keys(LEGACY_RUBRO_ID_MAP).find(key => normalizeKey(key) === normalized)) return true;
+  
+  // Check if it's a canonical ID
+  if (Array.from(CANONICAL_IDS).find(id => normalizeKey(id) === normalized)) return true;
   
   return false;
 }
@@ -201,7 +224,9 @@ export function isValidRubroId(rubroId: string): boolean {
  * Check if a rubro_id is legacy and should be migrated
  */
 export function isLegacyRubroId(rubroId: string): boolean {
-  return !!LEGACY_RUBRO_ID_MAP[rubroId];
+  return !!LEGACY_RUBRO_ID_MAP[rubroId] || !!Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalizeKey(rubroId)
+  );
 }
 
 /**
@@ -215,7 +240,7 @@ export function normalizeRubroId(rubroId: string): {
   warning?: string;
 } {
   const isLegacy = isLegacyRubroId(rubroId);
-  const canonicalId = getCanonicalRubroId(rubroId);
+  const canonicalId = getCanonicalRubroId(rubroId) || rubroId;
   const isValid = isValidRubroId(rubroId);
   
   let warning: string | undefined;
@@ -231,4 +256,20 @@ export function normalizeRubroId(rubroId: string): {
     isValid,
     warning,
   };
+}
+
+/**
+ * Get all canonical IDs as array
+ */
+export function getAllCanonicalIds(): string[] {
+  return Array.from(CANONICAL_IDS);
+}
+
+/**
+ * Get taxonomy entry by ID
+ */
+export function getTaxonomyById(id: string): CanonicalRubroTaxonomy | null {
+  const canonicalId = getCanonicalRubroId(id);
+  if (!canonicalId) return null;
+  return CANONICAL_RUBROS_TAXONOMY.find(r => r.linea_codigo === canonicalId) || null;
 }

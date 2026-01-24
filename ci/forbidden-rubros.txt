@@ -1,0 +1,22 @@
+# Forbidden Rubro Literals
+# 
+# NOTE: This file is no longer used for CI checks.
+# 
+# The CI pipeline now automatically checks for ANY rubro ID that is NOT
+# in data/rubros.taxonomy.json and flags it as a violation.
+# 
+# This provides automatic validation without needing to maintain a
+# manual forbidden list.
+#
+# The check works by:
+# 1. Loading all canonical IDs from data/rubros.taxonomy.json
+# 2. Scanning source code for rubro-like patterns (e.g., MOD-*, GSV-*, etc.)
+# 3. Flagging any IDs found in code that are NOT in the canonical taxonomy
+#
+# If you need to use legacy IDs for backward compatibility:
+# - Add them to LEGACY_RUBRO_ID_MAP in canonical-taxonomy.ts
+# - The mapping will be allowed and documented
+#
+# If a rubro is missing from the taxonomy:
+# - Add it to data/rubros.taxonomy.json
+# - The CI check will automatically recognize it as valid

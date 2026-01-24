@@ -1,0 +1,198 @@
+name: Nightly Audit - Non-Canonical Rubros
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  audit-dynamodb:
+    name: Audit DynamoDB for Non-Canonical Rubros
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Scan DynamoDB for non-canonical rubros
+        id: scan
+        run: |
+          echo "Starting DynamoDB audit for non-canonical rubros..."
+          
+          # Load canonical IDs from taxonomy
+          CANONICAL_IDS=$(jq -r '.items[].linea_codigo' data/rubros.taxonomy.json | sort)
+          
+          echo "Loaded $(echo "$CANONICAL_IDS" | wc -l) canonical rubro IDs"
+          
+          # Create a temporary file for canonical IDs
+          echo "$CANONICAL_IDS" > /tmp/canonical-ids.txt
+          
+          # Scan relevant DynamoDB tables
+          TABLES=("finanzas-rubros-dev" "finanzas-allocations-dev" "finanzas-prefacturas-dev")
+          
+          TOTAL_NON_CANONICAL=0
+          REPORT_FILE="/tmp/audit-report-$(date +%Y%m%d-%H%M%S).txt"
+          
+          echo "=== Non-Canonical Rubro Audit Report ===" > "$REPORT_FILE"
+          echo "Generated: $(date -u)" >> "$REPORT_FILE"
+          echo "Commit: ${{ github.sha }}" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+          
+          for TABLE in "${TABLES[@]}"; do
+            echo "" >> "$REPORT_FILE"
+            echo "## Scanning table: $TABLE" >> "$REPORT_FILE"
+            
+            # Check if table exists
+            if ! aws dynamodb describe-table --table-name "$TABLE" > /dev/null 2>&1; then
+              echo "⚠️  Table $TABLE does not exist (skipping)" >> "$REPORT_FILE"
+              continue
+            fi
+            
+            # Scan for items with rubro fields
+            echo "Scanning $TABLE for items with rubro fields..."
+            
+            # Scan and extract rubro-related fields
+            ITEMS=$(aws dynamodb scan \
+              --table-name "$TABLE" \
+              --projection-expression "pk,sk,rubroId,rubro_canonical,linea_codigo,rubro" \
+              --filter-expression "attribute_exists(rubroId) OR attribute_exists(rubro_canonical) OR attribute_exists(linea_codigo) OR attribute_exists(rubro)" \
+              2>/dev/null || echo '{"Items":[]}')
+            
+            ITEM_COUNT=$(echo "$ITEMS" | jq '.Items | length')
+            echo "Found $ITEM_COUNT items with rubro fields in $TABLE" >> "$REPORT_FILE"
+            
+            # Check each item
+            NON_CANONICAL_IN_TABLE=0
+            
+            if [ "$ITEM_COUNT" -gt 0 ]; then
+              # Extract unique rubro values
+              RUBRO_VALUES=$(echo "$ITEMS" | jq -r '
+                .Items[] | 
+                (.rubroId.S // .rubro_canonical.S // .linea_codigo.S // .rubro.S // empty)
+              ' | sort -u)
+              
+              # Check each rubro against canonical list
+              while IFS= read -r rubro; do
+                [ -z "$rubro" ] && continue
+                
+                if ! grep -qx "$rubro" /tmp/canonical-ids.txt; then
+                  echo "  ❌ Non-canonical rubro: $rubro" >> "$REPORT_FILE"
+                  
+                  # Find items with this rubro
+                  ITEM_IDS=$(echo "$ITEMS" | jq -r --arg rubro "$rubro" '
+                    .Items[] | 
+                    select(
+                      (.rubroId.S // .rubro_canonical.S // .linea_codigo.S // .rubro.S) == $rubro
+                    ) | 
+                    "\(.pk.S) / \(.sk.S)"
+                  ' | head -5)
+                  
+                  echo "     Found in items:" >> "$REPORT_FILE"
+                  echo "$ITEM_IDS" | while read -r item; do
+                    echo "       - $item" >> "$REPORT_FILE"
+                  done
+                  
+                  ((NON_CANONICAL_IN_TABLE++))
+                  ((TOTAL_NON_CANONICAL++))
+                fi
+              done <<< "$RUBRO_VALUES"
+            fi
+            
+            if [ $NON_CANONICAL_IN_TABLE -eq 0 ]; then
+              echo "  ✅ All rubros in $TABLE are canonical" >> "$REPORT_FILE"
+            else
+              echo "  Found $NON_CANONICAL_IN_TABLE non-canonical rubros in $TABLE" >> "$REPORT_FILE"
+            fi
+          done
+          
+          echo "" >> "$REPORT_FILE"
+          echo "=== Summary ===" >> "$REPORT_FILE"
+          echo "Total non-canonical rubros found: $TOTAL_NON_CANONICAL" >> "$REPORT_FILE"
+          
+          if [ $TOTAL_NON_CANONICAL -eq 0 ]; then
+            echo "✅ PASS: All rubros are canonical" >> "$REPORT_FILE"
+            echo "status=pass" >> $GITHUB_OUTPUT
+          else
+            echo "❌ FAIL: Found $TOTAL_NON_CANONICAL non-canonical rubros" >> "$REPORT_FILE"
+            echo "status=fail" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "report-file=$REPORT_FILE" >> $GITHUB_OUTPUT
+          echo "total-non-canonical=$TOTAL_NON_CANONICAL" >> $GITHUB_OUTPUT
+          
+          # Display report
+          cat "$REPORT_FILE"
+
+      - name: Upload audit report to S3
+        if: always()
+        run: |
+          REPORT_FILE="${{ steps.scan.outputs.report-file }}"
+          S3_BUCKET="${{ secrets.AUDIT_S3_BUCKET }}"
+          
+          if [ -z "$S3_BUCKET" ]; then
+            echo "⚠️  AUDIT_S3_BUCKET secret not set. Skipping S3 upload."
+            echo "   Set this secret to enable audit report storage."
+          else
+            aws s3 cp "$REPORT_FILE" \
+              "s3://${S3_BUCKET}/audit-reports/rubros/$(basename $REPORT_FILE)" \
+              --metadata "commit-sha=${{ github.sha }},status=${{ steps.scan.outputs.status }}"
+            
+            echo "✅ Audit report uploaded to S3"
+            echo "   Location: s3://${S3_BUCKET}/audit-reports/rubros/$(basename $REPORT_FILE)"
+          fi
+
+      - name: Upload audit report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-report-${{ github.run_id }}
+          path: ${{ steps.scan.outputs.report-file }}
+          retention-days: 30
+
+      - name: Send notification on failure
+        if: steps.scan.outputs.status == 'fail'
+        run: |
+          TOTAL="${{ steps.scan.outputs.total-non-canonical }}"
+          
+          echo "❌ Audit FAILED: Found $TOTAL non-canonical rubros in DynamoDB"
+          echo ""
+          echo "Action required:"
+          echo "1. Review the audit report in the workflow artifacts"
+          echo "2. Identify the source of non-canonical data"
+          echo "3. Update the data to use canonical IDs from /data/rubros.taxonomy.json"
+          echo "4. Consider enabling STRICT_RUBRO_VALIDATION to prevent future issues"
+          
+          # Add Slack/email notification here if needed
+          # Example:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d "{\"text\":\"❌ Rubros audit failed: Found $TOTAL non-canonical rubros\"}"
+          
+          exit 1
+
+      - name: Success notification
+        if: steps.scan.outputs.status == 'pass'
+        run: |
+          echo "✅ Audit PASSED: All rubros in DynamoDB are canonical"
+          
+          # Add Slack/email notification here if needed
+          # Example:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d '{"text":"✅ Nightly rubros audit passed"}'

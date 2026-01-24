@@ -131,18 +131,17 @@ describe("canonical-taxonomy", () => {
   });
 
   describe("taxonomy completeness", () => {
-    it("should have 72 canonical IDs", () => {
-      expect(CANONICAL_IDS.size).toBe(72);
+    it("should have 71 canonical IDs", () => {
+      expect(CANONICAL_IDS.size).toBe(71);
     });
 
     it("should have all expected MOD rubros", () => {
       expect(CANONICAL_IDS.has("MOD-ING")).toBe(true);
       expect(CANONICAL_IDS.has("MOD-LEAD")).toBe(true);
       expect(CANONICAL_IDS.has("MOD-SDM")).toBe(true);
-      expect(CANONICAL_IDS.has("MOD-PM")).toBe(true);
-      expect(CANONICAL_IDS.has("MOD-OT")).toBe(true);
-      expect(CANONICAL_IDS.has("MOD-CONT")).toBe(true);
-      expect(CANONICAL_IDS.has("MOD-EXT")).toBe(true);
+      expect(CANONICAL_IDS.has("MOD-PMO")).toBe(true);    // Project Manager
+      expect(CANONICAL_IDS.has("MOD-IN2")).toBe(true);    // Ingeniero Soporte N2
+      expect(CANONICAL_IDS.has("MOD-IN3")).toBe(true);    // Ingeniero Soporte N3
     });
 
     it("should have legacy mapping for all RB#### entries (RB0001-RB0071 plus extended IDs)", () => {
