@@ -62,9 +62,9 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0001': 'MOD-ING',
   'RB0002': 'MOD-LEAD',
   'RB0003': 'MOD-SDM',
-  'RB0004': 'MOD-OT',
-  'RB0005': 'MOD-CONT',
-  'RB0006': 'MOD-EXT',
+  'RB0004': 'MOD-IN3',      // MOD-OT → MOD-IN3 (Ingeniero Soporte N3)
+  'RB0005': 'MOD-IN2',      // MOD-CONT → MOD-IN2 (Ingeniero Soporte N2 externo)
+  'RB0006': 'MOD-IN2',      // MOD-EXT → MOD-IN2 (Ingeniero Soporte N2 externo)
   'RB0007': 'GSV-REU',
   'RB0008': 'GSV-RPT',
   'RB0009': 'GSV-AUD',
