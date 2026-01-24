@@ -50,6 +50,9 @@ jobs:
       - name: Lint
         run: pnpm lint || echo "⚠️ Lint warnings found (non-blocking)"
 
+      - name: Check for forbidden rubro tokens
+        run: bash ci/check-forbidden-rubros.sh
+
       - name: Run forecast fallback tests
         env:
           VITE_API_BASE_URL: http://localhost

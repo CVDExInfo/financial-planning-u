@@ -13,7 +13,7 @@ import {
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
-import { normalizeRubroId } from "../lib/canonical-taxonomy";
+import { normalizeRubroId, getCanonicalRubroId } from "../lib/canonical-taxonomy";
 
 /**
  * Rubros handler - CRUD operations for project rubros
@@ -281,11 +281,12 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         taxonomyByRubro[rubroId] ||
         undefined;
 
-      const normalizedId =
-        definition.rubro_id || definition.codigo || rubroId || item.rubroId;
+      const rawForCanonical = String(definition.linea_codigo || definition.rubro_id || definition.codigo || rubroId || item.rubroId || "");
+      const canonicalId = getCanonicalRubroId(rawForCanonical) || rawForCanonical;
+
       return {
-        id: normalizedId,
-        rubro_id: normalizedId,
+        id: canonicalId,
+        rubro_id: canonicalId,
         nombre:
           definition.nombre ||
           taxonomy?.linea_gasto ||
@@ -303,7 +304,7 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
           taxonomyByRubro[rubroId]?.linea_codigo ||
           item.linea_codigo ||
           definition.codigo ||
-          rubroId,
+          canonicalId,
         categoria_codigo:
           definition.categoria_codigo ||
           taxonomy?.categoria_codigo ||
@@ -384,6 +385,22 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     : singleRubroId
       ? [{ ...sharedFields, rubroId: singleRubroId }]
       : [];
+
+  // Normalize incoming rubro tokens to canonical IDs before any processing/writes.
+  // We mutate the entries in-place so the rest of the logic can continue to use rawRubroEntries.
+  try {
+    rawRubroEntries.forEach((entry) => {
+      const raw =
+        String(entry.rubroId || entry.rubro_id || entry.codigo || entry.linea_codigo || "");
+      const canonical = getCanonicalRubroId(raw) || raw;
+      // normalize fields used downstream
+      entry.rubroId = canonical;
+      entry.rubro_id = canonical;
+      entry.linea_codigo = entry.linea_codigo || canonical;
+    });
+  } catch (err) {
+    console.warn("attachRubros: failed to canonicalize incoming rubros", { err });
+  }
 
   if (rawRubroEntries.length === 0) {
     return bad("rubroIds array required");

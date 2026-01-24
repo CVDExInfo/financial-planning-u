@@ -23,6 +23,7 @@ import { Plus, Trash2, Calculator } from "lucide-react";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -180,6 +181,18 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   };
 
   const handleNext = () => {
+    // Validate canonical rubro IDs before proceeding
+    const invalid = laborEstimates.some((item) => {
+      const canonical = getCanonicalRubroId(item.rubroId || "");
+      return !canonical;
+    });
+    
+    if (invalid) {
+      // Show user-friendly validation and stop early
+      alert("Please select a valid role for every labor item. Some items have unrecognized rubro IDs.");
+      return;
+    }
+
     const totalCost = getTotalCost();
     console.log("💼 Labor estimates submitted:", {
       itemCount: laborEstimates.length,
