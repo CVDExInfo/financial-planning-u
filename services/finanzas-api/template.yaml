@@ -956,7 +956,10 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:GetObject
-              Resource: 'arn:aws:s3:::*/*'
+              Resource: !If
+                - HasTaxonomyBucket
+                - !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}/${TaxonomyS3Key}'
+                - 'arn:aws:s3:::*/*'
       Events:
         AttachRubro:
           Type: HttpApi

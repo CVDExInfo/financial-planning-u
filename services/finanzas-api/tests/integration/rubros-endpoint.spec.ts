@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll } from '@jest/globals';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 // Mock DynamoDB and Auth for integration test
-jest.mock('../src/lib/dynamo', () => ({
+jest.mock('../../src/lib/dynamo', () => ({
   ddb: {
     send: jest.fn().mockResolvedValue({
       Items: [],
@@ -24,13 +24,13 @@ jest.mock('../src/lib/dynamo', () => ({
   DeleteCommand: jest.fn(),
 }));
 
-jest.mock('../src/lib/auth', () => ({
+jest.mock('../../src/lib/auth', () => ({
   ensureCanRead: jest.fn().mockResolvedValue(undefined),
   ensureCanWrite: jest.fn().mockResolvedValue(undefined),
   getUserEmail: jest.fn().mockResolvedValue('test@example.com'),
 }));
 
-jest.mock('../src/lib/baseline-sdmt', () => ({
+jest.mock('../../src/lib/baseline-sdmt', () => ({
   queryProjectRubros: jest.fn().mockResolvedValue([]),
 }));
 
@@ -39,7 +39,7 @@ describe('Integration: /projects/:id/rubros endpoint', () => {
 
   beforeAll(async () => {
     // Import handler after mocks are set up
-    const module = await import('../src/handlers/rubros');
+    const module = await import('../../src/handlers/rubros');
     handler = module.handler;
   });
 
