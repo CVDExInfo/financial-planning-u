@@ -802,6 +802,51 @@ text-muted-foreground            →  3:1 minimum (large text)
 
 ---
 
-**Enforcement:** This guide should be referenced during code reviews. Any new UI components must follow these patterns. Legacy components should be refactored incrementally to match these standards.
+## Enforcement
 
-**Questions?** Open a discussion in the #design-system channel.
+**Responsible Party:** Lead Frontend Developer + Design System Team
+
+**Implementation Steps:**
+
+1. **Code Review Process**
+   - Add UI Consistency Checklist to PR template
+   - Require design system approval for new UI components
+   - Block PRs that violate spacing/typography/color rules
+
+2. **Automated Tooling**
+   ```bash
+   # ESLint rules for Tailwind class consistency
+   npm install --save-dev eslint-plugin-tailwindcss
+   
+   # Configure .eslintrc.js
+   "plugins": ["tailwindcss"],
+   "rules": {
+     "tailwindcss/no-custom-classname": "warn",
+     "tailwindcss/classnames-order": "error"
+   }
+   ```
+
+3. **Pre-commit Hooks**
+   ```bash
+   # Install Husky for git hooks
+   npx husky-init && npm install
+   
+   # Add pre-commit hook for linting
+   npx husky add .husky/pre-commit "npm run lint"
+   ```
+
+4. **Monitoring**
+   - Monthly UI consistency audit
+   - Track violations in code reviews
+   - Update guidelines based on team feedback
+
+5. **Training**
+   - New developer onboarding includes design system walkthrough
+   - Quarterly design system updates presented to team
+   - Office hours for design system questions
+
+**Exceptions:** Any deviations from these guidelines must be documented in code comments with justification and approved by design system lead.
+
+---
+
+## Resources

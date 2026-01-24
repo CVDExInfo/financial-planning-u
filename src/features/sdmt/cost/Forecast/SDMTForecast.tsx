@@ -4932,7 +4932,7 @@ export function SDMTForecast() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-lg">
-                    📊 Forecast Analytics & Trends
+                    Forecast Analytics & Trends
                   </CardTitle>
                   <Badge variant="outline" className="text-xs">
                     Optional
@@ -4943,7 +4943,7 @@ export function SDMTForecast() {
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    aria-label="Expandir/Colapsar analytics"
+                    aria-label="Expandir o contraer analytics"
                   >
                     <ChevronDown className="h-4 w-4" />
                   </Button>
