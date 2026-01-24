@@ -3567,7 +3567,7 @@ export function SDMTForecast() {
           {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
           {NEW_FORECAST_LAYOUT_ENABLED && (
           <Collapsible defaultOpen={false}>
-            <Card className="border-2 border-primary/20">
+            <Card className="border border-primary/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -3775,7 +3775,7 @@ export function SDMTForecast() {
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
       {!isPortfolioView && (
         <Collapsible>
-          <Card className="border-2 border-primary/20">
+          <Card className="border border-primary/20">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -4922,10 +4922,37 @@ export function SDMTForecast() {
       )}
 
       {/* Charts and Analytics - Single Project Mode Only */}
+      {/* Tier 1 UX Improvement: Collapsed by default to reduce visual overload */}
       {!isPortfolioView &&
         !loading &&
-        forecastData.length > 0 &&
-        (() => {
+        forecastData.length > 0 && (
+        <Collapsible defaultOpen={false}>
+          <Card className="border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg">
+                    📊 Forecast Analytics & Trends
+                  </CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    Optional
+                  </Badge>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Expandir/Colapsar analytics"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+        {(() => {
           const charts = [
             <LineChartComponent
               key={`forecast-trends-${selectedProjectId}`}
@@ -5102,6 +5129,11 @@ export function SDMTForecast() {
             />
           );
         })()}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
     </div>
   );
 }
