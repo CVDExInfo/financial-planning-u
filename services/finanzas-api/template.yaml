@@ -45,12 +45,21 @@ Parameters:
     Description: Enable admin debug endpoints (set to 'true' for development/testing only)
   TaxonomyS3Bucket:
     Type: String
+<<<<<<< copilot/enforce-canonical-rubros
     Default: ukusi-ui-finanzas-prod
     Description: "Existing S3 bucket name for taxonomy files (DO NOT CREATE A NEW BUCKET)"
   TaxonomyS3Key:
     Type: String
     Default: taxonomy/rubros.taxonomy.json
     Description: "Key/path in the bucket where the taxonomy lives"
+=======
+    Default: 'ukusi-ui-finanzas-prod'
+    Description: Existing S3 bucket for taxonomy files (DO NOT CREATE NEW BUCKET - uses ukusi-ui-finanzas-prod)
+  TaxonomyS3Key:
+    Type: String
+    Default: 'taxonomy/rubros.taxonomy.json'
+    Description: S3 object key for taxonomy file within the existing bucket
+>>>>>>> main
 
 Conditions:
   HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]
@@ -105,6 +114,10 @@ Globals:
 
         # Verified Permissions (optional)
         POLICY_STORE_ID: !If [HasPolicyStore, !Ref PolicyStoreId, '']
+
+        # Taxonomy S3 Fallback (optional)
+        TAXONOMY_S3_BUCKET: !If [HasTaxonomyBucket, !Ref TaxonomyS3Bucket, '']
+        TAXONOMY_S3_KEY: !Ref TaxonomyS3Key
 
 Resources:
   ApiAccessLogs:
@@ -1182,6 +1195,14 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBReadPolicy:
             TableName: !Ref AllocationsTable
+        - !If
+            - HasTaxonomyBucket
+            - Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:GetObject
+                  Resource: !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}/${TaxonomyS3Key}'
+            - !Ref AWS::NoValue
       Events:
         ListPayrollActuals:
           Type: HttpApi

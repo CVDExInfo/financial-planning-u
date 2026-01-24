@@ -131,6 +131,9 @@ const parseDuration = (value?: string | number | null) => {
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
+  // Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   await ensureCanRead(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
@@ -354,6 +357,9 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
 
 // Route: POST /projects/{projectId}/rubros
 async function attachRubros(event: APIGatewayProxyEventV2) {
+  // Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
@@ -418,8 +424,11 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
   const attached: string[] = [];
 
   const normalizeRubroPayload = (payload: Record<string, unknown>) => {
-    const rubroId = (payload.rubroId as string) || (payload.rubro_id as string) || "";
-    if (!rubroId) return null;
+    const rawRubroId = (payload.rubroId as string) || (payload.rubro_id as string) || "";
+    if (!rawRubroId) return null;
+
+    // Canonicalize the rubro ID before using it
+    const rubroId = getCanonicalRubroId(rawRubroId) || rawRubroId;
 
     const qty = Number(payload.qty ?? payload.quantity ?? 1) || 1;
     const unitCost = Number(payload.unitCost ?? payload.unit_cost ?? 0) || 0;

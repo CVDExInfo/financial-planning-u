@@ -127,8 +127,14 @@ jobs:
             --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
           
           echo "✅ Taxonomy uploaded to S3"
+<<<<<<< copilot/enforce-canonical-rubros
           echo "   Active: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.json"
           echo "   Backup: s3://${S3_BUCKET}/taxonomy/archive/rubros.taxonomy.${TIMESTAMP}.json"
+=======
+          echo "   Canonical: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.json"
+          echo "   Versioned: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json"
+          echo "   Latest: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json"
+>>>>>>> main
 
   trigger-deployments:
     name: Trigger Service Deployments
