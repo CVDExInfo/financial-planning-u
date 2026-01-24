@@ -40,6 +40,7 @@ export interface CanonicalRubroTaxonomy {
 }
 
 let taxonomyData: any = { items: [] };
+let isLoading = false; // Guard against concurrent S3 loads
 
 // Try synchronous local load (best-effort; do not throw)
 try {
@@ -56,12 +57,51 @@ try {
 }
 
 /**
+ * Rebuild the exported taxonomy arrays and sets from current taxonomyData.
+ * Called after initial load and after S3 fallback load.
+ */
+function rebuildTaxonomyIndexes(): void {
+  const items = (taxonomyData && Array.isArray(taxonomyData.items)) ? taxonomyData.items : [];
+  
+  // Rebuild CANONICAL_RUBROS_TAXONOMY
+  CANONICAL_RUBROS_TAXONOMY.length = 0;
+  CANONICAL_RUBROS_TAXONOMY.push(...items.map((item: any) => ({
+    id: item.linea_codigo,
+    categoria_codigo: item.categoria_codigo,
+    categoria: item.categoria,
+    linea_codigo: item.linea_codigo,
+    linea_gasto: item.linea_gasto,
+    descripcion: item.descripcion,
+    tipo_ejecucion: item.tipo_ejecucion,
+    tipo_costo: item.tipo_costo,
+    fuente_referencia: item.fuente_referencia,
+    isActive: true,
+  })));
+  
+  // Rebuild CANONICAL_IDS
+  CANONICAL_IDS.clear();
+  CANONICAL_RUBROS_TAXONOMY.forEach(r => {
+    CANONICAL_IDS.add(r.linea_codigo || r.id);
+  });
+}
+
+/**
  * Try to ensure taxonomy is loaded in memory.
  * If we loaded locally at startup, this resolves quickly.
  * If not and an S3 bucket is configured, we attempt to fetch the taxonomy asynchronously.
+ * After loading from S3, rebuilds all indexes and exports.
  */
 export async function ensureTaxonomyLoaded(): Promise<void> {
   if (taxonomyData && Array.isArray(taxonomyData.items) && taxonomyData.items.length > 0) {
+    return;
+  }
+
+  // Prevent concurrent S3 loads
+  if (isLoading) {
+    // Wait for the ongoing load to complete
+    while (isLoading) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     return;
   }
 
@@ -70,11 +110,13 @@ export async function ensureTaxonomyLoaded(): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('[canonical-taxonomy] TAXONOMY_S3_BUCKET not set; using empty taxonomy.');
     taxonomyData = { items: [] };
+    rebuildTaxonomyIndexes();
     return;
   }
 
-  const key = process.env.TAXONOMY_S3_KEY || 'rubros.taxonomy.json';
+  const key = process.env.TAXONOMY_S3_KEY || 'taxonomy/rubros.taxonomy.json';
 
+  isLoading = true;
   try {
     // lazy import to avoid top-level dependency cost
     // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
@@ -86,16 +128,25 @@ export async function ensureTaxonomyLoaded(): Promise<void> {
     const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     const body = await streamToString(resp.Body);
     taxonomyData = JSON.parse(body);
+    
+    // CRITICAL: Rebuild indexes after S3 load
+    rebuildTaxonomyIndexes();
+    
     // eslint-disable-next-line no-console
-    console.info(`[canonical-taxonomy] loaded taxonomy from S3: ${bucket}/${key}`);
+    console.info(`[canonical-taxonomy] loaded taxonomy from S3: ${bucket}/${key} (${taxonomyData.items?.length || 0} items)`);
   } catch (e: any) {
     // eslint-disable-next-line no-console
     console.warn('[canonical-taxonomy] failed to load taxonomy from S3; falling back to empty taxonomy.', e?.message || e);
     taxonomyData = { items: [] };
+    rebuildTaxonomyIndexes();
+  } finally {
+    isLoading = false;
   }
 }
 
-/** Build the canonical taxonomy array from whatever we have in memory (safe). */
+/** Build the canonical taxonomy array from whatever we have in memory (safe). 
+ * This array is mutable and will be rebuilt by rebuildTaxonomyIndexes() after S3 load.
+ */
 const TAXONOMY_ITEMS = (taxonomyData && Array.isArray(taxonomyData.items)) ? taxonomyData.items : [];
 
 export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (TAXONOMY_ITEMS || []).map((item: any) => ({

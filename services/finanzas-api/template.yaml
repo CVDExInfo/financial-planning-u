@@ -1157,6 +1157,14 @@ Resources:
             TableName: !Ref ProjectsTable
         - DynamoDBReadPolicy:
             TableName: !Ref AllocationsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !If
+                - HasTaxonomyBucket
+                - !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}/${TaxonomyS3Key}'
+                - 'arn:aws:s3:::*/*'
       Events:
         ListPayrollActuals:
           Type: HttpApi

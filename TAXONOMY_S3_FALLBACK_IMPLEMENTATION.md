@@ -36,6 +36,11 @@ Updated all handlers that depend on taxonomy to call `ensureTaxonomyLoaded()`:
 
 Each handler now ensures taxonomy is loaded before performing lookups.
 
+**CRITICAL FIX (commit upcoming)**: Added `rebuildTaxonomyIndexes()` function that rebuilds the exported `CANONICAL_RUBROS_TAXONOMY` and `CANONICAL_IDS` arrays after S3 load. Without this, the arrays remain empty even after successful S3 fetch, breaking all taxonomy lookups. The function is called:
+- After successful S3 load in `ensureTaxonomyLoaded()`
+- After failed S3 load (to ensure arrays are valid, even if empty)
+- Includes concurrency guard to prevent multiple simultaneous S3 loads
+
 ### 3. SAM Template Configuration
 
 Added to `services/finanzas-api/template.yaml`:
