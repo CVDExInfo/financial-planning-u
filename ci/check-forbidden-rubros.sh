@@ -35,6 +35,7 @@ for token in "${FORBIDDEN[@]}"; do
     ':!*.md' \
     ':!scripts/fix-noncanonical-rubros.js' \
     ':!ci/check-forbidden-rubros.sh' \
+    ':!ci/check-canonical-rubros.cjs' \
     ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
     ':!src/lib/rubros/canonical-taxonomy.ts' \
     ':!**/__tests__/**' \
@@ -58,6 +59,7 @@ for token in "${FORBIDDEN[@]}"; do
       ':!*.md' \
       ':!scripts/fix-noncanonical-rubros.js' \
       ':!ci/check-forbidden-rubros.sh' \
+      ':!ci/check-canonical-rubros.cjs' \
       ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
       ':!src/lib/rubros/canonical-taxonomy.ts' \
       ':!**/__tests__/**' \
