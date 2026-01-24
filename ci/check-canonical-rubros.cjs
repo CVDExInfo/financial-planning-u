@@ -203,7 +203,7 @@ if (violations.size > 0) {
   
   const sortedViolations = Array.from(violations.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   
-  for (const [rubroId, files] of sortedViolations) {
+  for (const [rubroId] of sortedViolations) {
     console.log(`  • ${rubroId}`);
     foundIssues = true;
   }
