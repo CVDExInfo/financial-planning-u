@@ -43,10 +43,19 @@ Parameters:
     Type: String
     Default: 'false'
     Description: Enable admin debug endpoints (set to 'true' for development/testing only)
+  TaxonomyS3Bucket:
+    Type: String
+    Default: ''
+    Description: Optional S3 bucket for taxonomy fallback (if local file missing in Lambda)
+  TaxonomyS3Key:
+    Type: String
+    Default: 'rubros.taxonomy.json'
+    Description: S3 object key for taxonomy file (default is rubros.taxonomy.json)
 
 Conditions:
   HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
+  HasTaxonomyBucket: !Not [!Equals [!Ref TaxonomyS3Bucket, '']]
 
 Globals:
   Function:
@@ -92,6 +101,10 @@ Globals:
 
         # Verified Permissions (optional)
         POLICY_STORE_ID: !If [HasPolicyStore, !Ref PolicyStoreId, '']
+
+        # Taxonomy S3 Fallback (optional)
+        TAXONOMY_S3_BUCKET: !If [HasTaxonomyBucket, !Ref TaxonomyS3Bucket, '']
+        TAXONOMY_S3_KEY: !Ref TaxonomyS3Key
 
 Resources:
   ApiAccessLogs:
@@ -939,6 +952,11 @@ Resources:
             TableName: !Ref AllocationsTable
         - DynamoDBReadPolicy:
             TableName: !Ref RubrosTaxonomiaTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: 'arn:aws:s3:::*/*'
       Events:
         AttachRubro:
           Type: HttpApi

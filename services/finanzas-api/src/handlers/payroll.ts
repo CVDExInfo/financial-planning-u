@@ -62,7 +62,7 @@ import {
 import { PayrollEntry, PayrollTimeSeries, MODProjectionByMonth } from "../lib/types";
 import { calculateLaborVsIndirect } from "../lib/metrics";
 import * as XLSX from "xlsx";
-import { normalizeRubroId } from "../lib/canonical-taxonomy";
+import { normalizeRubroId, ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
 
 /**
  * POST /payroll
@@ -85,6 +85,9 @@ import { normalizeRubroId } from "../lib/canonical-taxonomy";
  * Response: 200 with created PayrollEntry
  */
 async function handlePost(event: APIGatewayProxyEventV2) {
+  // Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   let body: unknown;
   try {
     body = JSON.parse(event.body || "{}");

@@ -13,7 +13,7 @@ import {
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
-import { normalizeRubroId } from "../lib/canonical-taxonomy";
+import { normalizeRubroId, ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
 
 /**
  * Rubros handler - CRUD operations for project rubros
@@ -131,6 +131,9 @@ const parseDuration = (value?: string | number | null) => {
 
 // Route: GET /projects/{projectId}/rubros
 async function listProjectRubros(event: APIGatewayProxyEventV2) {
+  // Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   await ensureCanRead(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {
@@ -353,6 +356,9 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
 
 // Route: POST /projects/{projectId}/rubros
 async function attachRubros(event: APIGatewayProxyEventV2) {
+  // Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   await ensureCanWrite(event);
   const projectId = event.pathParameters?.projectId || event.pathParameters?.id;
   if (!projectId) {

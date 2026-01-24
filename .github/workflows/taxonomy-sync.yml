@@ -113,6 +113,11 @@ jobs:
           else
             echo "Uploading taxonomy to S3..."
             
+            # Upload to canonical path (used by Lambda)
+            aws s3 cp data/rubros.taxonomy.json \
+              "s3://${S3_BUCKET}/rubros.taxonomy.json" \
+              --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
+            
             # Upload with timestamp for versioning
             aws s3 cp data/rubros.taxonomy.json \
               "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json" \
@@ -124,6 +129,7 @@ jobs:
               --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
             
             echo "✅ Taxonomy uploaded to S3"
+            echo "   Canonical: s3://${S3_BUCKET}/rubros.taxonomy.json"
             echo "   Versioned: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json"
             echo "   Latest: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json"
           fi

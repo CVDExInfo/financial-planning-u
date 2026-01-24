@@ -1,27 +1,15 @@
 /**
  * Canonical Rubros Taxonomy for Backend
- *
- * Loads canonical taxonomy from /data/rubros.taxonomy.json if present.
- * If not present, attempts to load from S3 (TAXONOMY_S3_BUCKET / TAXONOMY_S3_KEY).
- * If both fail, falls back to an empty taxonomy (graceful degradation).
+ * 
+ * Imports and validates the canonical taxonomy from /data/rubros.taxonomy.json
+ * with S3 fallback for deployed environments.
+ * This is the single source of truth synced with frontend canonical taxonomy.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-
-// lazy-import AWS SDK only when needed so tests and local dev remain fast
-let S3Client: any = null;
-let GetObjectCommand: any = null;
-
-// Helper to read stream from S3
-async function streamToString(stream: any): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (chunk: Buffer | string) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    stream.on('error', (err: Error) => reject(err));
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-  });
-}
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
@@ -39,79 +27,148 @@ export interface CanonicalRubroTaxonomy {
   isActive: boolean;
 }
 
-let taxonomyData: any = { items: [] };
+// Helper to convert S3 GetObject Body stream to string
+async function streamToString(stream: Readable): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf-8');
+}
 
-// Try synchronous local load (best-effort; do not throw)
+// In-memory taxonomy storage (mutable for async loading)
+let _taxonomyData: any = null;
+let _taxonomyLoaded = false;
+let _loadAttempted = false;
+
+// Try to load taxonomy from local file at module import (non-blocking)
+const taxonomyPath = path.join(__dirname, '../../../../data/rubros.taxonomy.json');
 try {
-  const taxonomyPath = path.join(__dirname, '../../../../data/rubros.taxonomy.json');
-  const raw = fs.readFileSync(taxonomyPath, 'utf-8');
-  taxonomyData = JSON.parse(raw);
-  // eslint-disable-next-line no-console
-  console.info(`[canonical-taxonomy] loaded taxonomy from local file: ${taxonomyPath}`);
-} catch (err: any) {
-  // local file absent or not readable — we will attempt S3 on-demand
-  // eslint-disable-next-line no-console
-  console.warn('[canonical-taxonomy] local taxonomy file not found or could not be read; will attempt S3 fallback at runtime if configured.', err?.message || err);
-  taxonomyData = { items: [] };
+  const fileContent = fs.readFileSync(taxonomyPath, 'utf-8');
+  _taxonomyData = JSON.parse(fileContent);
+  _taxonomyLoaded = true;
+  console.info('[canonical-taxonomy] loaded taxonomy from local file:', taxonomyPath);
+} catch (error) {
+  console.warn('[canonical-taxonomy] local taxonomy file not found or invalid:', {
+    path: taxonomyPath,
+    error: (error as Error).message,
+  });
+  // Don't throw - will attempt S3 fallback when ensureTaxonomyLoaded is called
+  _taxonomyData = { items: [] };
 }
 
 /**
- * Try to ensure taxonomy is loaded in memory.
- * If we loaded locally at startup, this resolves quickly.
- * If not and an S3 bucket is configured, we attempt to fetch the taxonomy asynchronously.
+ * Ensures taxonomy is loaded from either local file or S3.
+ * Call this at the start of any handler that depends on taxonomy.
  */
 export async function ensureTaxonomyLoaded(): Promise<void> {
-  if (taxonomyData && Array.isArray(taxonomyData.items) && taxonomyData.items.length > 0) {
+  // Already loaded successfully
+  if (_taxonomyLoaded) {
     return;
   }
 
-  const bucket = process.env.TAXONOMY_S3_BUCKET;
-  if (!bucket) {
-    // eslint-disable-next-line no-console
-    console.warn('[canonical-taxonomy] TAXONOMY_S3_BUCKET not set; using empty taxonomy.');
-    taxonomyData = { items: [] };
+  // Already attempted load (failed both local and S3)
+  if (_loadAttempted) {
     return;
   }
 
-  const key = process.env.TAXONOMY_S3_KEY || 'rubros.taxonomy.json';
+  _loadAttempted = true;
+
+  // Try S3 fallback if bucket is configured
+  const s3Bucket = process.env.TAXONOMY_S3_BUCKET;
+  const s3Key = process.env.TAXONOMY_S3_KEY || 'rubros.taxonomy.json';
+
+  if (!s3Bucket) {
+    console.warn('[canonical-taxonomy] TAXONOMY_S3_BUCKET not set, cannot load from S3');
+    console.warn('[canonical-taxonomy] taxonomy will remain empty - this may cause issues');
+    return;
+  }
 
   try {
-    // lazy import to avoid top-level dependency cost
-    // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-    const { S3Client: _S3Client, GetObjectCommand: _GetObjectCommand } = require('@aws-sdk/client-s3');
-    S3Client = _S3Client;
-    GetObjectCommand = _GetObjectCommand;
+    console.info('[canonical-taxonomy] attempting to load taxonomy from S3:', {
+      bucket: s3Bucket,
+      key: s3Key,
+    });
 
-    const s3 = new S3Client({});
-    const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    const body = await streamToString(resp.Body);
-    taxonomyData = JSON.parse(body);
-    // eslint-disable-next-line no-console
-    console.info(`[canonical-taxonomy] loaded taxonomy from S3: ${bucket}/${key}`);
-  } catch (e: any) {
-    // eslint-disable-next-line no-console
-    console.warn('[canonical-taxonomy] failed to load taxonomy from S3; falling back to empty taxonomy.', e?.message || e);
-    taxonomyData = { items: [] };
+    const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-2' });
+    const command = new GetObjectCommand({
+      Bucket: s3Bucket,
+      Key: s3Key,
+    });
+
+    const response = await s3Client.send(command);
+    
+    if (!response.Body) {
+      throw new Error('S3 GetObject returned no body');
+    }
+
+    const content = await streamToString(response.Body as Readable);
+    _taxonomyData = JSON.parse(content);
+    _taxonomyLoaded = true;
+
+    console.info('[canonical-taxonomy] loaded taxonomy from S3:', {
+      bucket: s3Bucket,
+      key: s3Key,
+      itemCount: _taxonomyData.items?.length || 0,
+    });
+
+    // Rebuild exports with new data
+    rebuildTaxonomy();
+  } catch (error) {
+    console.error('[canonical-taxonomy] failed to load taxonomy from S3:', {
+      bucket: s3Bucket,
+      key: s3Key,
+      error: (error as Error).message,
+    });
+    console.warn('[canonical-taxonomy] taxonomy will remain empty - this may cause issues');
+    // Don't throw - allow application to continue with empty taxonomy
   }
 }
 
-/** Build the canonical taxonomy array from whatever we have in memory (safe). */
-const TAXONOMY_ITEMS = (taxonomyData && Array.isArray(taxonomyData.items)) ? taxonomyData.items : [];
+// Rebuild taxonomy arrays and sets from loaded data
+function rebuildTaxonomy() {
+  const items = (_taxonomyData?.items || []).map((item: any) => ({
+    id: item.linea_codigo,
+    categoria_codigo: item.categoria_codigo,
+    categoria: item.categoria,
+    linea_codigo: item.linea_codigo,
+    linea_gasto: item.linea_gasto,
+    descripcion: item.descripcion,
+    tipo_ejecucion: item.tipo_ejecucion as TipoEjecucion,
+    tipo_costo: item.tipo_costo as TipoCosto,
+    fuente_referencia: item.fuente_referencia,
+    isActive: true,
+  }));
 
-export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (TAXONOMY_ITEMS || []).map((item: any) => ({
+  // Update the exported array in place
+  CANONICAL_RUBROS_TAXONOMY.length = 0;
+  CANONICAL_RUBROS_TAXONOMY.push(...items);
+
+  // Update the exported set
+  CANONICAL_IDS.clear();
+  items.forEach((item: CanonicalRubroTaxonomy) => {
+    CANONICAL_IDS.add(item.linea_codigo);
+  });
+}
+
+// Build CANONICAL_RUBROS_TAXONOMY from initial loaded data
+export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (_taxonomyData?.items || []).map((item: any) => ({
   id: item.linea_codigo,
   categoria_codigo: item.categoria_codigo,
   categoria: item.categoria,
   linea_codigo: item.linea_codigo,
   linea_gasto: item.linea_gasto,
   descripcion: item.descripcion,
-  tipo_ejecucion: item.tipo_ejecucion,
-  tipo_costo: item.tipo_costo,
+  tipo_ejecucion: item.tipo_ejecucion as TipoEjecucion,
+  tipo_costo: item.tipo_costo as TipoCosto,
   fuente_referencia: item.fuente_referencia,
   isActive: true,
 }));
 
-export const CANONICAL_IDS = new Set(CANONICAL_RUBROS_TAXONOMY.map(r => r.linea_codigo || r.id));
+// Canonical taxonomy IDs (for quick validation)
+export const CANONICAL_IDS = new Set(
+  CANONICAL_RUBROS_TAXONOMY.map(r => r.linea_codigo)
+);
 
 /**
  * Legacy ID Mapping - maps old rubro_ids to canonical linea_codigo

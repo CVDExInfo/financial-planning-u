@@ -6,7 +6,7 @@ import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
 import { logError } from "../utils/logging";
-import { getCanonicalRubroId } from "../lib/canonical-taxonomy";
+import { getCanonicalRubroId, ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
 
 /**
  * GET /invoices?project_id=xxx
@@ -23,6 +23,9 @@ export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
+    // Ensure taxonomy is loaded before processing
+    await ensureTaxonomyLoaded();
+    
     const method = event.requestContext.http.method;
 
     if (method !== "GET") {
