@@ -262,15 +262,41 @@ GitHub Actions will automatically deploy the reverted version.
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `STRICT_RUBRO_VALIDATION` | `true`/`false` | `false` | Enable strict validation mode |
+| `TAXONOMY_S3_BUCKET` | S3 bucket name | (empty) | S3 bucket for taxonomy fallback when local file missing |
+| `TAXONOMY_S3_KEY` | S3 object key | `rubros.taxonomy.json` | S3 object key for taxonomy file |
 
 ## Secrets Reference
 
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `AWS_ROLE_ARN` | Yes | AWS IAM role for deployments |
-| `TAXONOMY_S3_BUCKET` | No | S3 bucket for taxonomy versioning |
+| `TAXONOMY_S3_BUCKET` | No | S3 bucket for taxonomy versioning and runtime fallback |
 | `AUDIT_S3_BUCKET` | No | S3 bucket for audit reports |
 | `SLACK_WEBHOOK_URL` | No | Slack webhook for notifications |
+
+## Taxonomy S3 Fallback
+
+The backend Lambda functions are designed to gracefully handle missing taxonomy files:
+
+1. **Local File First**: On module load, the Lambda tries to read `data/rubros.taxonomy.json` from the deployment package.
+2. **S3 Fallback**: If the local file is missing and `TAXONOMY_S3_BUCKET` is set, the handler calls `ensureTaxonomyLoaded()` which fetches the taxonomy from S3.
+3. **Graceful Degradation**: If both sources fail, the taxonomy remains empty and warnings are logged (no crashes).
+
+### Configuration Steps:
+
+1. Set `TAXONOMY_S3_BUCKET` in your deployment workflow or SAM parameters:
+   ```bash
+   TaxonomyS3Bucket=your-taxonomy-bucket-name
+   ```
+
+2. Ensure the GitHub Actions `taxonomy-sync.yml` workflow has uploaded the taxonomy to S3.
+
+3. Verify Lambda IAM role has `s3:GetObject` permission for the taxonomy bucket.
+
+4. Check CloudWatch logs for:
+   - `[canonical-taxonomy] loaded taxonomy from local file:` (local success)
+   - `[canonical-taxonomy] loaded taxonomy from S3:` (S3 fallback success)
+   - No `ServerError` or 500 responses on rubros endpoints
 
 ## Testing Checklist
 
