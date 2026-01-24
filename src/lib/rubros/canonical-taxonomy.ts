@@ -95,9 +95,9 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0001': 'MOD-ING',
   'RB0002': 'MOD-LEAD',
   'RB0003': 'MOD-SDM',
-  'RB0004': 'MOD-OT',
-  'RB0005': 'MOD-CONT',
-  'RB0006': 'MOD-EXT',
+  'RB0004': 'MOD-IN3',      // MOD-OT → MOD-IN3 (Ingeniero Soporte N3)
+  'RB0005': 'MOD-IN2',      // MOD-CONT → MOD-IN2 (Ingeniero Soporte N2 externo)
+  'RB0006': 'MOD-IN2',      // MOD-EXT → MOD-IN2 (Ingeniero Soporte N2 externo)
   'RB0007': 'GSV-REU',
   'RB0008': 'GSV-RPT',
   'RB0009': 'GSV-AUD',
@@ -192,6 +192,11 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'mod-pm-project-manager': 'MOD-LEAD',
   'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
   'MOD-PMO': 'MOD-LEAD', // Legacy PMO variant
+  
+  // Old non-canonical labor IDs that should map to canonical equivalents
+  'MOD-OT': 'MOD-IN3',   // Old "Other" → Ingeniero Soporte N3
+  'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
+  'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
   
   // Category-suffixed patterns - Generated when allocation materializers or 
   // PMO Estimator append the Spanish categoria name to the rubro_id 
@@ -390,9 +395,8 @@ export const LABOR_CANONICAL_KEYS_SET = new Set([
   'MOD-ING',
   'MOD-LEAD',
   'MOD-SDM',
-  'MOD-OT',
-  'MOD-CONT',
-  'MOD-EXT',
+  'MOD-IN3',
+  'MOD-IN2',
 ].map(normalizeKey));
 
 /**
@@ -418,8 +422,8 @@ export const CANONICAL_ALIASES: Record<string, string> = {
   'support engineer': 'MOD-ING',
   'engineer': 'MOD-ING',
   'ingeniero': 'MOD-ING',
-  'contractor': 'MOD-CONT',
-  'external': 'MOD-EXT',
+  'contractor': 'MOD-IN2',
+  'external': 'MOD-IN2',
   
   // Legacy MOD-PM mapping (no longer canonical, maps to MOD-LEAD)
   'mod-pm': 'MOD-LEAD',

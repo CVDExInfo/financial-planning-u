@@ -4,6 +4,18 @@
 
 This implementation enforces canonical rubro IDs throughout the financial planning system, ensuring data/rubros.taxonomy.json is the single source of truth for all rubro identifiers.
 
+## S3 Taxonomy Storage
+
+**Bucket:** `ukusi-ui-finanzas-prod` (existing bucket - **DO NOT CREATE**)
+**Path:** `s3://ukusi-ui-finanzas-prod/taxonomy/rubros.taxonomy.json`
+
+The canonical taxonomy is stored in the existing S3 bucket for:
+- Versioned backups (in `taxonomy/archive/`)
+- Lambda function runtime access (read-only)
+- CI/CD synchronization from `data/rubros.taxonomy.json`
+
+**Important:** The SAM template references this bucket but does NOT create it. Lambda functions have scoped `s3:GetObject` permission on `taxonomy/*` prefix only.
+
 ## Changes Implemented
 
 ### 1. Handler Canonicalization (Backend)

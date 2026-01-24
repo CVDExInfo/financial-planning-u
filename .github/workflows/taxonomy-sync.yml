@@ -102,31 +102,33 @@ jobs:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: us-east-2
 
-      - name: Upload taxonomy to S3
+      - name: Upload taxonomy to existing S3 bucket
+        env:
+          AWS_REGION: us-east-2
         run: |
+          # IMPORTANT: Use existing bucket ukusi-ui-finanzas-prod - DO NOT CREATE NEW BUCKET
+          S3_BUCKET="ukusi-ui-finanzas-prod"
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          S3_BUCKET="${{ secrets.TAXONOMY_S3_BUCKET }}"
           
-          if [ -z "$S3_BUCKET" ]; then
-            echo "⚠️  TAXONOMY_S3_BUCKET secret not set. Skipping S3 upload."
-            echo "   Set this secret to enable taxonomy versioning in S3."
-          else
-            echo "Uploading taxonomy to S3..."
-            
-            # Upload with timestamp for versioning
-            aws s3 cp data/rubros.taxonomy.json \
-              "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json" \
-              --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
-            
-            # Upload as latest
-            aws s3 cp data/rubros.taxonomy.json \
-              "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json" \
-              --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
-            
-            echo "✅ Taxonomy uploaded to S3"
-            echo "   Versioned: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json"
-            echo "   Latest: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json"
-          fi
+          echo "Uploading taxonomy to existing S3 bucket: ${S3_BUCKET}"
+          
+          # Upload main taxonomy file (used by Lambda functions)
+          aws s3 cp data/rubros.taxonomy.json \
+            "s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.json" \
+            --acl bucket-owner-full-control \
+            --sse AES256 \
+            --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }},timestamp=${TIMESTAMP}"
+          
+          # Upload timestamped backup for versioning
+          aws s3 cp data/rubros.taxonomy.json \
+            "s3://${S3_BUCKET}/taxonomy/archive/rubros.taxonomy.${TIMESTAMP}.json" \
+            --acl bucket-owner-full-control \
+            --sse AES256 \
+            --metadata "commit-sha=${{ github.sha }},branch=${{ github.ref_name }}"
+          
+          echo "✅ Taxonomy uploaded to S3"
+          echo "   Active: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.json"
+          echo "   Backup: s3://${S3_BUCKET}/taxonomy/archive/rubros.taxonomy.${TIMESTAMP}.json"
 
   trigger-deployments:
     name: Trigger Service Deployments

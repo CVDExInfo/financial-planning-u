@@ -16,8 +16,8 @@ This document explains the complete data lineage from PMO Estimator through Base
          v
 ┌─────────────────┐
 │ Baseline API    │  Stores estimates in prefacturas table
-│  (Backend)      │  - Labor estimates with rubroId (MOD-xxx)
-│                 │  - Non-labor estimates with rubroId (GSV-xxx, etc.)
+│  (Backend)      │  - Labor estimates with rubroId (MOD-ING, MOD-LEAD, etc.)
+│                 │  - Non-labor estimates with rubroId (GSV-REU, TEC-LIC-MON, etc.)
 └────────┬────────┘
          │ Handoff creates project and materializes rubros
          v

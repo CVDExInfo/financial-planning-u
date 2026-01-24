@@ -157,6 +157,11 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
   'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
   'mod-pm': 'MOD-LEAD', // Lowercase variant
+  
+  // Old non-canonical labor IDs that should map to canonical equivalents
+  'MOD-OT': 'MOD-IN3',   // Old "Other" → Ingeniero Soporte N3
+  'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
+  'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
 };
 
 /**
