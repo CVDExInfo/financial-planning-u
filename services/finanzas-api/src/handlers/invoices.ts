@@ -70,6 +70,10 @@ export const handler = async (
           const rubroSource = inv.linea_codigo || inv.rubroId || inv.rubro || inv.description || '';
           if (rubroSource) {
             canonical = getCanonicalRubroId(rubroSource);
+            // If no canonical mapping found, fall back to the original value
+            if (!canonical) {
+              canonical = rubroSource;
+            }
           }
         } catch (e) {
           logError('[invoices] Canonicalization failed', { 
