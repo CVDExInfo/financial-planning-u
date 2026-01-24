@@ -14,6 +14,9 @@
 import { normalizeKey } from './normalize-key';
 import taxonomyData from '../../../data/rubros.taxonomy.json';
 
+// Re-export normalizeKey for convenience and backward compatibility
+export { normalizeKey };
+
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
 
@@ -223,6 +226,12 @@ for (const rubro of CANONICAL_RUBROS_TAXONOMY) {
 }
 
 /**
+ * TAXONOMY_BY_ID - Exported Map for O(1) taxonomy lookups
+ * Use getTaxonomyById() function for normalized lookups
+ */
+export const TAXONOMY_BY_ID = taxonomyById;
+
+/**
  * Get canonical rubro ID from a raw input string
  * 
  * Looks up the rubro by normalized ID, linea_codigo, linea_gasto, or descripcion.
@@ -363,3 +372,56 @@ export function getAllCategories(): Array<{ code: string; name: string }> {
   }
   return Array.from(categories.entries()).map(([code, name]) => ({ code, name }));
 }
+
+/**
+ * Get all active rubros (currently all rubros in taxonomy are active)
+ * 
+ * @returns Array of all active canonical rubros
+ */
+export function getActiveRubros(): CanonicalRubroTaxonomy[] {
+  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.isActive);
+}
+
+/**
+ * LABOR_CANONICAL_KEYS - Set of canonical labor (MOD - Mano de Obra) rubro IDs
+ * Used for fast labor classification in forecast and allocation logic
+ */
+export const LABOR_CANONICAL_KEYS_SET = new Set([
+  'MOD-ING',
+  'MOD-LEAD',
+  'MOD-SDM',
+  'MOD-OT',
+  'MOD-CONT',
+  'MOD-EXT',
+].map(normalizeKey));
+
+/**
+ * LABOR_CANONICAL_KEYS - Array version for iteration
+ */
+export const LABOR_CANONICAL_KEYS = Array.from(LABOR_CANONICAL_KEYS_SET);
+
+/**
+ * CANONICAL_ALIASES - Maps human-readable role names and legacy IDs to canonical rubro IDs
+ * This provides explicit resolution for common textual forms
+ */
+export const CANONICAL_ALIASES: Record<string, string> = {
+  // Human-readable role names
+  'service delivery manager': 'MOD-SDM',
+  'delivery manager': 'MOD-SDM',
+  'sdm': 'MOD-SDM',
+  'project manager': 'MOD-LEAD',
+  'pm': 'MOD-LEAD',
+  'lead engineer': 'MOD-LEAD',
+  'engineering lead': 'MOD-LEAD',
+  'ingeniero delivery': 'MOD-LEAD',
+  'ingeniero lider': 'MOD-LEAD',
+  'support engineer': 'MOD-ING',
+  'engineer': 'MOD-ING',
+  'ingeniero': 'MOD-ING',
+  'contractor': 'MOD-CONT',
+  'external': 'MOD-EXT',
+  
+  // Legacy MOD-PM mapping (no longer canonical, maps to MOD-LEAD)
+  'mod-pm': 'MOD-LEAD',
+  'mod-pmo': 'MOD-LEAD',
+};
