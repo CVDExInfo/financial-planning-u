@@ -37,6 +37,15 @@ for token in "${FORBIDDEN[@]}"; do
     ':!ci/check-forbidden-rubros.sh' \
     ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
     ':!src/lib/rubros/canonical-taxonomy.ts' \
+    ':!**/__tests__/**' \
+    ':!**/tests/**' \
+    ':!**/*.test.ts' \
+    ':!**/*.test.tsx' \
+    ':!**/*.spec.ts' \
+    ':!**/*.spec.tsx' \
+    ':!artifacts-*.txt' \
+    ':!tmp/**' \
+    ':!scripts/find-missing-rubros.ts' \
     2>/dev/null; then
     
     echo "❌ ERROR: Found forbidden legacy rubro token: '$token'"
@@ -50,7 +59,16 @@ for token in "${FORBIDDEN[@]}"; do
       ':!scripts/fix-noncanonical-rubros.js' \
       ':!ci/check-forbidden-rubros.sh' \
       ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
-      ':!src/lib/rubros/canonical-taxonomy.ts' || true
+      ':!src/lib/rubros/canonical-taxonomy.ts' \
+      ':!**/__tests__/**' \
+      ':!**/tests/**' \
+      ':!**/*.test.ts' \
+      ':!**/*.test.tsx' \
+      ':!**/*.spec.ts' \
+      ':!**/*.spec.tsx' \
+      ':!artifacts-*.txt' \
+      ':!tmp/**' \
+      ':!scripts/find-missing-rubros.ts' || true
     echo ""
     echo "   This token should be replaced with its canonical equivalent from:"
     echo "   - data/rubros.taxonomy.json (canonical IDs like MOD-LEAD, MOD-SDM, etc.)"

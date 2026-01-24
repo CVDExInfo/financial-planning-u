@@ -388,11 +388,18 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
 
   // Normalize incoming rubro tokens to canonical IDs before any processing/writes.
   // We mutate the entries in-place so the rest of the logic can continue to use rawRubroEntries.
+  // We also preserve the original ID for legacy tracking.
   try {
     rawRubroEntries.forEach((entry) => {
       const raw =
         String(entry.rubroId || entry.rubro_id || entry.codigo || entry.linea_codigo || "");
       const canonical = getCanonicalRubroId(raw) || raw;
+      
+      // Store original ID if it differs from canonical (for legacy tracking)
+      if (canonical !== raw && raw) {
+        entry._originalRubroId = raw;
+      }
+      
       // normalize fields used downstream
       entry.rubroId = canonical;
       entry.rubro_id = canonical;
@@ -491,6 +498,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
       category,
       linea_codigo: lineaCodigo,
       tipo_costo: tipoCosto,
+      _originalRubroId: payload._originalRubroId as string | undefined,
     };
   };
 
@@ -512,13 +520,15 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
 
   // Validate and normalize all rubro_ids to canonical format
   const validatedEntries = normalizedEntries.map((entry) => {
-    const validation = normalizeRubroId(entry.rubroId);
+    // Use the original ID if it was preserved, otherwise use current rubroId for validation
+    const idToValidate = entry._originalRubroId || entry.rubroId;
+    const validation = normalizeRubroId(idToValidate);
     
     if (validation.warning) {
       warnings.push(validation.warning);
       console.warn("attachRubros: rubro validation", {
         projectId,
-        original: entry.rubroId,
+        original: idToValidate,
         canonical: validation.canonicalId,
         warning: validation.warning,
       });
@@ -527,7 +537,7 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
     return {
       ...entry,
       rubroId: validation.canonicalId, // Use canonical ID
-      _originalId: entry.rubroId, // Keep original for audit
+      _originalId: entry._originalRubroId || entry.rubroId, // Keep original for audit
       _isLegacy: validation.isLegacy,
       _isValid: validation.isValid,
     };
