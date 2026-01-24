@@ -170,7 +170,7 @@ function normalizeKey(s?: string): string {
  * Get canonical rubro_id from any legacy format
  * 
  * @param legacyId - Any rubro ID (canonical or legacy)
- * @returns Canonical linea_codigo, or the input if already canonical
+ * @returns Canonical linea_codigo, or the input unchanged if unknown
  */
 export function getCanonicalRubroId(legacyId?: string): string | null {
   if (!legacyId) return null;
@@ -197,9 +197,9 @@ export function getCanonicalRubroId(legacyId?: string): string | null {
     return canonical;
   }
   
-  // Unknown ID - log warning and return null
+  // Unknown ID - log warning and return unchanged (for graceful degradation)
   console.warn(`[canonical-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
-  return null;
+  return legacyId;
 }
 
 /**
@@ -207,7 +207,17 @@ export function getCanonicalRubroId(legacyId?: string): string | null {
  */
 export function isValidRubroId(rubroId?: string): boolean {
   if (!rubroId) return false;
-  return getCanonicalRubroId(rubroId) !== null;
+  
+  const normalized = normalizeKey(rubroId);
+  
+  // Check if it's in the legacy map
+  if (LEGACY_RUBRO_ID_MAP[rubroId]) return true;
+  if (Object.keys(LEGACY_RUBRO_ID_MAP).find(key => normalizeKey(key) === normalized)) return true;
+  
+  // Check if it's a canonical ID
+  if (Array.from(CANONICAL_IDS).find(id => normalizeKey(id) === normalized)) return true;
+  
+  return false;
 }
 
 /**
