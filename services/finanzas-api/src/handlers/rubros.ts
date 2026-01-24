@@ -13,7 +13,7 @@ import {
 import { ok, bad, notFound, serverError, fromAuthError } from "../lib/http";
 import { logError } from "../utils/logging";
 import { queryProjectRubros } from "../lib/baseline-sdmt";
-import { normalizeRubroId, ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
+import { normalizeRubroId, ensureTaxonomyLoaded, getCanonicalRubroId } from "../lib/canonical-taxonomy";
 
 /**
  * Rubros handler - CRUD operations for project rubros
@@ -284,11 +284,13 @@ async function listProjectRubros(event: APIGatewayProxyEventV2) {
         taxonomyByRubro[rubroId] ||
         undefined;
 
-      const normalizedId =
-        definition.rubro_id || definition.codigo || rubroId || item.rubroId;
+      // Canonicalize the ID before returning
+      const rawForCanonical = String(definition.linea_codigo || definition.rubro_id || definition.codigo || rubroId || item.rubroId || "");
+      const canonicalId = getCanonicalRubroId(rawForCanonical) || rawForCanonical;
+      
       return {
-        id: normalizedId,
-        rubro_id: normalizedId,
+        id: canonicalId,
+        rubro_id: canonicalId,
         nombre:
           definition.nombre ||
           taxonomy?.linea_gasto ||
@@ -400,8 +402,11 @@ async function attachRubros(event: APIGatewayProxyEventV2) {
   const attached: string[] = [];
 
   const normalizeRubroPayload = (payload: Record<string, unknown>) => {
-    const rubroId = (payload.rubroId as string) || (payload.rubro_id as string) || "";
-    if (!rubroId) return null;
+    const rawRubroId = (payload.rubroId as string) || (payload.rubro_id as string) || "";
+    if (!rawRubroId) return null;
+
+    // Canonicalize the rubro ID before using it
+    const rubroId = getCanonicalRubroId(rawRubroId) || rawRubroId;
 
     const qty = Number(payload.qty ?? payload.quantity ?? 1) || 1;
     const unitCost = Number(payload.unitCost ?? payload.unit_cost ?? 0) || 0;
