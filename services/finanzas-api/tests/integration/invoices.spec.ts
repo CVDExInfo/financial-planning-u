@@ -279,20 +279,25 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
   it("should handle duplicate lineItemId field in payload (use last occurrence per JSON.parse)", async () => {
     // This tests the scenario from the problem statement where the payload
-    // had duplicate lineItemId fields
-    const duplicatePayload = {
-      projectId,
-      lineItemId: "mod-lead", // First occurrence (will be overwritten by JSON.parse)
-      amount: 100000,
-      contentType: "application/pdf",
-      documentKey: "docs/invoice.pdf",
-      invoiceDate: "2026-01-01T00:00:00.000Z",
-      invoiceNumber: "PRL - No aplica",
-      lineItemId: "MOD-LEAD", // Second occurrence (last one wins in JSON.parse)
-      month: 10,
-      originalName: "Project Baseline Budget.pdf",
-      vendor: "__other__",
-    };
+    // had duplicate lineItemId fields. We simulate this using a JSON string
+    // that contains the same key twice; when parsed, the last occurrence wins.
+    const duplicatePayloadJson = `
+      {
+        "projectId": "${projectId}",
+        "lineItemId": "mod-lead",
+        "amount": 100000,
+        "contentType": "application/pdf",
+        "documentKey": "docs/invoice.pdf",
+        "invoiceDate": "2026-01-01T00:00:00.000Z",
+        "invoiceNumber": "PRL - No aplica",
+        "lineItemId": "MOD-LEAD",
+        "month": 10,
+        "originalName": "Project Baseline Budget.pdf",
+        "vendor": "__other__"
+      }
+    `;
+
+    const duplicatePayload = JSON.parse(duplicatePayloadJson);
 
     // JSON.parse will only keep the last occurrence
     const parsed = JSON.parse(JSON.stringify(duplicatePayload));
