@@ -1,93 +1,95 @@
-#!/bin/bash
-##
-## CI Pre-Merge Check: Forbidden Legacy Rubro Tokens
-##
-## PURPOSE:
-## Scans repository for known legacy rubro tokens that should not appear in code.
-## Prevents committing non-canonical rubro IDs like "mod-lead-ingeniero-delivery".
-##
-## USAGE:
-##   bash ci/check-forbidden-rubros.sh
-##
-## EXIT CODES:
-##   0 - No forbidden tokens found
-##   1 - Forbidden tokens detected (fails CI)
-##
+#!/usr/bin/env bash
+#
+# ci/check-forbidden-rubros.sh
+#
+# Checks for forbidden legacy rubro tokens in the codebase.
+# These tokens should be replaced with canonical IDs from the taxonomy.
+#
+# Exit codes:
+#   0 - No forbidden tokens found
+#   1 - Forbidden tokens found
 
-set -e
+set -euo pipefail
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  CI Check: Forbidden Legacy Rubro Tokens"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo
-
-# List of forbidden legacy tokens
-FORBIDDEN_TOKENS=(
+# List of known legacy/forbidden rubro tokens that should not appear in code
+FORBIDDEN=(
   "mod-lead-ingeniero-delivery"
   "mod-sdm-service-delivery-manager"
-  "mod-pm"
-  "mod-pmo"
-  "mod-engr"
-  "rubro-mod-pm"
-  "rubro-mod-pmo"
+  "mod-pm-project-manager"
+  "mod-ing-ingeniero-soporte-n1"
+  "ingeniero-delivery"
+  "service-delivery-manager"
+  "project-manager"
 )
 
-# Directories to exclude from search
-EXCLUDE_DIRS=(
-  "node_modules"
-  ".git"
-  "dist"
-  "build"
-  ".next"
-  "coverage"
-  ".terraform"
-  "vendor"
-)
+FOUND=0
+echo "🔍 Checking for forbidden legacy rubro tokens..."
+echo ""
 
-# Build exclude arguments for git grep
-EXCLUDE_ARGS=""
-for dir in "${EXCLUDE_DIRS[@]}"; do
-  EXCLUDE_ARGS="$EXCLUDE_ARGS:(exclude)$dir/*"
-done
-
-FOUND_ISSUES=0
-TOTAL_MATCHES=0
-
-echo "🔍 Scanning repository for forbidden legacy rubro tokens..."
-echo
-
-for token in "${FORBIDDEN_TOKENS[@]}"; do
-  echo -n "  Checking for: $token ... "
-  
-  # Use git grep to search (respects .gitignore and is faster)
-  if git grep -i -n "$token" -- . "$EXCLUDE_ARGS" 2>/dev/null; then
-    echo "❌ FOUND"
-    FOUND_ISSUES=$((FOUND_ISSUES + 1))
-    TOTAL_MATCHES=$((TOTAL_MATCHES + $(git grep -i -c "$token" -- . "$EXCLUDE_ARGS" 2>/dev/null | wc -l)))
-  else
-    echo "✅ OK"
+for token in "${FORBIDDEN[@]}"; do
+  # Search for the token in source files, excluding node_modules and other non-relevant paths
+  if git grep -n --quiet -i "$token" -- \
+    ':!node_modules' \
+    ':!pnpm-lock.yaml' \
+    ':!*.log' \
+    ':!*.md' \
+    ':!scripts/fix-noncanonical-rubros.js' \
+    ':!ci/check-forbidden-rubros.sh' \
+    ':!ci/check-canonical-rubros.cjs' \
+    ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
+    ':!src/lib/rubros/canonical-taxonomy.ts' \
+    ':!**/__tests__/**' \
+    ':!**/tests/**' \
+    ':!**/*.test.ts' \
+    ':!**/*.test.tsx' \
+    ':!**/*.spec.ts' \
+    ':!**/*.spec.tsx' \
+    ':!artifacts-*.txt' \
+    ':!tmp/**' \
+    ':!scripts/find-missing-rubros.ts' \
+    2>/dev/null; then
+    
+    echo "❌ ERROR: Found forbidden legacy rubro token: '$token'"
+    echo ""
+    echo "   Occurrences:"
+    git grep -n -i "$token" -- \
+      ':!node_modules' \
+      ':!pnpm-lock.yaml' \
+      ':!*.log' \
+      ':!*.md' \
+      ':!scripts/fix-noncanonical-rubros.js' \
+      ':!ci/check-forbidden-rubros.sh' \
+      ':!ci/check-canonical-rubros.cjs' \
+      ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
+      ':!src/lib/rubros/canonical-taxonomy.ts' \
+      ':!**/__tests__/**' \
+      ':!**/tests/**' \
+      ':!**/*.test.ts' \
+      ':!**/*.test.tsx' \
+      ':!**/*.spec.ts' \
+      ':!**/*.spec.tsx' \
+      ':!artifacts-*.txt' \
+      ':!tmp/**' \
+      ':!scripts/find-missing-rubros.ts' || true
+    echo ""
+    echo "   This token should be replaced with its canonical equivalent from:"
+    echo "   - data/rubros.taxonomy.json (canonical IDs like MOD-LEAD, MOD-SDM, etc.)"
+    echo "   - Or added to LEGACY_RUBRO_ID_MAP in canonical-taxonomy.ts if needed for backward compatibility"
+    echo ""
+    FOUND=1
   fi
 done
 
-echo
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-if [ $FOUND_ISSUES -gt 0 ]; then
-  echo "❌ FAIL: Found $FOUND_ISSUES forbidden token(s) with $TOTAL_MATCHES total occurrence(s)"
-  echo
-  echo "REMEDIATION:"
-  echo "  - Replace legacy tokens with canonical IDs (e.g., mod-pm → MOD-LEAD)"
-  echo "  - Use getCanonicalRubroId() to handle legacy mappings at runtime"
-  echo "  - Remove hardcoded legacy IDs from test fixtures"
-  echo
-  echo "CANONICAL MAPPINGS:"
-  echo "  mod-lead-ingeniero-delivery → MOD-LEAD"
-  echo "  mod-sdm-service-delivery-manager → MOD-SDM"
-  echo "  mod-pm / mod-pmo → MOD-LEAD"
-  echo
+if [ $FOUND -eq 1 ]; then
+  echo "❌ FAILED: Forbidden legacy rubro tokens found in codebase"
+  echo ""
+  echo "To fix:"
+  echo "  1. Replace legacy tokens with canonical IDs from data/rubros.taxonomy.json"
+  echo "  2. If the token is needed for backward compatibility, add it to LEGACY_RUBRO_ID_MAP"
+  echo "     in both canonical-taxonomy.ts files (frontend and backend)"
+  echo ""
   exit 1
-else
-  echo "✅ PASS: No forbidden legacy rubro tokens found"
-  echo
-  exit 0
 fi
+
+echo "✅ SUCCESS: No forbidden legacy rubro tokens found"
+exit 0

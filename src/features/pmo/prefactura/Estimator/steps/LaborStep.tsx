@@ -183,42 +183,24 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   };
 
   const handleNext = () => {
-    // Clear previous validation errors
-    setValidationError(null);
-    
-    // Validate that all labor estimates have valid canonical rubro IDs
-    const invalidEstimates = laborEstimates.filter((estimate) => {
-      const canonical = getCanonicalRubroId(estimate.rubroId || "");
-      return !canonical || !estimate.rubroId;
+    // Validate canonical rubro IDs before proceeding
+    const invalid = laborEstimates.some((item) => {
+      const canonical = getCanonicalRubroId(item.rubroId || "");
+      return !canonical;
     });
     
-    if (invalidEstimates.length > 0) {
-      setValidationError(
-        `Please select a valid role for all labor items. ${invalidEstimates.length} item(s) have invalid or missing roles.`
-      );
-      console.error("❌ Validation failed: Invalid or missing rubro IDs", {
-        invalidCount: invalidEstimates.length,
-        invalidItems: invalidEstimates.map((item, idx) => ({
-          index: laborEstimates.indexOf(item),
-          rubroId: item.rubroId,
-          role: item.role,
-        })),
-      });
+    if (invalid) {
+      // Show user-friendly validation and stop early
+      alert("Please select a valid role for every labor item. Some items have unrecognized rubro IDs.");
       return;
     }
-    
-    // Normalize all rubroIds to canonical form before submitting
-    const canonicalizedEstimates = laborEstimates.map((estimate) => ({
-      ...estimate,
-      rubroId: getCanonicalRubroId(estimate.rubroId || "") || estimate.rubroId,
-    }));
-    
+
     const totalCost = getTotalCost();
     console.log("💼 Labor estimates submitted (canonical IDs enforced):", {
-      itemCount: canonicalizedEstimates.length,
+      itemCount: laborEstimates.length,
       totalCost,
-      averageCostPerRole: totalCost / (canonicalizedEstimates.length || 1),
-      roles: canonicalizedEstimates.map((l) => ({
+      averageCostPerRole: totalCost / (laborEstimates.length || 1),
+      roles: laborEstimates.map((l) => ({
         role: l.role,
         rubroId: l.rubroId, // Now canonical
         fteCount: l.fte_count,
@@ -226,7 +208,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
       })),
       timestamp: new Date().toISOString(),
     });
-    setData(canonicalizedEstimates);
+    setData(laborEstimates);
     onNext();
   };
 

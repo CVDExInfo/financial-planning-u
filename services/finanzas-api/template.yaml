@@ -45,12 +45,12 @@ Parameters:
     Description: Enable admin debug endpoints (set to 'true' for development/testing only)
   TaxonomyS3Bucket:
     Type: String
-    Default: 'ukusi-ui-finanzas-prod'
-    Description: Existing S3 bucket for taxonomy files (DO NOT CREATE NEW BUCKET - uses ukusi-ui-finanzas-prod)
+    Default: ukusi-ui-finanzas-prod
+    Description: "Existing S3 bucket name for taxonomy files (DO NOT CREATE A NEW BUCKET)"
   TaxonomyS3Key:
     Type: String
-    Default: 'taxonomy/rubros.taxonomy.json'
-    Description: S3 object key for taxonomy file within the existing bucket
+    Default: taxonomy/rubros.taxonomy.json
+    Description: "Key/path in the bucket where the taxonomy lives"
 
 Conditions:
   HasPolicyStore: !Not [!Equals [!Ref PolicyStoreId, '']]
@@ -92,6 +92,10 @@ Globals:
         STAGE_NAME: !Ref StageName
         DOCS_BUCKET: !Ref DocsBucketName
         ALLOWED_ORIGIN: !Sub 'https://${CloudFrontDomain}'
+        
+        # Taxonomy S3 configuration (existing bucket, not created)
+        TAXONOMY_S3_BUCKET: !Ref TaxonomyS3Bucket
+        TAXONOMY_S3_KEY: !Ref TaxonomyS3Key
 
         # Cognito
         COGNITO_USER_POOL_ARN: !Ref CognitoUserPoolArn
@@ -362,6 +366,35 @@ Resources:
               Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
             IdentitySource: $request.header.Authorization
         DefaultAuthorizer: CognitoJwt
+
+  # -------------------
+  # IAM Policy for Taxonomy S3 Access
+  # -------------------
+  TaxonomyS3AccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Condition: HasTaxonomyBucket
+    Properties:
+      ManagedPolicyName: !Sub 'finanzas-taxonomy-s3-access-${StageName}'
+      Description: Grants read-only access to taxonomy files in existing S3 bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowGetTaxonomyObject
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectAcl
+            Resource:
+              - !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}/taxonomy/*'
+          - Sid: AllowListTaxonomyPrefix
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}'
+            Condition:
+              StringLike:
+                's3:prefix': 'taxonomy/*'
 
   # -------------------
   # Functions
@@ -953,13 +986,9 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref RubrosTaxonomiaTable
         - !If
-            - HasTaxonomyBucket
-            - Statement:
-                - Effect: Allow
-                  Action:
-                    - s3:GetObject
-                  Resource: !Sub 'arn:aws:s3:::${TaxonomyS3Bucket}/${TaxonomyS3Key}'
-            - !Ref AWS::NoValue
+          - HasTaxonomyBucket
+          - !Ref TaxonomyS3AccessPolicy
+          - !Ref AWS::NoValue
       Events:
         AttachRubro:
           Type: HttpApi
