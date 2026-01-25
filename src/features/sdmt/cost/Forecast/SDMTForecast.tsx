@@ -3442,7 +3442,7 @@ export function SDMTForecast() {
           {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
           {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
           {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
-            <Collapsible defaultOpen={true}>
+            <Collapsible defaultOpen={false}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -3592,7 +3592,7 @@ export function SDMTForecast() {
                           !canEditBudget ||
                           !budgetAmount
                         }
-                        className="gap-2 h-8"
+                        className="gap-2 h-8 min-w-[160px]"
                         size="sm"
                       >
                         {savingBudget ? <LoadingSpinner size="sm" /> : null}
@@ -3800,7 +3800,7 @@ export function SDMTForecast() {
                         !canEditBudget ||
                         !budgetAmount
                       }
-                      className="gap-2 h-8"
+                      className="gap-2 h-8 min-w-[160px]"
                       size="sm"
                     >
                       {savingBudget ? <LoadingSpinner size="sm" /> : null}
