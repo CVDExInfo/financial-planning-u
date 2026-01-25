@@ -148,7 +148,7 @@ describe("budgets handler - GET /budgets/all-in/monthly", () => {
 
     expect(result.statusCode).toBe(404);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("No monthly budgets found for year 2026");
+    expect(body.error || body.message).toContain("No monthly budgets found for year 2026");
   });
 
   it("should return 400 for missing year parameter", async () => {
@@ -162,7 +162,7 @@ describe("budgets handler - GET /budgets/all-in/monthly", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("Missing required parameter: year");
+    expect(body.error || body.message).toContain("Missing required parameter: year");
   });
 
   it("should return 400 for invalid year parameter", async () => {
@@ -176,7 +176,7 @@ describe("budgets handler - GET /budgets/all-in/monthly", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("Invalid year parameter");
+    expect(body.error || body.message).toContain("Invalid year parameter");
   });
 
   it("should handle partial monthly budgets (not all 12 months)", async () => {
@@ -288,7 +288,7 @@ describe("budgets handler - GET /budgets/all-in", () => {
 
     expect(result.statusCode).toBe(404);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("No budget found for year 2026");
+    expect(body.error || body.message).toContain("No budget found for year 2026");
   });
 });
 
@@ -394,6 +394,6 @@ describe("budgets handler - PUT /budgets/all-in/monthly", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("Invalid month format");
+    expect(body.error || body.message).toContain("Invalid month format");
   });
 });

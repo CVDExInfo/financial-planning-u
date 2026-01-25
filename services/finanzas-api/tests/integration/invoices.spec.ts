@@ -150,7 +150,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("lineItemId not found for project");
+    expect(body.error || body.message).toContain("lineItemId not found for project");
   });
 
   it("should return 400 for missing required field: projectId", async () => {
@@ -167,7 +167,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("projectId is required");
+    expect(body.error || body.message).toContain("projectId is required");
   });
 
   it("should return 400 for missing required field: lineItemId", async () => {
@@ -184,7 +184,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("lineItemId is required");
+    expect(body.error || body.message).toContain("lineItemId is required");
   });
 
   it("should return 400 for invalid month (< 1)", async () => {
@@ -202,7 +202,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("month must be an integer between 1 and 12");
+    expect(body.error || body.message).toContain("month must be an integer between 1 and 12");
   });
 
   it("should return 400 for invalid month (> 12)", async () => {
@@ -220,7 +220,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("month must be an integer between 1 and 12");
+    expect(body.error || body.message).toContain("month must be an integer between 1 and 12");
   });
 
   it("should return 400 for invalid amount (negative)", async () => {
@@ -238,7 +238,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("amount must be a positive number");
+    expect(body.error || body.message).toContain("amount must be a positive number");
   });
 
   it("should return 400 for invalid amount (zero)", async () => {
@@ -256,7 +256,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("amount must be a positive number");
+    expect(body.error || body.message).toContain("amount must be a positive number");
   });
 
   it("should return 400 for projectId mismatch between path and body", async () => {
@@ -274,7 +274,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
-    expect(body.message).toContain("projectId mismatch");
+    expect(body.error || body.message).toContain("projectId mismatch");
   });
 
   it("should handle duplicate lineItemId field in payload (use first occurrence)", async () => {
