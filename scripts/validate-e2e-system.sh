@@ -732,7 +732,7 @@ generate_report() {
     echo "   → Add dynamodb:PutItem, dynamodb:Query permissions"
     echo ""
     echo "3. Non-canonical rubro IDs in database:"
-    echo "   → Run migration script: node scripts/fix-noncanonical-rubros.js --apply"
+    echo "   → Run migration script: node scripts/fix-noncanonical-rubros.cjs --apply"
     echo ""
     echo "4. CI check failures:"
     echo "   → Review non-canonical IDs found by ci/check-canonical-rubros.cjs"

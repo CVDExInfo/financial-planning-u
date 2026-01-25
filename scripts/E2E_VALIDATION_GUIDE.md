@@ -135,7 +135,7 @@ node scripts/fix-noncanonical-rubros.cjs --apply --batch=50
 
 Tests the migration script functionality:
 
-1. **Script Exists**: Verifies `scripts/fix-noncanonical-rubros.js` is present
+1. **Script Exists**: Verifies `scripts/fix-noncanonical-rubros.cjs` is present
 2. **Dry-Run**: Tests dry-run mode execution
 
 **Expected Outcome:** Script can be executed and performs dry-run without errors.

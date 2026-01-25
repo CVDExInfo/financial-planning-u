@@ -33,7 +33,7 @@ for token in "${FORBIDDEN[@]}"; do
     ':!pnpm-lock.yaml' \
     ':!*.log' \
     ':!*.md' \
-    ':!scripts/fix-noncanonical-rubros.js' \
+    ':!scripts/fix-noncanonical-rubros.cjs' \
     ':!ci/check-forbidden-rubros.sh' \
     ':!ci/check-canonical-rubros.cjs' \
     ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
@@ -57,7 +57,7 @@ for token in "${FORBIDDEN[@]}"; do
       ':!pnpm-lock.yaml' \
       ':!*.log' \
       ':!*.md' \
-      ':!scripts/fix-noncanonical-rubros.js' \
+      ':!scripts/fix-noncanonical-rubros.cjs' \
       ':!ci/check-forbidden-rubros.sh' \
       ':!ci/check-canonical-rubros.cjs' \
       ':!services/finanzas-api/src/lib/canonical-taxonomy.ts' \
