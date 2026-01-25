@@ -142,6 +142,40 @@ describe('ForecastSummaryBar KPI Calculations', () => {
     assert.strictEqual(summaryBarKpis.varianceBudget, 2000);
     assert.strictEqual(Math.round(summaryBarKpis.consumedPercent * 10) / 10, 84.8);
   });
+
+  it('should handle neutral state when totalActual is zero', () => {
+    const input = {
+      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
+      budgetAllIn: 120000,
+      useMonthlyBudget: true,
+      totalForecast: 100000,
+      totalActual: 0, // Zero actual data
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 120000);
+    assert.strictEqual(result.totalActual, 0);
+    assert.strictEqual(result.consumedPercent, 0, 'consumedPercent should be 0 when totalActual is 0');
+    assert.strictEqual(result.totalForecast, 100000);
+  });
+
+  it('should calculate correct KPIs when Real=0 and Forecast>0', () => {
+    const input = {
+      monthlyBudgets: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, budget: 10000 })),
+      budgetAllIn: 120000,
+      useMonthlyBudget: true,
+      totalForecast: 132000, // 10% over budget
+      totalActual: 0, // No real data yet
+    };
+
+    const result = calculateExpectedKpis(input);
+
+    assert.strictEqual(result.totalBudget, 120000);
+    assert.strictEqual(result.varianceBudget, 12000, 'varianceBudget should still be calculated');
+    assert.strictEqual(result.varianceBudgetPercent, 10, 'varianceBudgetPercent should be 10%');
+    assert.strictEqual(result.consumedPercent, 0, 'consumedPercent should be 0 when totalActual is 0');
+  });
 });
 
 // Validation helper

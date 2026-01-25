@@ -429,7 +429,7 @@ export function ForecastRubrosTable({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 sticky top-0 z-10 bg-background border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Rubros por Categoría</CardTitle>
           {/* Search Filter and Labor/Non-Labor Filter */}

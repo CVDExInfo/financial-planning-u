@@ -93,9 +93,12 @@ export function ForecastSummaryBar({
     return 'bg-muted text-muted-foreground';
   };
 
+  // Check if real data is zero (neutral state)
+  const isRealZero = totalActual === 0;
+
   // Determine color for consumption percentage
   const getConsumptionColor = (percent: number): string => {
-    if (totalBudget === 0) {
+    if (totalBudget === 0 || isRealZero) {
       return 'text-muted-foreground';
     }
     
@@ -287,8 +290,8 @@ export function ForecastSummaryBar({
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <div className="text-xl font-bold text-blue-600">
-                {formatCurrency(totalActual)}
+              <div className={`text-xl font-bold ${isRealZero ? 'text-muted-foreground' : 'text-blue-600'}`}>
+                {isRealZero ? 'Sin datos' : formatCurrency(totalActual)}
               </div>
             </div>
 
@@ -312,15 +315,15 @@ export function ForecastSummaryBar({
                 </TooltipProvider>
               </div>
               <div className={`text-xl font-bold ${getConsumptionColor(consumedPercent)}`}>
-                {totalBudget > 0 ? formatPercent(consumedPercent) : '—'}
+                {totalBudget > 0 && !isRealZero ? formatPercent(consumedPercent) : '—'}
               </div>
-              {totalBudget > 0 && consumedPercent > 100 && (
-                <Badge variant="destructive" className="text-[10px] w-fit">
+              {!isRealZero && totalBudget > 0 && consumedPercent > 100 && (
+                <Badge variant="destructive" className="text-[10px] w-fit px-2 py-1">
                   Sobre presupuesto
                 </Badge>
               )}
-              {totalBudget > 0 && consumedPercent > 90 && consumedPercent <= 100 && (
-                <Badge variant="outline" className="text-[10px] w-fit border-yellow-600 text-yellow-700">
+              {!isRealZero && totalBudget > 0 && consumedPercent > 90 && consumedPercent <= 100 && (
+                <Badge variant="outline" className="text-[10px] w-fit border-yellow-600 text-yellow-700 px-2 py-1">
                   Advertencia
                 </Badge>
               )}

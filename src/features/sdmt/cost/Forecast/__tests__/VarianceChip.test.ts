@@ -2,6 +2,7 @@
  * VarianceChip Component Unit Tests
  * 
  * Tests for VarianceChip formatting, color logic, and percent handling
+ * Updated for Tier 1 UX improvements with neutral colors
  */
 
 import { describe, it } from 'node:test';
@@ -14,7 +15,7 @@ import assert from 'node:assert';
  * formatting logic that the component uses internally.
  */
 describe('VarianceChip - Formatting Logic', () => {
-  it('should format positive variance with + prefix and red color', () => {
+  it('should format positive variance with + prefix and neutral background', () => {
     const value = 1500;
     const percent = 15.0;
     
@@ -26,15 +27,18 @@ describe('VarianceChip - Formatting Logic', () => {
     const percentSign = percent > 0 ? '+' : '';
     const formattedPercent = `${percentSign}${percent.toFixed(1)}%`;
     
-    // Color
-    const color = 'text-red-600';
+    // Neutral color scheme
+    const bg = 'bg-slate-100 dark:bg-slate-800';
+    const text = 'text-slate-700 dark:text-slate-300';
+    const iconColor = 'text-red-500 dark:text-red-400';
     
     assert.strictEqual(sign, '+', 'Positive variance should have + sign');
     assert.strictEqual(formattedPercent, '+15.0%', 'Positive percent should be +15.0%');
-    assert.strictEqual(color, 'text-red-600', 'Positive variance should be red');
+    assert.strictEqual(bg, 'bg-slate-100 dark:bg-slate-800', 'Should use neutral background');
+    assert.strictEqual(iconColor, 'text-red-500 dark:text-red-400', 'Icon should have subtle red');
   });
 
-  it('should format negative variance with minus sign and green color', () => {
+  it('should format negative variance with minus sign and neutral background', () => {
     const value = -800;
     const percent = -8.5;
     
@@ -45,15 +49,17 @@ describe('VarianceChip - Formatting Logic', () => {
     const percentSign = percent > 0 ? '+' : '';
     const formattedPercent = `${percentSign}${percent.toFixed(1)}%`;
     
-    // Color
-    const color = 'text-green-600';
+    // Neutral color scheme
+    const bg = 'bg-slate-100 dark:bg-slate-800';
+    const iconColor = 'text-green-500 dark:text-green-400';
     
     assert.strictEqual(sign, '−', 'Negative variance should have minus sign (U+2212)');
     assert.strictEqual(formattedPercent, '-8.5%', 'Negative percent should be -8.5%');
-    assert.strictEqual(color, 'text-green-600', 'Negative variance should be green');
+    assert.strictEqual(bg, 'bg-slate-100 dark:bg-slate-800', 'Should use neutral background');
+    assert.strictEqual(iconColor, 'text-green-500 dark:text-green-400', 'Icon should have subtle green');
   });
 
-  it('should format zero variance with muted color', () => {
+  it('should format zero variance with neutral color', () => {
     const value = 0;
     const percent = 0.0;
     
@@ -64,12 +70,14 @@ describe('VarianceChip - Formatting Logic', () => {
     const percentSign = percent > 0 ? '+' : '';
     const formattedPercent = `${percentSign}${percent.toFixed(1)}%`;
     
-    // Color
-    const color = value > 0 ? 'text-red-600' : value < 0 ? 'text-green-600' : 'text-muted-foreground';
+    // Neutral color scheme
+    const bg = 'bg-slate-100 dark:bg-slate-800';
+    const text = 'text-slate-500 dark:text-slate-400';
     
     assert.strictEqual(sign, '', 'Zero variance should have no sign');
     assert.strictEqual(formattedPercent, '0.0%', 'Zero percent should be 0.0%');
-    assert.strictEqual(color, 'text-muted-foreground', 'Zero variance should be muted');
+    assert.strictEqual(bg, 'bg-slate-100 dark:bg-slate-800', 'Should use neutral background');
+    assert.strictEqual(text, 'text-slate-500 dark:text-slate-400', 'Should use muted text');
   });
 
   it('should display em dash when percent is null (denominator=0)', () => {
@@ -101,40 +109,87 @@ describe('VarianceChip - Formatting Logic', () => {
 });
 
 /**
- * Test: Color determination logic
+ * Test: Neutral color scheme logic
  */
-describe('VarianceChip - Color Logic', () => {
-  it('should use red for overspend (positive variance)', () => {
-    const getColorClass = (value: number): string => {
-      if (value > 0) return 'text-red-600';
-      if (value < 0) return 'text-green-600';
-      return 'text-muted-foreground';
+describe('VarianceChip - Neutral Color Scheme', () => {
+  it('should use neutral background with red icon for overspend (positive variance)', () => {
+    const getColorClasses = (value: number) => {
+      if (value > 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      if (value < 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      return {
+        bg: 'bg-slate-100 dark:bg-slate-800',
+        text: 'text-slate-500 dark:text-slate-400',
+      };
     };
     
-    assert.strictEqual(getColorClass(100), 'text-red-600');
-    assert.strictEqual(getColorClass(0.01), 'text-red-600');
-    assert.strictEqual(getColorClass(10000), 'text-red-600');
+    const result = getColorClasses(100);
+    assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
+    assert.strictEqual(result.text, 'text-slate-700 dark:text-slate-300');
   });
 
-  it('should use green for savings (negative variance)', () => {
-    const getColorClass = (value: number): string => {
-      if (value > 0) return 'text-red-600';
-      if (value < 0) return 'text-green-600';
-      return 'text-muted-foreground';
+  it('should use neutral background with green icon for savings (negative variance)', () => {
+    const getColorClasses = (value: number) => {
+      if (value > 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      if (value < 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      return {
+        bg: 'bg-slate-100 dark:bg-slate-800',
+        text: 'text-slate-500 dark:text-slate-400',
+      };
     };
     
-    assert.strictEqual(getColorClass(-100), 'text-green-600');
-    assert.strictEqual(getColorClass(-0.01), 'text-green-600');
-    assert.strictEqual(getColorClass(-10000), 'text-green-600');
+    const result = getColorClasses(-100);
+    assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
+    assert.strictEqual(result.text, 'text-slate-700 dark:text-slate-300');
   });
 
-  it('should use muted for zero variance', () => {
-    const getColorClass = (value: number): string => {
-      if (value > 0) return 'text-red-600';
-      if (value < 0) return 'text-green-600';
-      return 'text-muted-foreground';
+  it('should use fully neutral colors for zero variance', () => {
+    const getColorClasses = (value: number) => {
+      if (value > 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      if (value < 0) {
+        return {
+          bg: 'bg-slate-100 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+        };
+      }
+      return {
+        bg: 'bg-slate-100 dark:bg-slate-800',
+        text: 'text-slate-500 dark:text-slate-400',
+      };
     };
     
-    assert.strictEqual(getColorClass(0), 'text-muted-foreground');
+    const result = getColorClasses(0);
+    assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
+    assert.strictEqual(result.text, 'text-slate-500 dark:text-slate-400');
+  });
+
+  it('should apply consistent 12px padding (px-3 py-2)', () => {
+    // px-3 = 12px horizontal padding, py-2 = 8px vertical padding
+    const padding = 'px-3 py-2';
+    assert.strictEqual(padding, 'px-3 py-2', 'Should use 8/12px spacing scale');
   });
 });

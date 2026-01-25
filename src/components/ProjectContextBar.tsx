@@ -105,7 +105,7 @@ export function ProjectContextBar({ className }: ProjectContextBarProps) {
 
   return (
     <div
-      className={cn("border-b border-border bg-muted/20 px-6 py-3", className)}
+      className={cn("border-b border-border bg-muted/20 px-6 py-3 sticky top-0 z-20", className)}
     >
       <div className="max-w-7xl mx-auto space-y-3">
         {projectError && (
