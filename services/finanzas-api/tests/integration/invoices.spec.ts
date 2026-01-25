@@ -277,18 +277,18 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
     expect(body.error || body.message).toContain("projectId mismatch");
   });
 
-  it("should handle duplicate lineItemId field in payload (use first occurrence)", async () => {
+  it("should handle duplicate lineItemId field in payload (use last occurrence per JSON.parse)", async () => {
     // This tests the scenario from the problem statement where the payload
     // had duplicate lineItemId fields
     const duplicatePayload = {
       projectId,
-      lineItemId: "mod-lead", // First occurrence (lowercase)
+      lineItemId: "mod-lead", // First occurrence (will be overwritten by JSON.parse)
       amount: 100000,
       contentType: "application/pdf",
       documentKey: "docs/invoice.pdf",
       invoiceDate: "2026-01-01T00:00:00.000Z",
       invoiceNumber: "PRL - No aplica",
-      lineItemId: "MOD-LEAD", // Second occurrence (uppercase) - should be ignored by JSON.parse
+      lineItemId: "MOD-LEAD", // Second occurrence (last one wins in JSON.parse)
       month: 10,
       originalName: "Project Baseline Budget.pdf",
       vendor: "__other__",

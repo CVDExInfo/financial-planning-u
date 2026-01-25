@@ -23,7 +23,7 @@ import {
   UpdateCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { getCanonicalRubroId } from "../../src/lib/rubros/canonical-taxonomy.js";
+import { getCanonicalRubroId } from "../../src/lib/rubros/canonical-taxonomy";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE_PREFIX = process.env.TABLE_PREFIX || "finz_";
