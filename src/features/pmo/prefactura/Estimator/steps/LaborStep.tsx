@@ -197,10 +197,10 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
 
     const totalCost = getTotalCost();
     console.log("💼 Labor estimates submitted (canonical IDs enforced):", {
-      itemCount: canonicalizedEstimates.length,
+      itemCount: laborEstimates.length,
       totalCost,
-      averageCostPerRole: totalCost / (canonicalizedEstimates.length || 1),
-      roles: canonicalizedEstimates.map((l) => ({
+      averageCostPerRole: totalCost / (laborEstimates.length || 1),
+      roles: laborEstimates.map((l) => ({
         role: l.role,
         rubroId: l.rubroId, // Now canonical
         fteCount: l.fte_count,
@@ -208,7 +208,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
       })),
       timestamp: new Date().toISOString(),
     });
-    setData(canonicalizedEstimates);
+    setData(laborEstimates);
     onNext();
   };
 

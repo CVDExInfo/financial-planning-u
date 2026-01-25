@@ -54,7 +54,7 @@ The canonical taxonomy is stored in the existing S3 bucket for:
 **Features:**
 - Scans `allocations` and `project_rubros` tables for non-canonical IDs
 - Computes canonical ID using same logic as application
-- Updates items with: `rubro_id = canonical`, `canonical_rubro_id = canonical`, `legacy_rubro_token = original`
+- Updates items with: `rubro_id = canonical`, `canonical_rubro_id = canonical`, `_legacy_id = original`
 - Supports `--dryrun` and `--apply` modes
 - Configurable batch size for safe processing
 
@@ -192,7 +192,7 @@ node scripts/fix-noncanonical-rubros.js --apply --batch=100
 - All rubro_id values in allocations table are canonical
 - All rubro_id values in project_rubros table are canonical
 - canonical_rubro_id field exists and equals rubro_id
-- legacy_rubro_token preserves original value for audit
+- _legacy_id preserves original value for audit
 
 ✅ **API Behavior:**
 - GET /projects/{id}/rubros returns canonical rubro_id
@@ -221,7 +221,7 @@ None. This change improves data integrity but does not introduce or fix security
 ### Security Enhancements
 1. **Input Validation:** PMO Estimator now validates rubro IDs before submission
 2. **Data Integrity:** Canonical IDs prevent data corruption from inconsistent identifiers
-3. **Audit Trail:** legacy_rubro_token field preserves original values for compliance
+3. **Audit Trail:** _legacy_id field preserves original values for compliance
 
 ## Known Issues & Follow-up
 

@@ -71,7 +71,7 @@ async function scanNonCanonical(tableName) {
   do {
     const res = await ddb.send(new ScanCommand({
       TableName: tableName,
-      ProjectionExpression: "pk, sk, rubro_id, canonical_rubro_id, legacy_rubro_token",
+      ProjectionExpression: "pk, sk, rubro_id, canonical_rubro_id, _legacy_id",
       ExclusiveStartKey,
       Limit: 500,
     }));
@@ -155,7 +155,7 @@ async function processTable(tableName) {
     const params = {
       TableName: tableName,
       Key: { pk: it.pk, sk: it.sk },
-      UpdateExpression: "SET rubro_id = :c, canonical_rubro_id = :c, legacy_rubro_token = :old",
+      UpdateExpression: "SET rubro_id = :c, canonical_rubro_id = :c, _legacy_id = :old",
       ExpressionAttributeValues: {
         ":c": canonical,
         ":old": old,
