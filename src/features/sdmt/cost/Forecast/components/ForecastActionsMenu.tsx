@@ -22,7 +22,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { MoreVertical, Save, FileSpreadsheet, Share2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
