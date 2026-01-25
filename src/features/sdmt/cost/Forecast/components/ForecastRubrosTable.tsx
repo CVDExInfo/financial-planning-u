@@ -34,6 +34,7 @@ import type { CategoryTotals, CategoryRubro, PortfolioTotals } from '../category
 import type { ProjectTotals, ProjectRubro } from '../projectGrouping';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import VarianceChip from './VarianceChip';
+import { VarianceChip as NewVarianceChip } from '@/components/ui/design-system/Chip';
 import { isLabor } from '@/lib/rubros-category-utils';
 import { isLaborByKey } from '../lib/taxonomyLookup';
 import { useProject } from '@/contexts/ProjectContext';
@@ -56,6 +57,8 @@ interface ForecastRubrosTableProps {
   // External viewMode control (controlled/uncontrolled pattern)
   externalViewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
+  // Design system flag
+  useNewDesignSystem?: boolean;
 }
 
 export function ForecastRubrosTable({
@@ -71,6 +74,7 @@ export function ForecastRubrosTable({
   defaultFilter = 'labor',
   externalViewMode,
   onViewModeChange,
+  useNewDesignSystem = false,
 }: ForecastRubrosTableProps) {
   const { selectedProject } = useProject();
   const { user } = useAuth();
@@ -83,6 +87,37 @@ export function ForecastRubrosTable({
   
   // Hybrid control: use external if provided, otherwise internal state
   const effectiveViewMode = externalViewMode ?? internalViewMode;
+
+  // Helper to render variance chip based on design system flag
+  const renderVarianceChip = (variance: number, forecast: number, label: string) => {
+    const percent = forecast !== 0 ? (variance / forecast) * 100 : null;
+    
+    if (useNewDesignSystem) {
+      // Format value for new design system chip (without currency symbol)
+      const formatValueWithoutSymbol = (v: number) => {
+        const formatted = formatCurrency(Math.abs(v));
+        // Remove currency symbol while preserving numbers, commas, dots, and spaces
+        // Handles USD ($1,234), EUR (€1.234), etc.
+        return formatted.replace(/^[^\d\s.,+-]+|[^\d\s.,+-]+$/g, '').trim();
+      };
+      
+      return (
+        <NewVarianceChip
+          variance={variance}
+          percentage={percent ?? undefined}
+          formatValue={formatValueWithoutSymbol}
+        />
+      );
+    }
+    
+    return (
+      <VarianceChip
+        value={variance}
+        percent={percent}
+        ariaLabel={`Variación para ${label}: ${variance}`}
+      />
+    );
+  };
 
   // Session storage key for persistence
   const sessionKey = useMemo(() => {
@@ -732,11 +767,7 @@ export function ForecastRubrosTable({
                             {rubro.overall.percentConsumption.toFixed(1)}%
                           </TableCell>
                           <TableCell className="text-center bg-muted/30 text-xs">
-                            <VarianceChip
-                              value={rubro.overall.varianceActual}
-                              percent={rubro.overall.forecast !== 0 ? (rubro.overall.varianceActual / rubro.overall.forecast) * 100 : null}
-                              ariaLabel={`Variación para ${rubro.description}: ${rubro.overall.varianceActual}`}
-                            />
+                            {renderVarianceChip(rubro.overall.varianceActual, rubro.overall.forecast, rubro.description)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -782,11 +813,7 @@ export function ForecastRubrosTable({
                           {categoryTotal.overall.percentConsumption.toFixed(1)}%
                         </TableCell>
                         <TableCell className="text-center bg-muted/80 text-xs font-bold">
-                          <VarianceChip
-                            value={categoryTotal.overall.varianceActual}
-                            percent={categoryTotal.overall.forecast !== 0 ? (categoryTotal.overall.varianceActual / categoryTotal.overall.forecast) * 100 : null}
-                            ariaLabel={`Variación subtotal para ${category}: ${categoryTotal.overall.varianceActual}`}
-                          />
+                          {renderVarianceChip(categoryTotal.overall.varianceActual, categoryTotal.overall.forecast, `Subtotal ${category}`)}
                         </TableCell>
                       </TableRow>
                     </Fragment>
@@ -894,11 +921,7 @@ export function ForecastRubrosTable({
                               {rubro.overall.percentConsumption.toFixed(1)}%
                             </TableCell>
                             <TableCell className="text-center bg-muted/30 text-xs">
-                              <VarianceChip
-                                value={rubro.overall.varianceActual}
-                                percent={rubro.overall.forecast !== 0 ? (rubro.overall.varianceActual / rubro.overall.forecast) * 100 : null}
-                                ariaLabel={`Variación para ${rubro.description}: ${rubro.overall.varianceActual}`}
-                              />
+                              {renderVarianceChip(rubro.overall.varianceActual, rubro.overall.forecast, rubro.description)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -944,11 +967,7 @@ export function ForecastRubrosTable({
                             {projectTotal.overall.percentConsumption.toFixed(1)}%
                           </TableCell>
                           <TableCell className="text-center bg-muted/80 text-xs font-bold">
-                            <VarianceChip
-                              value={projectTotal.overall.varianceActual}
-                              percent={projectTotal.overall.forecast !== 0 ? (projectTotal.overall.varianceActual / projectTotal.overall.forecast) * 100 : null}
-                              ariaLabel={`Variación subtotal para ${projectName}: ${projectTotal.overall.varianceActual}`}
-                            />
+                            {renderVarianceChip(projectTotal.overall.varianceActual, projectTotal.overall.forecast, `Subtotal ${projectName}`)}
                           </TableCell>
                         </TableRow>
                       </Fragment>
@@ -997,11 +1016,7 @@ export function ForecastRubrosTable({
                     {portfolioTotals.overall.percentConsumption.toFixed(1)}%
                   </TableCell>
                   <TableCell className="text-center bg-primary/20 font-bold text-lg">
-                    <VarianceChip
-                      value={portfolioTotals.overall.varianceActual}
-                      percent={portfolioTotals.overall.forecast !== 0 ? (portfolioTotals.overall.varianceActual / portfolioTotals.overall.forecast) * 100 : null}
-                      ariaLabel={`Variación total del portafolio: ${portfolioTotals.overall.varianceActual}`}
-                    />
+                    {renderVarianceChip(portfolioTotals.overall.varianceActual, portfolioTotals.overall.forecast, 'Total Portafolio')}
                   </TableCell>
                 </TableRow>
               </TableBody>

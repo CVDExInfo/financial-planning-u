@@ -97,6 +97,7 @@ import { TopVarianceRubrosTable } from "./components/TopVarianceRubrosTable";
 import { MonthlySnapshotGrid } from "./components/MonthlySnapshotGrid";
 import { ForecastActionsMenu } from "./components/ForecastActionsMenu";
 import { DataHealthPanel } from "@/components/finanzas/DataHealthPanel";
+import { DashboardLayout } from "@/components/ui/design-system/DashboardLayout";
 import type {
   BudgetSimulationState,
   SimulatedMetrics,
@@ -182,6 +183,7 @@ const PORTFOLIO_PROJECTS_WAIT_MS = Number(import.meta.env.VITE_FINZ_PORTFOLIO_WA
 
 // Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
+const NEW_DESIGN_SYSTEM = import.meta.env.VITE_FINZ_NEW_DESIGN_SYSTEM === 'true';
 const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
 
 // Backward compatibility: HIDE_KEY_TRENDS is deprecated, use SHOW_KEY_TRENDS instead
@@ -202,6 +204,7 @@ const SHOW_PORTFOLIO_KPIS = import.meta.env.VITE_FINZ_SHOW_PORTFOLIO_KPIS === 't
 if (import.meta.env.DEV) {
   console.log('[SDMTForecast] Feature Flags:', {
     NEW_FORECAST_LAYOUT_ENABLED,
+    NEW_DESIGN_SYSTEM,
     SHOW_KEY_TRENDS,
     HIDE_KEY_TRENDS,
     HIDE_REAL_ANNUAL_KPIS,
@@ -2851,8 +2854,9 @@ export function SDMTForecast() {
     setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
   };
 
-  return (
-    <div className="max-w-full mx-auto p-6 space-y-3">
+  // Render content
+  const renderContent = () => (
+    <div className="space-y-3">
       {/* Compact Header Row with Title, Subtitle, and Actions */}
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
@@ -3485,6 +3489,7 @@ export function SDMTForecast() {
                       formatCurrency={formatCurrency}
                       canEditBudget={canEditBudget}
                       defaultFilter="labor"
+                      useNewDesignSystem={NEW_DESIGN_SYSTEM}
                     />
                   </CardContent>
                 </CollapsibleContent>
@@ -3807,6 +3812,53 @@ export function SDMTForecast() {
               isOpen={isChartsPanelOpen}
               onOpenChange={handleChartsPanelOpenChange}
             />
+          )}
+
+          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
+          {/* Second instance of ForecastRubrosTable for project-level monitoring */}
+          {/* Must render EXPANDED by default (defaultOpen=true) per FINAL_FORECAST_LAYOUT.md */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
+            <Collapsible defaultOpen={true}>
+              <Card className="space-y-2">
+                <CardHeader className="pb-2 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">
+                        Monitoreo mensual de proyectos vs. presupuesto
+                      </CardTitle>
+                      <Badge variant="secondary" className="ml-2">Por Proyecto</Badge>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar Monitoreo mensual"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                      useNewDesignSystem={NEW_DESIGN_SYSTEM}
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
         </>
       )}
@@ -5150,6 +5202,21 @@ export function SDMTForecast() {
             />
           );
         })()}
+    </div>
+  );
+
+  // Conditional rendering based on design system flag
+  if (NEW_DESIGN_SYSTEM) {
+    return (
+      <DashboardLayout maxWidth="full">
+        {renderContent()}
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <div className="max-w-full mx-auto p-[1.5rem]">
+      {renderContent()}
     </div>
   );
 }
