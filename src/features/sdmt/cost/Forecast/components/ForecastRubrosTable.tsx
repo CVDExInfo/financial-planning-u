@@ -93,11 +93,18 @@ export function ForecastRubrosTable({
     const percent = forecast !== 0 ? (variance / forecast) * 100 : null;
     
     if (useNewDesignSystem) {
+      // Format value for new design system chip (without currency symbol)
+      const formatValueWithoutSymbol = (v: number) => {
+        const formatted = formatCurrency(Math.abs(v));
+        // Remove currency symbol and trim (handles USD $, EUR €, etc.)
+        return formatted.replace(/^[^\d]+|[^\d]+$/g, '').trim();
+      };
+      
       return (
         <NewVarianceChip
           variance={variance}
           percentage={percent ?? undefined}
-          formatValue={(v) => formatCurrency(Math.abs(v)).replace('$', '')}
+          formatValue={formatValueWithoutSymbol}
         />
       );
     }
