@@ -101,7 +101,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
 
     const body = JSON.parse(result.body!);
 
-    // Verify invoice was created with correct fields
+    // Verify invoice was created with correct fields including rubro_canonical
     expect(body).toHaveProperty("id");
     expect(body).toHaveProperty("project_id", projectId);
     expect(body).toHaveProperty("line_item_id", "MOD-LEAD");
@@ -123,7 +123,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
       })
     );
 
-    // Verify DynamoDB was called to create invoice
+    // Verify DynamoDB was called to create invoice with rubro_canonical
     expect(mockDdbSend).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
@@ -131,6 +131,7 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
           Item: expect.objectContaining({
             pk: `PROJECT#${projectId}`,
             lineItemId: "MOD-LEAD",
+            rubro_canonical: expect.any(String), // Should be computed from lineItemId
             amount: 100000,
             month: 10,
             status: "Pending",
@@ -151,6 +152,52 @@ describe("invoices handler - POST /projects/:projectId/invoices", () => {
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body!);
     expect(body.error || body.message).toContain("lineItemId not found for project");
+  });
+
+  it("should accept and store rubro_canonical when provided in request", async () => {
+    // Create event with explicit rubro_canonical
+    const eventWithRubroCanonical: ApiEvent = {
+      ...basePostEvent,
+      body: JSON.stringify({
+        projectId,
+        lineItemId: "MOD-LEAD",
+        rubro_canonical: "MOD-LEAD", // Explicit canonical ID
+        amount: 100000,
+        month: 10,
+        vendor: "__other__",
+        invoiceNumber: "INV-001",
+        invoiceDate: "2026-01-01T00:00:00.000Z",
+      }),
+    };
+
+    // Mock lineItemId validation
+    mockDdbSend.mockResolvedValueOnce({
+      Item: {
+        pk: `PROJECT#${projectId}`,
+        sk: "RUBRO#MOD-LEAD",
+        linea_codigo: "MOD-LEAD",
+      },
+    });
+
+    // Mock invoice creation
+    mockDdbSend.mockResolvedValueOnce({});
+
+    const result = await handler(eventWithRubroCanonical);
+
+    expect(result.statusCode).toBe(201);
+
+    // Verify rubro_canonical was stored
+    expect(mockDdbSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          TableName: "test-prefacturas",
+          Item: expect.objectContaining({
+            lineItemId: "MOD-LEAD",
+            rubro_canonical: "MOD-LEAD", // Should match provided value
+          }),
+        }),
+      })
+    );
   });
 
   it("should return 400 for missing required field: projectId", async () => {
