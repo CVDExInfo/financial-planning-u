@@ -96,8 +96,9 @@ export function ForecastRubrosTable({
       // Format value for new design system chip (without currency symbol)
       const formatValueWithoutSymbol = (v: number) => {
         const formatted = formatCurrency(Math.abs(v));
-        // Remove currency symbol and trim (handles USD $, EUR €, etc.)
-        return formatted.replace(/^[^\d]+|[^\d]+$/g, '').trim();
+        // Remove currency symbol while preserving numbers, commas, dots, and spaces
+        // Handles USD ($1,234), EUR (€1.234), etc.
+        return formatted.replace(/^[^\d\s.,+-]+|[^\d\s.,+-]+$/g, '').trim();
       };
       
       return (
