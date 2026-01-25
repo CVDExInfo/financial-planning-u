@@ -135,7 +135,7 @@ jobs:
 
           echo "✅ Taxonomy uploaded to S3"
           echo "   Canonical: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.json"
-          echo "   Versioned: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.${TIMESTAMP}.json"
+          echo "   Versioned: s3://${S3_BUCKET}/taxonomy/archive/rubros.taxonomy.${TIMESTAMP}.json"
           echo "   Latest: s3://${S3_BUCKET}/taxonomy/rubros.taxonomy.latest.json"
 
   trigger-deployments:
