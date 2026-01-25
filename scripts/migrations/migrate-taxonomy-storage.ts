@@ -8,8 +8,8 @@
  * - --apply: Actually performs the migration (with backup)
  * 
  * Usage:
- *   node --loader ts-node/esm scripts/migrations/migrate-taxonomy-storage.ts --dry-run
- *   node --loader ts-node/esm scripts/migrations/migrate-taxonomy-storage.ts --apply
+ *   pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --dry-run
+ *   pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --apply
  * 
  * Environment variables:
  *   AWS_REGION - AWS region (default: us-east-2)
@@ -24,7 +24,7 @@ import {
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 // Use backend canonicalizer (node-safe, S3 fallback)
-import { getCanonicalRubroId } from "../../services/finanzas-api/src/lib/canonical-taxonomy";
+import { getCanonicalRubroId } from "../../services/finanzas-api/src/lib/canonical-taxonomy.ts";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE_PREFIX = process.env.TABLE_PREFIX || "finz_";
@@ -34,8 +34,8 @@ const isApply = process.argv.includes("--apply");
 if (!isDryRun && !isApply) {
   console.error("❌ Error: Must specify either --dry-run or --apply");
   console.error("Usage:");
-  console.error("  node --loader ts-node/esm scripts/migrations/migrate-taxonomy-storage.ts --dry-run");
-  console.error("  node --loader ts-node/esm scripts/migrations/migrate-taxonomy-storage.ts --apply");
+  console.error("  pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --dry-run");
+  console.error("  pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --apply");
   process.exit(1);
 }
 
