@@ -134,19 +134,19 @@ jobs:
     name: Apply Taxonomy Migration to DynamoDB
     needs: deploy-artifacts
     runs-on: ubuntu-latest
-    # only run automatic apply on main — change as needed
     if: github.ref_name == 'main'
     permissions:
+      id-token: write        # <<< add this
       contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: us-east-2
+          output-env-credentials: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
