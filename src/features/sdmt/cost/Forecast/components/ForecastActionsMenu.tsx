@@ -65,7 +65,7 @@ export function ForecastActionsMenu({
         <Button
           onClick={onSaveForecast}
           disabled={savingForecast || dirtyForecastCount === 0 || !canEditForecast}
-          className="gap-2 h-9"
+          className="gap-2 h-9 min-w-[160px]"
           size="sm"
         >
           {savingForecast ? <LoadingSpinner size="sm" /> : null}
@@ -135,7 +135,7 @@ export function ForecastActionsMenu({
             <div className="grid grid-cols-2 gap-4">
               <Button
                 variant="outline"
-                className="h-20 flex flex-col gap-2"
+                className="h-20 flex flex-col gap-2 min-w-[160px]"
                 onClick={onExcelExport}
                 disabled={exporting !== null}
               >
@@ -153,7 +153,7 @@ export function ForecastActionsMenu({
               </Button>
               <Button
                 variant="outline"
-                className="h-20 flex flex-col gap-2"
+                className="h-20 flex flex-col gap-2 min-w-[160px]"
                 onClick={onPDFExport}
                 disabled={exporting !== null}
               >

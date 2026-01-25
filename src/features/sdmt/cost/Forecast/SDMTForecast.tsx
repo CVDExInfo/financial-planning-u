@@ -253,7 +253,71 @@ export function SDMTForecast() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // State for controlling rubros grid collapsible (TODOS view)
-  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(false);
+  const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastRubrosGridOpen');
+    return stored === 'true'; // Default to false if not set
+  });
+  
+  // Persistent state for Portfolio Summary collapsible
+  const [isPortfolioSummaryOpen, setIsPortfolioSummaryOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastPortfolioSummaryOpen');
+    return stored === 'true'; // Default to false
+  });
+  
+  // Persistent state for Budget Simulator collapsible
+  const [isBudgetSimulatorOpen, setIsBudgetSimulatorOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastBudgetSimulatorOpen');
+    return stored === 'true'; // Default to false
+  });
+  
+  // Persistent state for Charts Panel collapsible
+  const [isChartsPanelOpen, setIsChartsPanelOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastChartsPanelOpen');
+    return stored === 'true'; // Default to false
+  });
+  
+  // Persistent state for Monitoring Table collapsible
+  const [isMonitoringTableOpen, setIsMonitoringTableOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastMonitoringTableOpen');
+    return stored === 'true'; // Default to true for monitoring
+  });
+  
+  // Persistent state for Single Project Budget Panel collapsible
+  const [isSingleProjectBudgetOpen, setIsSingleProjectBudgetOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastSingleProjectBudgetOpen');
+    return stored === 'true'; // Default to false
+  });
+
+  // Handlers to persist collapsible states
+  const handleRubrosGridOpenChange = (open: boolean) => {
+    setIsRubrosGridOpen(open);
+    sessionStorage.setItem('forecastRubrosGridOpen', String(open));
+  };
+  
+  const handlePortfolioSummaryOpenChange = (open: boolean) => {
+    setIsPortfolioSummaryOpen(open);
+    sessionStorage.setItem('forecastPortfolioSummaryOpen', String(open));
+  };
+  
+  const handleBudgetSimulatorOpenChange = (open: boolean) => {
+    setIsBudgetSimulatorOpen(open);
+    sessionStorage.setItem('forecastBudgetSimulatorOpen', String(open));
+  };
+  
+  const handleChartsPanelOpenChange = (open: boolean) => {
+    setIsChartsPanelOpen(open);
+    sessionStorage.setItem('forecastChartsPanelOpen', String(open));
+  };
+  
+  const handleMonitoringTableOpenChange = (open: boolean) => {
+    setIsMonitoringTableOpen(open);
+    sessionStorage.setItem('forecastMonitoringTableOpen', String(open));
+  };
+  
+  const handleSingleProjectBudgetOpenChange = (open: boolean) => {
+    setIsSingleProjectBudgetOpen(open);
+    sessionStorage.setItem('forecastSingleProjectBudgetOpen', String(open));
+  };
 
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
   // The ForecastRubrosTable component has its own internal viewMode that switches between
@@ -769,6 +833,9 @@ export function SDMTForecast() {
         );
       });
       
+      // Calculate total actual from matched invoices
+      const totalActualFromInvoices = updatedData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+      
       if (unmatchedInvoices.length > 0) {
         console.debug(
           `[Forecast] unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
@@ -787,6 +854,17 @@ export function SDMTForecast() {
           }
         );
       }
+      
+      // Log summary of actuals
+      console.debug(
+        `[Forecast] Actuals summary for ${projectId}:`,
+        {
+          totalInvoices: invoices.length,
+          matchedInvoices: matchedInvoices.length,
+          totalActualAmount: totalActualFromInvoices,
+          cellsWithActuals: updatedData.filter(c => (c.actual || 0) > 0).length,
+        }
+      );
     }
 
     // Final check before setting state
@@ -1265,6 +1343,34 @@ export function SDMTForecast() {
     isPortfolioView,
     projects.length,
   ]);
+
+  // Clear stale filters and state when switching between TODOS and single project
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('🧹 [Forecast] View mode changed - clearing stale state', {
+        isPortfolioView,
+        selectedProjectId,
+      });
+    }
+    
+    // Reset dirty states to prevent accidental saves of stale data
+    setDirtyActuals({});
+    setDirtyForecasts({});
+    
+    // Reset editing state
+    setEditingCell(null);
+    setEditValue('');
+    
+    // Reset budget simulation when switching views
+    if (budgetSimulation.enabled) {
+      setBudgetSimulation({
+        enabled: false,
+        budgetTotal: '',
+        factor: 1.0,
+        estimatedOverride: '',
+      });
+    }
+  }, [isPortfolioView, selectedProjectId]);
 
   const handleCellEdit = (
     line_item_id: string,
@@ -2928,8 +3034,9 @@ export function SDMTForecast() {
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs max-w-xs">
-                            Gastos reales registrados en el sistema desde
-                            facturas conciliadas
+                            {totalActual === 0 
+                              ? "Sin gastos reales. Los valores reales provienen de facturas conciliadas en el módulo de Reconciliación."
+                              : "Gastos reales registrados en el sistema desde facturas conciliadas"}
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -3340,8 +3447,8 @@ export function SDMTForecast() {
           {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
             <Collapsible
               open={isRubrosGridOpen}
-              onOpenChange={setIsRubrosGridOpen}
-              defaultOpen={true}
+              onOpenChange={handleRubrosGridOpenChange}
+              defaultOpen={false}
             >
               <Card ref={rubrosSectionRef} tabIndex={-1} className="space-y-2">
                 <CardHeader className="pb-2 pt-4">
@@ -3442,7 +3549,11 @@ export function SDMTForecast() {
           {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
           {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
           {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
-            <Collapsible defaultOpen={true}>
+            <Collapsible
+              open={isPortfolioSummaryOpen}
+              onOpenChange={handlePortfolioSummaryOpenChange}
+              defaultOpen={false}
+            >
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -3489,7 +3600,11 @@ export function SDMTForecast() {
           {/* Position #5: Simulador de Presupuesto - Collapsible (defaultOpen={false}) */}
           {/* Only show when NEW_FORECAST_LAYOUT is enabled */}
           {NEW_FORECAST_LAYOUT_ENABLED && (
-          <Collapsible defaultOpen={false}>
+          <Collapsible
+            open={isBudgetSimulatorOpen}
+            onOpenChange={handleBudgetSimulatorOpenChange}
+            defaultOpen={false}
+          >
             <Card className="border-2 border-primary/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -3592,7 +3707,7 @@ export function SDMTForecast() {
                           !canEditBudget ||
                           !budgetAmount
                         }
-                        className="gap-2 h-8"
+                        className="gap-2 h-8 min-w-[160px]"
                         size="sm"
                       >
                         {savingBudget ? <LoadingSpinner size="sm" /> : null}
@@ -3689,6 +3804,8 @@ export function SDMTForecast() {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               projectsPerMonth={projectsPerMonth}
+              isOpen={isChartsPanelOpen}
+              onOpenChange={handleChartsPanelOpenChange}
             />
           )}
         </>
@@ -3697,7 +3814,11 @@ export function SDMTForecast() {
       {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
       {!isPortfolioView && (
-        <Collapsible>
+        <Collapsible
+          open={isSingleProjectBudgetOpen}
+          onOpenChange={handleSingleProjectBudgetOpenChange}
+          defaultOpen={false}
+        >
           <Card className="border-2 border-primary/20">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -3800,7 +3921,7 @@ export function SDMTForecast() {
                         !canEditBudget ||
                         !budgetAmount
                       }
-                      className="gap-2 h-8"
+                      className="gap-2 h-8 min-w-[160px]"
                       size="sm"
                     >
                       {savingBudget ? <LoadingSpinner size="sm" /> : null}
@@ -3904,7 +4025,11 @@ export function SDMTForecast() {
       {/* Shows in portfolio view with breakdown modes (Proyectos | Rubros por proyecto) */}
       {isPortfolioView ? (
         /* TODOS mode - wrapped in collapsible "Monitoreo mensual de proyectos vs. presupuesto" */
-        <Collapsible defaultOpen={true}>
+        <Collapsible
+          open={isMonitoringTableOpen}
+          onOpenChange={handleMonitoringTableOpenChange}
+          defaultOpen={true}
+        >
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
