@@ -427,7 +427,7 @@ describe("invoices handler - GET /projects/:projectId/invoices", () => {
     expect(body.projectId).toBe(projectId);
   });
 
-  it("should return invoices with normalized fields", async () => {
+  it("should return invoices with normalized fields including rubro_canonical", async () => {
     const mockInvoices = [
       {
         pk: `PROJECT#${projectId}`,
@@ -435,6 +435,8 @@ describe("invoices handler - GET /projects/:projectId/invoices", () => {
         invoiceId: "INV-123",
         projectId,
         lineItemId: "MOD-LEAD",
+        rubro_canonical: "MOD-LEAD",
+        taxonomy_version: "v1.0.0",
         amount: 100000,
         month: 10,
         status: "Pending",
@@ -450,6 +452,8 @@ describe("invoices handler - GET /projects/:projectId/invoices", () => {
         invoiceId: "INV-456",
         projectId,
         lineItemId: "MOD-ING",
+        rubro_canonical: "MOD-ING",
+        taxonomy_version: "v1.0.0",
         amount: 50000,
         month: 11,
         status: "Matched",
@@ -474,22 +478,26 @@ describe("invoices handler - GET /projects/:projectId/invoices", () => {
     expect(body.data).toHaveLength(2);
     expect(body.total).toBe(2);
 
-    // Verify first invoice
+    // Verify first invoice includes rubro_canonical and taxonomy_version
     expect(body.data[0]).toMatchObject({
       id: "INV-123",
       project_id: projectId,
       line_item_id: "MOD-LEAD",
+      rubro_canonical: "MOD-LEAD",
+      taxonomy_version: "v1.0.0",
       amount: 100000,
       month: 10,
       status: "Pending",
       vendor: "__other__",
     });
 
-    // Verify second invoice
+    // Verify second invoice includes rubro_canonical and taxonomy_version
     expect(body.data[1]).toMatchObject({
       id: "INV-456",
       project_id: projectId,
       line_item_id: "MOD-ING",
+      rubro_canonical: "MOD-ING",
+      taxonomy_version: "v1.0.0",
       amount: 50000,
       month: 11,
       status: "Matched",

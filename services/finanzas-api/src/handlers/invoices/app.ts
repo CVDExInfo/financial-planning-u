@@ -23,6 +23,7 @@ type InvoiceRecord = {
   projectId?: string;
   lineItemId?: string;
   rubro_canonical?: string | null;
+  taxonomy_version?: string;
   month?: number;
   amount?: number;
   status?: string;
@@ -54,6 +55,7 @@ const normalizeInvoice = (item: InvoiceRecord) => {
     id: invoiceId,
     project_id: projectId,
     line_item_id: (item.lineItemId as string) || "",
+    rubro_canonical: (item.rubro_canonical as string | null) || null,
     month: Number(item.month ?? 1),
     amount: Number(item.amount ?? 0),
     status: (item.status as InvoiceStatus) || "Pending",
@@ -68,6 +70,7 @@ const normalizeInvoice = (item: InvoiceRecord) => {
     uploaded_by: item.uploaded_by,
     uploaded_at: item.uploaded_at || item.created_at,
     updated_at: item.updated_at,
+    taxonomy_version: item.taxonomy_version,
   };
 };
 
@@ -324,6 +327,7 @@ async function createInvoice(
     projectId,
     lineItemId: payload.lineItemId,
     rubro_canonical: rubroCanonical,
+    taxonomy_version: process.env.TAXONOMY_VERSION || process.env.TAXONOMY_S3_KEY || "unknown",
     invoiceNumber:
       payload.invoiceNumber ||
       `INV-${Date.now().toString(36).toUpperCase()}`,
