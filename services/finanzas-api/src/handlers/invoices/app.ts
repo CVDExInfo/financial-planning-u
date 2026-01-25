@@ -12,6 +12,7 @@ import {
   PutCommand,
   tableName,
 } from "../../lib/dynamo";
+import { getCanonicalRubroId } from "../../lib/canonical-taxonomy";
 import crypto from "node:crypto";
 
 type InvoiceRecord = {
@@ -21,6 +22,8 @@ type InvoiceRecord = {
   id?: string;
   projectId?: string;
   lineItemId?: string;
+  rubro_canonical?: string | null;
+  taxonomy_version?: string;
   month?: number;
   amount?: number;
   status?: string;
@@ -52,6 +55,7 @@ const normalizeInvoice = (item: InvoiceRecord) => {
     id: invoiceId,
     project_id: projectId,
     line_item_id: (item.lineItemId as string) || "",
+    rubro_canonical: (item.rubro_canonical as string | null) || null,
     month: Number(item.month ?? 1),
     amount: Number(item.amount ?? 0),
     status: (item.status as InvoiceStatus) || "Pending",
@@ -66,12 +70,14 @@ const normalizeInvoice = (item: InvoiceRecord) => {
     uploaded_by: item.uploaded_by,
     uploaded_at: item.uploaded_at || item.created_at,
     updated_at: item.updated_at,
+    taxonomy_version: item.taxonomy_version,
   };
 };
 
 type CreateInvoicePayload = {
   projectId?: string;
   lineItemId?: string;
+  rubro_canonical?: string;
   month?: number;
   amount?: number;
   description?: string;
@@ -91,6 +97,9 @@ function parseCreatePayload(body: string | null): CreateInvoicePayload | null {
       projectId: parsed.projectId ? String(parsed.projectId).trim() : undefined,
       lineItemId: parsed.lineItemId
         ? String(parsed.lineItemId).trim()
+        : undefined,
+      rubro_canonical: parsed.rubro_canonical
+        ? String(parsed.rubro_canonical).trim()
         : undefined,
       month:
         parsed.month !== undefined ? Number(parsed.month) : undefined,
@@ -250,6 +259,27 @@ async function createInvoice(
       ? new Date(invoiceDateValue).toISOString()
       : undefined;
 
+  // Compute canonical rubro ID from lineItemId or use provided rubro_canonical
+  // This ensures every invoice has a canonical rubro for robust matching
+  let rubroCanonical: string | null = null;
+  try {
+    if (payload.rubro_canonical) {
+      // If rubro_canonical is provided, canonicalize it to ensure correctness
+      rubroCanonical = getCanonicalRubroId(payload.rubro_canonical) || payload.rubro_canonical;
+    } else {
+      // Otherwise, compute from lineItemId
+      rubroCanonical = getCanonicalRubroId(payload.lineItemId) || payload.lineItemId;
+    }
+  } catch (error) {
+    console.warn("Failed to canonicalize rubro ID, using lineItemId as fallback", {
+      projectId,
+      lineItemId: payload.lineItemId,
+      rubro_canonical: payload.rubro_canonical,
+      error,
+    });
+    rubroCanonical = payload.lineItemId;
+  }
+
   // Soft validation for rubro membership to avoid writing invoices to the wrong project
   console.info("InvoicesFn validate line item", {
     projectId,
@@ -296,6 +326,8 @@ async function createInvoice(
     id: invoiceId,
     projectId,
     lineItemId: payload.lineItemId,
+    rubro_canonical: rubroCanonical,
+    taxonomy_version: process.env.TAXONOMY_VERSION || process.env.TAXONOMY_S3_KEY || "unknown",
     invoiceNumber:
       payload.invoiceNumber ||
       `INV-${Date.now().toString(36).toUpperCase()}`,
@@ -321,6 +353,7 @@ async function createInvoice(
   console.info("InvoicesFn creating invoice", {
     projectId,
     lineItemId: payload.lineItemId,
+    rubro_canonical: rubroCanonical,
     invoiceId,
     amount: payload.amount,
     month: payload.month,
