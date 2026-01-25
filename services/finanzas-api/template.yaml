@@ -92,10 +92,11 @@ Globals:
         STAGE_NAME: !Ref StageName
         DOCS_BUCKET: !Ref DocsBucketName
         ALLOWED_ORIGIN: !Sub 'https://${CloudFrontDomain}'
-        
+
         # Taxonomy S3 configuration (existing bucket, not created)
-        TAXONOMY_S3_BUCKET: !Ref TaxonomyS3Bucket
-        TAXONOMY_S3_KEY: !Ref TaxonomyS3Key
+        # Use conditional so variable is present only when a bucket is specified
+        TAXONOMY_S3_BUCKET: !If [HasTaxonomyBucket, !Ref TaxonomyS3Bucket, '']
+        TAXONOMY_S3_KEY: !If [HasTaxonomyBucket, !Ref TaxonomyS3Key, '']
 
         # Cognito
         COGNITO_USER_POOL_ARN: !Ref CognitoUserPoolArn
@@ -105,10 +106,6 @@ Globals:
 
         # Verified Permissions (optional)
         POLICY_STORE_ID: !If [HasPolicyStore, !Ref PolicyStoreId, '']
-
-        # Taxonomy S3 Fallback (optional)
-        TAXONOMY_S3_BUCKET: !If [HasTaxonomyBucket, !Ref TaxonomyS3Bucket, '']
-        TAXONOMY_S3_KEY: !Ref TaxonomyS3Key
 
 Resources:
   ApiAccessLogs:
