@@ -23,6 +23,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Server, CreditCard } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
 import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
 interface NonLaborStepProps {
   data: NonLaborEstimate[];
@@ -80,15 +83,38 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
     const updated = [...nonLaborEstimates];
     updated[index] = { ...updated[index], [field]: value };
     
-    // When rubroId changes, auto-populate category and description
+    // When rubroId changes, auto-populate category and description from canonical taxonomy
     if (field === "rubroId" && typeof value === "string") {
-      const selectedRubro = nonLaborRubros.find((r) => r.id === value);
+      // Canonicalize the value
+      const canonical = getCanonicalRubroId(value) || value;
+      const lookupId = canonical;
+      
+      // Try to find in the catalog first, then fallback to taxonomy
+      const selectedRubro = nonLaborRubros.find((r) => r.id === lookupId) || getRubroById(lookupId);
+      
       if (selectedRubro) {
-        updated[index].category = selectedRubro.categoryName || selectedRubro.category || "";
-        // Only set description if it's empty to allow user override
-        if (!updated[index].description) {
-          updated[index].description = selectedRubro.label;
+        // Store canonical ID
+        updated[index].rubroId = selectedRubro.id || canonical;
+        
+        // Always populate description from taxonomy (prefer taxonomy over user input for consistency)
+        // But preserve user override if they've manually edited it
+        const currentDescription = updated[index].description;
+        if (!currentDescription || currentDescription === "") {
+          updated[index].description = 
+            (selectedRubro as any).descripcion || 
+            (selectedRubro as any).label || 
+            "";
         }
+        
+        // Always update category from taxonomy
+        updated[index].category = 
+          (selectedRubro as any).categoryName || 
+          (selectedRubro as any).category || 
+          (selectedRubro as any).categoria || 
+          "";
+      } else {
+        // If nothing matches, keep the value (will be validated on submit)
+        updated[index].rubroId = value;
       }
     }
     
@@ -138,23 +164,38 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   };
 
   const handleNext = () => {
+    // Validate canonical rubro IDs before proceeding
+    const invalid = nonLaborEstimates.some((item) => !getCanonicalRubroId(item.rubroId || ""));
+    
+    if (invalid) {
+      // Show friendly validation
+      alert("Por favor seleccione un rubro válido para cada elemento no laboral.");
+      return;
+    }
+
+    // Normalize payload to canonical DB shape before saving
+    const normalized = normalizeNonLaborEstimates(nonLaborEstimates);
+    
     const totalCost = getTotalCost();
     const capexTotal = getCapexTotal();
     console.log("🏗️  Non-labor estimates submitted:", {
-      itemCount: nonLaborEstimates.length,
+      itemCount: normalized.length,
       totalCost,
       capexTotal,
       opexTotal: totalCost - capexTotal,
-      items: nonLaborEstimates.map((item) => ({
-        category: item.category,
-        description: item.description,
+      items: normalized.map((item) => ({
+        rubroId: item.rubroId,
+        line_item_id: item.line_item_id, // Now canonical
+        descripcion: item.descripcion,
+        categoria: item.categoria,
         amount: item.amount,
         isOneTime: item.one_time,
         isCapex: item.capex_flag,
       })),
       timestamp: new Date().toISOString(),
     });
-    setData(nonLaborEstimates);
+    
+    setData(normalized as any); // Cast needed due to extended fields
     onNext();
   };
 
@@ -425,8 +466,10 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         size="sm"
                         className="w-full justify-start text-xs"
                         onClick={() => {
+                          // Ensure canonical ID is used
+                          const canonical = getCanonicalRubroId(rubro.id) || rubro.id;
                           const newItem: NonLaborEstimate = {
-                            rubroId: rubro.id,
+                            rubroId: canonical,
                             category: categoryName,
                             description: rubro.label,
                             amount: 1000,

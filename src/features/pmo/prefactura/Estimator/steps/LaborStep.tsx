@@ -25,6 +25,8 @@ import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { normalizeLaborEstimates } from "../utils/normalizeEstimates";
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -121,11 +123,32 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     const updated = [...laborEstimates];
     updated[index] = { ...updated[index], [field]: value };
 
-    // When role changes, update rubroId to canonical linea_codigo
+    // When role changes, update rubroId to canonical linea_codigo and auto-populate fields
     if (field === "role" && typeof value === "string") {
-      const rubroId = mapModRoleToRubroId(value as MODRole);
-      if (rubroId) {
-        updated[index].rubroId = rubroId;
+      // Map role to known rubro alias
+      const alias = mapModRoleToRubroId(value as MODRole);
+      // Ensure canonical linea_codigo
+      const canonical = getCanonicalRubroId(alias || value) || alias || null;
+      
+      if (canonical) {
+        updated[index].rubroId = canonical;
+        
+        // Auto-populate description/category from taxonomy
+        const tax = getRubroById(canonical);
+        if (tax) {
+          // Auto-fill description if empty (allow user override)
+          if (!(updated[index] as any).description) {
+            (updated[index] as any).description = tax.descripcion || tax.linea_gasto || value;
+          }
+          // Always update category from taxonomy
+          (updated[index] as any).category = tax.categoria || "";
+          
+          // Optional: Auto-populate suggested hourly rate if taxonomy provides it
+          // Note: The taxonomy doesn't currently have suggested_hourly_rate, but we keep this for future
+        }
+      } else {
+        // fallback: keep alias or value
+        updated[index].rubroId = alias || value;
       }
     }
 
@@ -183,6 +206,9 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
   };
 
   const handleNext = () => {
+    // Clear any previous validation errors
+    setValidationError(null);
+    
     // Validate canonical rubro IDs before proceeding
     const invalid = laborEstimates.some((item) => {
       const canonical = getCanonicalRubroId(item.rubroId || "");
@@ -191,24 +217,31 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     
     if (invalid) {
       // Show user-friendly validation and stop early
-      alert("Please select a valid role for every labor item. Some items have unrecognized rubro IDs.");
+      setValidationError("Por favor seleccione un rol válido para cada item laboral. Algunos elementos no tienen rubro canónico.");
       return;
     }
 
+    // Normalize payload to canonical DB shape before saving
+    const normalized = normalizeLaborEstimates(laborEstimates);
+    
     const totalCost = getTotalCost();
     console.log("💼 Labor estimates submitted (canonical IDs enforced):", {
-      itemCount: laborEstimates.length,
+      itemCount: normalized.length,
       totalCost,
-      averageCostPerRole: totalCost / (laborEstimates.length || 1),
-      roles: laborEstimates.map((l) => ({
+      averageCostPerRole: totalCost / (normalized.length || 1),
+      roles: normalized.map((l) => ({
         role: l.role,
-        rubroId: l.rubroId, // Now canonical
+        rubroId: l.rubroId,
+        line_item_id: l.line_item_id, // Now canonical
+        descripcion: l.descripcion,
+        categoria: l.categoria,
         fteCount: l.fte_count,
         monthlyRate: l.hourly_rate * l.hours_per_month,
       })),
       timestamp: new Date().toISOString(),
     });
-    setData(laborEstimates);
+    
+    setData(normalized as any); // Cast needed due to extended fields
     onNext();
   };
 

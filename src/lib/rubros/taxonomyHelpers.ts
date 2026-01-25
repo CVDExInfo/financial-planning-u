@@ -202,6 +202,33 @@ export function searchTaxonomy(term: string): RubroTaxonomyItem[] {
 }
 
 /**
+ * Get a rubro by its canonical ID (linea_codigo)
+ * This is used by PMO estimator to look up taxonomy metadata for auto-population
+ * 
+ * @param id - Canonical linea_codigo or any rubro identifier
+ * @returns RubroTaxonomyItem or null if not found
+ */
+export function getRubroById(id: string): RubroTaxonomyItem | null {
+  if (!id) return null;
+  
+  const taxonomy = getTaxonomy();
+  const normalizedId = id.toUpperCase().trim();
+  
+  // Try exact match on linea_codigo first (canonical ID)
+  const byLineaCodigo = taxonomy.find(
+    item => item.linea_codigo && item.linea_codigo.toUpperCase() === normalizedId
+  );
+  if (byLineaCodigo) return byLineaCodigo;
+  
+  // Fallback: try other fields for flexibility
+  return taxonomy.find(
+    item => 
+      (item.pk && item.pk.toUpperCase().includes(normalizedId)) ||
+      (item.sk && item.sk.toUpperCase().includes(normalizedId))
+  ) || null;
+}
+
+/**
  * Get category color for consistent UI theming
  */
 export function getCategoryColor(categoryCodigo: string): string {
