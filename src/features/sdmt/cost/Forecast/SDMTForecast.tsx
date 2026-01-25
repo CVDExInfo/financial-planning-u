@@ -3519,7 +3519,7 @@ export function SDMTForecast() {
           {/* Position #4: Resumen de Portafolio - PortfolioSummaryView */}
           {/* Only show when NEW_FORECAST_LAYOUT is enabled, HIDE_PROJECT_SUMMARY flag is false, and budget simulation is NOT active */}
           {NEW_FORECAST_LAYOUT_ENABLED && !HIDE_PROJECT_SUMMARY && !loading && !budgetSimulation.enabled && (
-            <Collapsible defaultOpen={true}>
+            <Collapsible defaultOpen={false}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -3767,6 +3767,52 @@ export function SDMTForecast() {
               formatCurrency={formatCurrency}
               projectsPerMonth={projectsPerMonth}
             />
+          )}
+
+          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
+          {/* Second instance of ForecastRubrosTable for project-level monitoring */}
+          {/* Must render EXPANDED by default (defaultOpen=true) per FINAL_FORECAST_LAYOUT.md */}
+          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
+            <Collapsible defaultOpen={true}>
+              <Card className="space-y-2">
+                <CardHeader className="pb-2 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">
+                        Monitoreo mensual de proyectos vs. presupuesto
+                      </CardTitle>
+                      <Badge variant="secondary" className="ml-2">Por Proyecto</Badge>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="Expandir/Colapsar Monitoreo mensual"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <ForecastRubrosTable
+                      categoryTotals={categoryTotals}
+                      categoryRubros={categoryRubros}
+                      projectTotals={projectTotals}
+                      projectRubros={projectRubros}
+                      portfolioTotals={portfolioTotalsForCharts}
+                      monthlyBudgets={monthlyBudgets}
+                      onSaveBudget={handleSaveBudgetFromTable}
+                      formatCurrency={formatCurrency}
+                      canEditBudget={canEditBudget}
+                      defaultFilter="labor"
+                    />
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
         </>
       )}
