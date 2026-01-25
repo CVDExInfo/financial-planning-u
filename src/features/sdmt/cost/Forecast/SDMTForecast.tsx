@@ -281,6 +281,12 @@ export function SDMTForecast() {
     const stored = sessionStorage.getItem('forecastMonitoringTableOpen');
     return stored === 'true'; // Default to true for monitoring
   });
+  
+  // Persistent state for Single Project Budget Panel collapsible
+  const [isSingleProjectBudgetOpen, setIsSingleProjectBudgetOpen] = useState(() => {
+    const stored = sessionStorage.getItem('forecastSingleProjectBudgetOpen');
+    return stored === 'true'; // Default to false
+  });
 
   // Handlers to persist collapsible states
   const handleRubrosGridOpenChange = (open: boolean) => {
@@ -306,6 +312,11 @@ export function SDMTForecast() {
   const handleMonitoringTableOpenChange = (open: boolean) => {
     setIsMonitoringTableOpen(open);
     sessionStorage.setItem('forecastMonitoringTableOpen', String(open));
+  };
+  
+  const handleSingleProjectBudgetOpenChange = (open: boolean) => {
+    setIsSingleProjectBudgetOpen(open);
+    sessionStorage.setItem('forecastSingleProjectBudgetOpen', String(open));
   };
 
   // Breakdown view mode for TODOS/portfolio view (Proyectos vs Rubros)
@@ -3793,6 +3804,8 @@ export function SDMTForecast() {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               projectsPerMonth={projectsPerMonth}
+              isOpen={isChartsPanelOpen}
+              onOpenChange={handleChartsPanelOpenChange}
             />
           )}
         </>
@@ -3801,7 +3814,11 @@ export function SDMTForecast() {
       {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
       {!isPortfolioView && (
-        <Collapsible>
+        <Collapsible
+          open={isSingleProjectBudgetOpen}
+          onOpenChange={handleSingleProjectBudgetOpenChange}
+          defaultOpen={false}
+        >
           <Card className="border-2 border-primary/20">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">

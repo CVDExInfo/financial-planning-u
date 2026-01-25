@@ -76,6 +76,14 @@ describe('Collapsible State Persistence', () => {
     assert.strictEqual(stored, 'true', 'Monitoring table should default to open');
   });
 
+  it('should persist single project budget panel collapsed state', () => {
+    // Default should be false (collapsed)
+    mockStorage.setItem('forecastSingleProjectBudgetOpen', 'false');
+    
+    const stored = mockStorage.getItem('forecastSingleProjectBudgetOpen');
+    assert.strictEqual(stored, 'false', 'Single project budget panel should default to collapsed');
+  });
+
   it('should handle toggling state', () => {
     // Start collapsed
     mockStorage.setItem('forecastRubrosGridOpen', 'false');
@@ -134,11 +142,13 @@ describe('Collapsible State Persistence', () => {
     mockStorage.setItem('forecastRubrosGridOpen', 'true');
     mockStorage.setItem('forecastPortfolioSummaryOpen', 'false');
     mockStorage.setItem('forecastBudgetSimulatorOpen', 'true');
+    mockStorage.setItem('forecastSingleProjectBudgetOpen', 'false');
     
     // Verify each state is independent
     assert.strictEqual(mockStorage.getItem('forecastRubrosGridOpen'), 'true');
     assert.strictEqual(mockStorage.getItem('forecastPortfolioSummaryOpen'), 'false');
     assert.strictEqual(mockStorage.getItem('forecastBudgetSimulatorOpen'), 'true');
+    assert.strictEqual(mockStorage.getItem('forecastSingleProjectBudgetOpen'), 'false');
   });
 });
 
