@@ -187,7 +187,7 @@ export function VarianceChip({
   const isOnTarget = variance === 0;
 
   // Determine variant based on variance and thresholds
-  let variant: 'success' | 'warning' | 'error' | 'info' = 'info';
+  let variant: 'success' | 'warning' | 'error' | 'info';
   if (isOnTarget) {
     variant = 'success';
   } else if (absPercentage >= errorThreshold) {
