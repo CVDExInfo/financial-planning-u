@@ -1,0 +1,122 @@
+name: Taxonomy Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Migration mode'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+          - dry-run
+          - apply
+      environment:
+        description: 'Environment to migrate'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  migrate-taxonomy:
+    name: Migrate Taxonomy Storage
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: |
+          aws sts get-caller-identity
+          echo "✅ AWS credentials configured"
+
+      - name: Run migration (dry-run)
+        if: github.event.inputs.mode == 'dry-run'
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TABLE_PREFIX: finz_
+        run: |
+          echo "🔍 Running migration in dry-run mode..."
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo "   Mode: dry-run"
+          node --loader ts-node/esm \
+            scripts/migrations/migrate-taxonomy-storage.ts \
+            --dry-run
+
+      - name: Run migration (apply)
+        if: github.event.inputs.mode == 'apply'
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TABLE_PREFIX: finz_
+        run: |
+          echo "⚠️  Running migration in APPLY mode..."
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo "   Mode: apply"
+          echo "   THIS WILL MODIFY DATABASE RECORDS"
+          node --loader ts-node/esm \
+            scripts/migrations/migrate-taxonomy-storage.ts \
+            --apply
+
+      - name: Upload migration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-report-${{ github.event.inputs.environment }}-${{ github.run_number }}
+          path: |
+            scripts/migrations/*.log
+            scripts/migrations/*.json
+          retention-days: 30
+
+  notify:
+    name: Send Notification
+    needs: migrate-taxonomy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send success notification
+        if: needs.migrate-taxonomy.result == 'success'
+        run: |
+          echo "✅ Taxonomy migration completed successfully"
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo "   Mode: ${{ github.event.inputs.mode }}"
+          echo "   Triggered by: ${{ github.actor }}"
+
+      - name: Send failure notification
+        if: needs.migrate-taxonomy.result == 'failure'
+        run: |
+          echo "❌ Taxonomy migration failed"
+          echo "   Environment: ${{ github.event.inputs.environment }}"
+          echo "   Mode: ${{ github.event.inputs.mode }}"
+          echo "   Check the logs for details"
+          exit 1

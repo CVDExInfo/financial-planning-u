@@ -38,6 +38,9 @@ interface ForecastChartsPanelProps {
   useMonthlyBudget?: boolean;
   formatCurrency: (amount: number) => string;
   projectsPerMonth?: Array<{ month: number; count: number }>;
+  // Optional controlled state for collapsible
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // Consistent color palette for charts
@@ -61,6 +64,8 @@ export function ForecastChartsPanel({
   useMonthlyBudget = false,
   formatCurrency,
   projectsPerMonth = [],
+  isOpen,
+  onOpenChange,
 }: ForecastChartsPanelProps) {
   const [activeTab, setActiveTab] = useState<'monthly' | 'category' | 'cumulative'>('monthly');
 
@@ -185,7 +190,11 @@ export function ForecastChartsPanel({
   };
 
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      defaultOpen={false}
+    >
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
