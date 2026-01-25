@@ -127,8 +127,10 @@ export function getSpacing(key: keyof typeof spacing): string {
 
 /**
  * Helper function to create responsive grid classes
+ * Note: Returns Tailwind-compatible classes only. For custom gap values, use inline styles.
  */
 export function getGridClasses(cols?: number): string {
   const colClass = cols ? `grid-cols-${cols}` : 'grid-cols-12';
-  return `grid ${colClass} gap-${grid.gutter}`;
+  // Use gap-4 (16px) which matches our grid.gutter value of 1rem
+  return `grid ${colClass} gap-4`;
 }
