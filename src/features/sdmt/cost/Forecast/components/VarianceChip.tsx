@@ -35,7 +35,6 @@ export default function VarianceChip({ value, percent, ariaLabel }: VarianceChip
   const getColorClasses = (): {
     bg: string;
     text: string;
-    iconColor: string;
     icon: React.ReactNode;
   } => {
     if (value > 0) {
@@ -43,7 +42,6 @@ export default function VarianceChip({ value, percent, ariaLabel }: VarianceChip
       return {
         bg: 'bg-slate-100 dark:bg-slate-800',
         text: 'text-slate-700 dark:text-slate-300',
-        iconColor: 'text-red-500 dark:text-red-400',
         icon: <TrendingUp size={14} className="text-red-500 dark:text-red-400" />,
       };
     }
@@ -52,7 +50,6 @@ export default function VarianceChip({ value, percent, ariaLabel }: VarianceChip
       return {
         bg: 'bg-slate-100 dark:bg-slate-800',
         text: 'text-slate-700 dark:text-slate-300',
-        iconColor: 'text-green-500 dark:text-green-400',
         icon: <TrendingDown size={14} className="text-green-500 dark:text-green-400" />,
       };
     }
@@ -60,7 +57,6 @@ export default function VarianceChip({ value, percent, ariaLabel }: VarianceChip
     return {
       bg: 'bg-slate-100 dark:bg-slate-800',
       text: 'text-slate-500 dark:text-slate-400',
-      iconColor: 'text-slate-400 dark:text-slate-500',
       icon: <Minus size={14} className="text-slate-400 dark:text-slate-500" />,
     };
   };
@@ -95,11 +91,11 @@ export default function VarianceChip({ value, percent, ariaLabel }: VarianceChip
 
   return (
     <div 
-      className={`inline-flex items-center gap-2 ${bg} ${text} font-medium rounded px-3 py-2`}
+      className={`inline-flex items-center gap-1.5 ${bg} ${text} font-medium rounded px-3 py-2`}
       aria-label={ariaLabel}
     >
       {icon}
-      <div className="flex flex-col items-end">
+      <div className="flex flex-col items-start">
         <div className="text-sm">
           {formatValue()}
         </div>

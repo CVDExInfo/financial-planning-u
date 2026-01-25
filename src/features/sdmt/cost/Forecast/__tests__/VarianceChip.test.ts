@@ -118,26 +118,23 @@ describe('VarianceChip - Neutral Color Scheme', () => {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-red-500 dark:text-red-400',
         };
       }
       if (value < 0) {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-green-500 dark:text-green-400',
         };
       }
       return {
         bg: 'bg-slate-100 dark:bg-slate-800',
         text: 'text-slate-500 dark:text-slate-400',
-        iconColor: 'text-slate-400 dark:text-slate-500',
       };
     };
     
     const result = getColorClasses(100);
     assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
-    assert.strictEqual(result.iconColor, 'text-red-500 dark:text-red-400');
+    assert.strictEqual(result.text, 'text-slate-700 dark:text-slate-300');
   });
 
   it('should use neutral background with green icon for savings (negative variance)', () => {
@@ -146,26 +143,23 @@ describe('VarianceChip - Neutral Color Scheme', () => {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-red-500 dark:text-red-400',
         };
       }
       if (value < 0) {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-green-500 dark:text-green-400',
         };
       }
       return {
         bg: 'bg-slate-100 dark:bg-slate-800',
         text: 'text-slate-500 dark:text-slate-400',
-        iconColor: 'text-slate-400 dark:text-slate-500',
       };
     };
     
     const result = getColorClasses(-100);
     assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
-    assert.strictEqual(result.iconColor, 'text-green-500 dark:text-green-400');
+    assert.strictEqual(result.text, 'text-slate-700 dark:text-slate-300');
   });
 
   it('should use fully neutral colors for zero variance', () => {
@@ -174,27 +168,23 @@ describe('VarianceChip - Neutral Color Scheme', () => {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-red-500 dark:text-red-400',
         };
       }
       if (value < 0) {
         return {
           bg: 'bg-slate-100 dark:bg-slate-800',
           text: 'text-slate-700 dark:text-slate-300',
-          iconColor: 'text-green-500 dark:text-green-400',
         };
       }
       return {
         bg: 'bg-slate-100 dark:bg-slate-800',
         text: 'text-slate-500 dark:text-slate-400',
-        iconColor: 'text-slate-400 dark:text-slate-500',
       };
     };
     
     const result = getColorClasses(0);
     assert.strictEqual(result.bg, 'bg-slate-100 dark:bg-slate-800');
     assert.strictEqual(result.text, 'text-slate-500 dark:text-slate-400');
-    assert.strictEqual(result.iconColor, 'text-slate-400 dark:text-slate-500');
   });
 
   it('should apply consistent 12px padding (px-3 py-2)', () => {
