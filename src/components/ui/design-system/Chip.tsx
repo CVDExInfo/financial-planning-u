@@ -159,6 +159,9 @@ export interface VarianceChipProps extends Omit<ChipProps, 'variant' | 'icon' | 
   percentage?: number;
   /**
    * Format function for the variance value
+   * Note: This should handle currency formatting if needed.
+   * Default formats as decimal: (v) => v.toFixed(2)
+   * For currency, provide custom formatter: (v) => formatCurrency(v)
    */
   formatValue?: (value: number) => string;
   /**

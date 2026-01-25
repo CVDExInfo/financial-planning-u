@@ -290,7 +290,7 @@ export function StandardTableEmptyState({
 }: StandardTableEmptyStateProps) {
   return (
     <TableRow>
-      <TableCell colSpan={100} className="h-32 text-center">
+      <TableCell colSpan={999} className="h-32 text-center">
         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
           {icon}
           <p className="text-sm">{message}</p>
