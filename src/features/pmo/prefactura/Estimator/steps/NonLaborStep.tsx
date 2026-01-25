@@ -89,28 +89,35 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       const canonical = getCanonicalRubroId(value) || value;
       const lookupId = canonical;
       
-      // Try to find in the catalog first, then fallback to taxonomy
-      const selectedRubro = nonLaborRubros.find((r) => r.id === lookupId) || getRubroById(lookupId);
+      // Try to find in the catalog first
+      let selectedRubro: any = nonLaborRubros.find((r) => r.id === lookupId);
+      
+      // Fallback to taxonomy if not in catalog
+      if (!selectedRubro) {
+        selectedRubro = getRubroById(lookupId);
+      }
       
       if (selectedRubro) {
-        // Store canonical ID
-        updated[index].rubroId = selectedRubro.id || canonical;
+        // Store canonical ID - prefer linea_codigo from taxonomy, then id from catalog
+        const rubroIdToStore = selectedRubro.linea_codigo || selectedRubro.id || canonical;
+        updated[index].rubroId = rubroIdToStore;
         
         // Always populate description from taxonomy (prefer taxonomy over user input for consistency)
         // But preserve user override if they've manually edited it
         const currentDescription = updated[index].description;
         if (!currentDescription || currentDescription === "") {
           updated[index].description = 
-            (selectedRubro as any).descripcion || 
-            (selectedRubro as any).label || 
+            selectedRubro.descripcion || 
+            selectedRubro.linea_gasto ||
+            selectedRubro.label || 
             "";
         }
         
         // Always update category from taxonomy
         updated[index].category = 
-          (selectedRubro as any).categoryName || 
-          (selectedRubro as any).category || 
-          (selectedRubro as any).categoria || 
+          selectedRubro.categoria ||
+          selectedRubro.categoryName || 
+          selectedRubro.category || 
           "";
       } else {
         // If nothing matches, keep the value (will be validated on submit)
