@@ -6,6 +6,7 @@ import { ensureCanRead } from "../lib/auth";
 import { ok, bad, serverError } from "../lib/http";
 import { ddb, QueryCommand, tableName } from "../lib/dynamo";
 import { logError } from "../utils/logging";
+import { getCanonicalRubroId, ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
 
 /**
  * GET /invoices?project_id=xxx
@@ -22,6 +23,9 @@ export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
+    // Ensure taxonomy is loaded before processing
+    await ensureTaxonomyLoaded();
+    
     const method = event.requestContext.http.method;
 
     if (method !== "GET") {
@@ -59,8 +63,40 @@ export const handler = async (
     const items = result.Items ?? [];
     const count = result.Count ?? items.length ?? 0;
 
+    // Annotate each invoice with canonical rubro for frontend matching
+    const annotatedItems = items.map(inv => {
+      let canonical = inv.rubro_canonical || null;
+      
+      // Try to compute canonical from available fields if not already present
+      if (!canonical) {
+        try {
+          const rubroSource = inv.linea_codigo || inv.rubroId || inv.rubro || inv.description || '';
+          if (rubroSource) {
+            canonical = getCanonicalRubroId(rubroSource);
+            // If no canonical mapping found, fall back to the original value
+            if (!canonical) {
+              canonical = rubroSource;
+            }
+          }
+        } catch (e) {
+          logError('[invoices] Canonicalization failed', { 
+            invId: inv.id || inv.sk, 
+            err: e instanceof Error ? e.message : String(e) 
+          });
+          canonical = null;
+        }
+      }
+
+      return {
+        ...inv,
+        rubro_canonical: canonical,
+        month: inv.month || (inv.invoiceDate && inv.invoiceDate.slice(0, 7)) || null,
+        amount: Number(inv.amount || inv.total || 0)
+      };
+    });
+
     return ok({
-      data: items,
+      data: annotatedItems,
       projectId,
       total: count,
     });

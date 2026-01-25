@@ -86,9 +86,9 @@ export function Reconciliation() {
         <CardContent>
           <div className="space-y-4">
             {[
-              { id: 1, invoice: 'INV-2024-001', amount: '$8,500', status: 'Matched', date: '2024-01-15' },
-              { id: 2, invoice: 'INV-2024-002', amount: '$4,200', status: 'Pending', date: '2024-01-14' },
-              { id: 3, invoice: 'INV-2024-003', amount: '$1,200', status: 'Disputed', date: '2024-01-13' },
+              { id: 1, invoice: 'FINV-2024-001', amount: '$8,500', status: 'Matched', date: '2024-01-15' },
+              { id: 2, invoice: 'FINV-2024-002', amount: '$4,200', status: 'Pending', date: '2024-01-14' },
+              { id: 3, invoice: 'FINV-2024-003', amount: '$1,200', status: 'Disputed', date: '2024-01-13' },
             ].map((item) => (
               <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                 <div className="flex items-center space-x-4">

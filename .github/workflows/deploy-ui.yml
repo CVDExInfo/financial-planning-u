@@ -47,6 +47,11 @@ env:
   VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
   # Incremental migration flags
   VITE_ENABLE_RUBROS_ADAPTER: ${{ vars.VITE_ENABLE_RUBROS_ADAPTER || 'false' }}
+  # Multi-SPA Integration URLs
+  # CloudFront for Acta (Gestor de Actas)
+  VITE_ACTA_BASE_URL: ${{ vars.VITE_ACTA_BASE_URL || 'https://d7t9x3j66yd8k.cloudfront.net/' }}
+  # Prefacturas direct URL
+  VITE_PREFACTURAS_URL: ${{ vars.VITE_PREFACTURAS_URL || 'https://df7rl707jhpas.cloudfront.net/prefacturas/facturas' }}
 
 jobs:
   build-and-deploy-all:
@@ -148,6 +153,12 @@ jobs:
           pnpm install --frozen-lockfile
           echo "✅ Dependencies installed with pnpm"
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
+
       # ---- Lint (auto-fix where possible, then gate) ----
       - name: Lint (auto-fix if supported)
         shell: bash
@@ -222,6 +233,9 @@ jobs:
           VITE_COGNITO_IDENTITY_POOL_ID: ${{ env.COGNITO_IDENTITY_POOL_ID }}
           VITE_COGNITO_DOMAIN: ${{ env.COGNITO_DOMAIN }}
           VITE_CLOUDFRONT_URL: ${{ env.VITE_CLOUDFRONT_URL }}
+          # Multi-SPA Integration URLs
+          VITE_ACTA_BASE_URL: ${{ env.VITE_ACTA_BASE_URL }}
+          VITE_PREFACTURAS_URL: ${{ env.VITE_PREFACTURAS_URL }}
           # Forecast UI feature flags
           VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ env.VITE_FINZ_NEW_FORECAST_LAYOUT }}
           VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ env.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS }}
@@ -271,6 +285,24 @@ jobs:
           echo "✅ Bundle assets exist:"
           ls -l dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
           sha256sum dist-finanzas/assets/index-*.js dist-finanzas/assets/index-*.css || true
+
+      - name: Verify ACTA/Prefacturas URLs embedded in bundle
+        run: |
+          set -euo pipefail
+          DIST="dist-finanzas"
+          # Strip Windows line endings and whitespace that could interfere with validation
+          VITE_ACTA_BASE_URL=$(printf '%s' "${VITE_ACTA_BASE_URL:-}" | tr -d '\r\n')
+          VITE_PREFACTURAS_URL=$(printf '%s' "${VITE_PREFACTURAS_URL:-}" | tr -d '\r\n')
+          # Check each variable individually for better error reporting
+          if [ -z "$VITE_ACTA_BASE_URL" ]; then
+            echo "❌ Missing VITE_ACTA_BASE_URL in environment"; exit 1;
+          fi
+          if [ -z "$VITE_PREFACTURAS_URL" ]; then
+            echo "❌ Missing VITE_PREFACTURAS_URL in environment"; exit 1;
+          fi
+          grep -R --binary-files=text -F "$VITE_ACTA_BASE_URL" "$DIST" >/dev/null || { echo "❌ VITE_ACTA_BASE_URL not found in build"; exit 1; }
+          grep -R --binary-files=text -F "$VITE_PREFACTURAS_URL" "$DIST" >/dev/null || { echo "❌ VITE_PREFACTURAS_URL not found in build"; exit 1; }
+          echo "✅ VITE_ACTA_BASE_URL & VITE_PREFACTURAS_URL present in build"
 
       - name: Write Finanzas deployment metadata
         run: bash scripts/write-deployment-meta.sh dist-finanzas
@@ -401,64 +433,72 @@ jobs:
           echo "📋 Sample occurrences:"
           grep -R --binary-files=text -F "$VITE_API_BASE_URL" "$DIST" | head -3 || true
 
-      # Detect which credential method is available (must run in run: so we can read secrets)
-      - name: Detect AWS credential method
-        id: aws_creds
+      # -------- AWS credentials setup (OIDC role only — legacy-compatible) ----------
+      - name: Ensure OIDC role secret is present
         shell: bash
         run: |
           set -euo pipefail
-          echo "Detecting available AWS credential configuration..."
-          # default outputs
-          echo "oidc=false" >> "$GITHUB_OUTPUT"
-          echo "static=false" >> "$GITHUB_OUTPUT"
-
-          if [ -n "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
-            echo "oidc=true" >> "$GITHUB_OUTPUT"
-            echo "Detected OIDC_AWS_ROLE_ARN"
+          if [ -z "${{ secrets.OIDC_AWS_ROLE_ARN }}" ]; then
+            echo "❌ Required secret OIDC_AWS_ROLE_ARN is not set."
+            echo "Please add the secret (Repository Settings → Secrets → Actions) with the role ARN:"
+            echo "  arn:aws:iam::<ACCOUNT_ID>:role/<role-name>"
+            exit 1
           fi
+          echo "✅ OIDC role secret found (OIDC_AWS_ROLE_ARN)."
 
-          if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ] && [ -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "static=true" >> "$GITHUB_OUTPUT"
-            echo "Detected static AWS credentials"
-          fi
+      - name: Debug - show OIDC role being used
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Using OIDC role from secret OIDC_AWS_ROLE_ARN"
+          # Secret validated in previous step
+          echo "role-session-name=preflight-${{ github.run_id }}"
 
-      # Configure AWS via OIDC (preferred) — note aws-region explicitly provided
       - name: Configure AWS credentials (OIDC)
-        if: ${{ steps.aws_creds.outputs.oidc == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: preflight-${{ github.run_id }}
 
-      # Configure AWS via static credentials as fallback (only if OIDC is not used)
-      - name: Configure AWS credentials (static fallback)
-        if: ${{ steps.aws_creds.outputs.static == 'true' && steps.aws_creds.outputs.oidc == 'false' }}
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      # Guard: ensure AWS credentials are usable
-      - name: Guard - ensure AWS creds configured
+      - name: Guard - ensure AWS creds configured (STS)
         shell: bash
         run: |
           set -euo pipefail
-          echo "Checking AWS credentials are configured..."
+          echo "Checking AWS credentials (STS)..."
           if ! aws sts get-caller-identity --region "${AWS_REGION}" >/tmp/aws_identity.json 2>/tmp/aws_sts_err.log; then
-            echo "❌ AWS credentials are not configured or insufficient. Please provide either:"
-            echo "   - secrets.OIDC_AWS_ROLE_ARN (preferred) with GitHub OIDC trust configured in AWS"
-            echo "   - OR secrets.AWS_ACCESS_KEY_ID and secrets.AWS_SECRET_ACCESS_KEY"
+            echo "❌ AWS credentials could not be obtained via OIDC assume-role."
+            echo "  - Verify repo secret OIDC_AWS_ROLE_ARN exists and is the correct role ARN."
+            echo "  - Verify the IAM role trust policy allows GitHub Actions OIDC (token.actions.githubusercontent.com) with audience sts.amazonaws.com."
             echo ""
-            echo "Debug: detection step outputs:"
-            echo "  oidc=${{ steps.aws_creds.outputs.oidc }} ; static=${{ steps.aws_creds.outputs.static }}"
-            echo "----- STS error -----"
+            echo "STS error output:"
             cat /tmp/aws_sts_err.log || true
             exit 1
           fi
           echo "✅ AWS credentials are configured. Caller identity:"
           jq -r '.Arn // .Account' /tmp/aws_identity.json || cat /tmp/aws_identity.json || true
+
+      - name: Validate taxonomy sync (Dynamo SOT)
+        shell: bash
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          TAXONOMY_TABLE: finz_rubros_taxonomia
+          NODE_OPTIONS: "--enable-source-maps"
+        run: |
+          set -euo pipefail
+          echo "🔎 Running Dynamo taxonomy validation against finz_rubros_taxonomia"
+          echo "ℹ️  This validates that frontend canonical taxonomy and backend mapping are in sync with DynamoDB"
+          
+          # Run validator (will create tmp/taxonomy_report_full.json)
+          if ! node scripts/validate-taxonomy-dynamo-full.cjs; then
+            echo "❌ Taxonomy validation failed. Check tmp/taxonomy_report_full.json for details"
+            if [ -f tmp/taxonomy_report_full.json ]; then
+              echo "Report summary:"
+              node -e "const r=require('./tmp/taxonomy_report_full.json'); console.log('Missing in Dynamo:', r.missingInDynamo?.length || 0); console.log('Extra in Dynamo:', r.extraInDynamo?.length || 0); console.log('Attribute mismatches:', Object.keys(r.attributeMismatches || {}).length);"
+            fi
+            exit 1
+          fi
+          echo "✅ Taxonomy validation passed"
 
 
       - name: Guard - S3 buckets and CloudFront exist
@@ -619,11 +659,18 @@ jobs:
           echo "✅ S3 verification complete"
 
 
-      - name: Verify Finanzas S3 manifest matches local build
+      - name: Prepare local Finanzas manifest
+        shell: bash
+        env:
+          FINANZAS_BUCKET_NAME: ${{ env.FINANZAS_BUCKET_NAME }}
         run: |
           set -euo pipefail
 
-          # Compare only the SPA assets we actually sync (exclude source maps, legacy docx, and docs/ bundles managed elsewhere)
+          echo "🔧 Cleaning local build of non-production helpers..."
+          # Ensure test-helper.html is not included in the manifest (we don't deploy it)
+          rm -f dist-finanzas/test-helper.html || true
+
+          echo "📄 Generating local manifest (excluding .map/.docx and docs folder)..."
           find dist-finanzas -type f \
             ! -name '*.map' \
             ! -name '*.docx' \
@@ -631,6 +678,13 @@ jobs:
             -print \
             | sed 's|^dist-finanzas/||' \
             | sort > /tmp/local-finanzas-manifest.txt
+
+          echo "🔍 Local manifest generated (first lines):"
+          head -n 30 /tmp/local-finanzas-manifest.txt || true
+
+      - name: Verify Finanzas S3 manifest matches local build
+        run: |
+          set -euo pipefail
 
           aws s3api list-objects-v2 \
             --bucket "${FINANZAS_BUCKET_NAME}" \

@@ -15,6 +15,8 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { ensureCategory } from "@/lib/rubros-category-utils";
+import { normalizeKey } from "@/lib/rubros/normalize-key";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 // ---------- Environment ----------
 const envSource =
@@ -30,6 +32,13 @@ function requireApiBase(): string {
     );
   }
   return API_BASE;
+}
+
+export class FinanzasApiError extends Error {
+  constructor(message: string, public status?: number) {
+    super(message);
+    this.name = "FinanzasApiError";
+  }
 }
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
@@ -67,13 +76,6 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
 
   // Some POSTs legitimately return empty bodies; guard it.
   return text ? (JSON.parse(text) as T) : ({} as T);
-}
-
-export class FinanzasApiError extends Error {
-  constructor(message: string, public status?: number) {
-    super(message);
-    this.name = "FinanzasApiError";
-  }
 }
 
 function ensureApiBase(): void {
@@ -118,6 +120,23 @@ const logApiDebug = (
   }
 };
 
+const validateArrayResponse = (value: unknown, label: string): any[] => {
+  // Handle direct array response
+  if (Array.isArray(value)) return value;
+  
+  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
+  if (value && typeof value === "object") {
+    const candidate = value as Record<string, unknown>;
+    if (Array.isArray(candidate.data)) return candidate.data;
+    if (Array.isArray(candidate.items)) return candidate.items;
+    if (Array.isArray(candidate.Data)) return candidate.Data;
+  }
+  
+  // Log warning but return empty array instead of throwing
+  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
+  return [];
+};
+
 // ---------- MOD sources ----------
 
 const MOCK_PAYROLL_ROWS = [
@@ -159,6 +178,13 @@ async function fetchArraySource(
   url: string,
   label: string,
 ): Promise<any[]> {
+  // Helper to show error toast with fallback check
+  function showErrorToast(title: string, description: string) {
+    if (typeof toast?.error === "function") {
+      toast.error(title, { description });
+    }
+  }
+
   try {
     const response = await fetchJson<any[]>(url, {
       headers: buildAuthHeader(),
@@ -178,6 +204,13 @@ async function fetchArraySource(
         logApiDebug(`${label} endpoint unavailable (${err.status}), returning empty array`, { url });
         return [];
       }
+      
+      // Handle 5xx server errors with user notification
+      if (err.status >= 500 && err.status < 600) {
+        console.error(`[finanzas-api] ${label} server error (${err.status})`, err);
+        showErrorToast("Error del servidor", "Problema al cargar datos. Mostrando vista sin información.");
+        return [];
+      }
     }
     
     // For real network errors (TypeError/Failed to fetch), downgrade severity
@@ -187,17 +220,13 @@ async function fetchArraySource(
     
     if (isNetworkError) {
       console.warn(`[finanzas-api] ${label} network error`, err);
-      // Don't show toast for network errors to avoid spam
+      showErrorToast("Problema de red", "Mostrando vista sin información mientras se restablece la conexión.");
       return [];
     }
     
     // For other errors, log and show minimal toast
     console.error(`[finanzas-api] ${label} failed`, err);
-    if (typeof toast?.error === "function") {
-      toast.error("No se pudo cargar los datos", {
-        description: "Mostramos una vista vacía mientras se restablece la conexión",
-      });
-    }
+    showErrorToast("No se pudo cargar los datos", "Mostramos una vista vacía mientras se restablece la conexión");
     return [];
   }
 }
@@ -388,6 +417,16 @@ export interface BaselineDetail {
   signed_at?: string;
   sdm_manager_name?: string;
   sdm_manager_email?: string;
+  // Materialization metadata
+  metadata?: {
+    materialization_queued_at?: string;
+    materialization_status?: string;
+    materialization_failed?: boolean;
+    materializedAt?: string;
+    materialized_at?: string;
+    [key: string]: unknown;
+  };
+  materializedAt?: string;
 }
 
 /**
@@ -436,23 +475,6 @@ export async function getAdjustments(projectId?: string): Promise<any[]> {
     throw toFinanzasError(err, "Unable to load adjustments rows");
   }
 }
-
-const validateArrayResponse = (value: unknown, label: string): any[] => {
-  // Handle direct array response
-  if (Array.isArray(value)) return value;
-  
-  // Handle wrapped responses: {data: []}, {items: []}, {Data: []}
-  if (value && typeof value === "object") {
-    const candidate = value as Record<string, unknown>;
-    if (Array.isArray(candidate.data)) return candidate.data;
-    if (Array.isArray(candidate.items)) return candidate.items;
-    if (Array.isArray(candidate.Data)) return candidate.Data;
-  }
-  
-  // Log warning but return empty array instead of throwing
-  console.warn(`[finanzas-api] ${label} returned unexpected shape:`, typeof value);
-  return [];
-};
 
 // ---------- Common DTOs ----------
 export type InvoiceStatus = "Pending" | "Matched" | "Disputed" | "PendingDeletionApproval" | "PendingCorrectionApproval";
@@ -725,6 +747,20 @@ export async function uploadInvoice(
   if (!Number.isFinite(payload.amount))
     throw new Error("Amount must be a finite number");
 
+  // Validate projectId (type and non-empty string)
+  if (typeof projectId !== 'string' || projectId.trim() === '') {
+    throw new FinanzasApiError("projectId is required and must be a non-empty string");
+  }
+
+  // Validate line_item_id
+  if (!payload.line_item_id || typeof payload.line_item_id !== 'string' || payload.line_item_id.trim() === '') {
+    throw new FinanzasApiError("line_item_id is required and must be a non-empty string");
+  }
+
+  // Normalize and canonicalize the line_item_id
+  const normalizedLineItemId = normalizeKey(payload.line_item_id);
+  const canonicalRubroId = getCanonicalRubroId(payload.line_item_id);
+
   const parsedInvoiceDate = payload.invoice_date
     ? Date.parse(payload.invoice_date)
     : undefined;
@@ -740,7 +776,7 @@ export async function uploadInvoice(
     projectId,
     file: payload.file,
     module: options?.module ?? "reconciliation",
-    lineItemId: payload.line_item_id,
+    lineItemId: normalizedLineItemId,
     invoiceNumber: payload.invoice_number,
     invoiceDate: normalizedInvoiceDate ?? payload.invoice_date,
     vendor: payload.vendor,
@@ -750,7 +786,9 @@ export async function uploadInvoice(
   if (import.meta.env.DEV) {
     console.info("[uploadInvoice] Presign successful", {
       projectId,
-      line_item_id: payload.line_item_id,
+      line_item_id: normalizedLineItemId,
+      line_item_id_original: payload.line_item_id,
+      rubro_canonical: canonicalRubroId,
       amount: payload.amount,
       invoice_number: payload.invoice_number,
       invoice_date: normalizedInvoiceDate ?? payload.invoice_date,
@@ -765,7 +803,8 @@ export async function uploadInvoice(
 
   const body = {
     projectId,
-    lineItemId: payload.line_item_id,
+    lineItemId: normalizedLineItemId,
+    rubro_canonical: canonicalRubroId,
     month: payload.month,
     amount: payload.amount,
     description: payload.description,
@@ -1156,6 +1195,44 @@ export async function deleteProjectRubro(
   }
 }
 
+const applyTaxonomy = (
+  item: LineItem & {
+    linea_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+  },
+):
+  | LineItem
+  | (LineItem & {
+      linea_codigo?: string;
+      categoria?: string;
+      tipo_costo?: string;
+    }) => {
+  const taxonomy =
+    taxonomyByRubroId.get(item.id) ||
+    taxonomyByLineaCodigo.get(item.linea_codigo || item.id);
+
+  if (!taxonomy) return item;
+
+  const lineaCodigo = taxonomy.linea_codigo || item.linea_codigo;
+  const categoria = taxonomy.categoria || item.category;
+  const tipo_costo = taxonomy.tipo_costo || item.tipo_costo;
+  const description =
+    item.description ||
+    taxonomy.linea_gasto ||
+    taxonomy.descripcion ||
+    item.id;
+
+  return {
+    ...item,
+    linea_codigo: lineaCodigo || item.id,
+    categoria: categoria || item.category,
+    tipo_costo,
+    category: categoria || item.category,
+    description,
+  };
+};
+
 /* ──────────────────────────────────────────────────────────
    Catalog: fetch project rubros / line items
    Used by: src/hooks/useProjectLineItems.ts
@@ -1323,44 +1400,6 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
   };
 
   return applyTaxonomy(ensureCategory(base));
-};
-
-const applyTaxonomy = (
-  item: LineItem & {
-    linea_codigo?: string;
-    categoria?: string;
-    tipo_costo?: string;
-  },
-):
-  | LineItem
-  | (LineItem & {
-      linea_codigo?: string;
-      categoria?: string;
-      tipo_costo?: string;
-    }) => {
-  const taxonomy =
-    taxonomyByRubroId.get(item.id) ||
-    taxonomyByLineaCodigo.get(item.linea_codigo || item.id);
-
-  if (!taxonomy) return item;
-
-  const lineaCodigo = taxonomy.linea_codigo || item.linea_codigo;
-  const categoria = taxonomy.categoria || item.category;
-  const tipo_costo = taxonomy.tipo_costo || item.tipo_costo;
-  const description =
-    item.description ||
-    taxonomy.linea_gasto ||
-    taxonomy.descripcion ||
-    item.id;
-
-  return {
-    ...item,
-    linea_codigo: lineaCodigo || item.id,
-    categoria: categoria || item.category,
-    tipo_costo,
-    category: categoria || item.category,
-    description,
-  };
 };
 
 const coerceLineItemList = (input: unknown): LineItemDTO[] => {

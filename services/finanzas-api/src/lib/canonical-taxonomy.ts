@@ -1,9 +1,27 @@
 /**
  * Canonical Rubros Taxonomy for Backend
- * 
- * Lightweight version of the taxonomy for backend validation and mapping.
- * Synced with frontend canonical taxonomy.
+ *
+ * Loads canonical taxonomy from /data/rubros.taxonomy.json if present.
+ * If not present, attempts to load from S3 (TAXONOMY_S3_BUCKET / TAXONOMY_S3_KEY).
+ * If both fail, falls back to an empty taxonomy (graceful degradation).
  */
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+// lazy-import AWS SDK only when needed so tests and local dev remain fast
+let S3Client: any = null;
+let GetObjectCommand: any = null;
+
+// Helper to read stream from S3
+async function streamToString(stream: any): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk: Buffer | string) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    stream.on('error', (err: Error) => reject(err));
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+  });
+}
 
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
@@ -21,29 +39,124 @@ export interface CanonicalRubroTaxonomy {
   isActive: boolean;
 }
 
-// Canonical taxonomy IDs (for quick validation)
-export const CANONICAL_IDS = new Set([
-  'MOD-ING', 'MOD-LEAD', 'MOD-SDM', 'MOD-PM', 'MOD-OT', 'MOD-CONT', 'MOD-EXT',
-  'GSV-REU', 'GSV-RPT', 'GSV-AUD', 'GSV-TRN',
-  'REM-MANT-P', 'REM-MANT-C', 'REM-HH-EXT', 'REM-TRNS', 'REM-VIAT', 'REM-CONS',
-  'TEC-LIC-MON', 'TEC-ITSM', 'TEC-LAB', 'TEC-HW-RPL', 'TEC-HW-FIELD', 'TEC-SUP-VND',
-  'INF-CLOUD', 'INF-DC-EN', 'INF-RACK', 'INF-BCK',
-  'TEL-CCTS', 'TEL-UCAAS', 'TEL-SIMS', 'TEL-NUM',
-  'SEC-SOC', 'SEC-VA', 'SEC-COMP',
-  'LOG-SPARES', 'LOG-RMA', 'LOG-ENV',
-  'RIE-PEN', 'RIE-CTR', 'RIE-SEG',
-  'ADM-PMO', 'ADM-BILL', 'ADM-FIN', 'ADM-LIC', 'ADM-LEG',
-  'QLT-ISO', 'QLT-KAIZ', 'QLT-SAT',
-  'PLT-PLANV', 'PLT-SFDC', 'PLT-SAP', 'PLT-DLAKE',
-  'DEP-HW', 'DEP-SW',
-  'NOC-MON', 'NOC-ALR', 'NOC-PLN',
-  'COL-UCC', 'COL-STG', 'COL-EMAIL',
-  'VIA-INT', 'VIA-CLI',
-  'INV-ALM', 'INV-SGA', 'INV-SEG',
-  'LIC-FW', 'LIC-NET', 'LIC-EDR',
-  'CTR-SLA', 'CTR-OLA',
-  'INN-POC', 'INN-AUT',
-]);
+let taxonomyData: any = { items: [] };
+let isLoading = false; // Guard against concurrent S3 loads
+
+// Try synchronous local load (best-effort; do not throw)
+try {
+  const taxonomyPath = path.join(__dirname, '../../../../data/rubros.taxonomy.json');
+  const raw = fs.readFileSync(taxonomyPath, 'utf-8');
+  taxonomyData = JSON.parse(raw);
+  console.info(`[canonical-taxonomy] loaded taxonomy from local file: ${taxonomyPath}`);
+} catch (err: any) {
+  // local file absent or not readable — we will attempt S3 on-demand
+  console.warn('[canonical-taxonomy] local taxonomy file not found or could not be read; will attempt S3 fallback at runtime if configured.', err?.message || err);
+  taxonomyData = { items: [] };
+}
+
+/** Build the canonical taxonomy array from whatever we have in memory (safe). 
+ * This array is mutable and will be rebuilt by rebuildTaxonomyIndexes() after S3 load.
+ */
+const TAXONOMY_ITEMS = (taxonomyData && Array.isArray(taxonomyData.items)) ? taxonomyData.items : [];
+
+export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (TAXONOMY_ITEMS || []).map((item: any) => ({
+  id: item.linea_codigo,
+  categoria_codigo: item.categoria_codigo,
+  categoria: item.categoria,
+  linea_codigo: item.linea_codigo,
+  linea_gasto: item.linea_gasto,
+  descripcion: item.descripcion,
+  tipo_ejecucion: item.tipo_ejecucion,
+  tipo_costo: item.tipo_costo,
+  fuente_referencia: item.fuente_referencia,
+  isActive: true,
+}));
+
+export const CANONICAL_IDS = new Set(CANONICAL_RUBROS_TAXONOMY.map(r => r.linea_codigo || r.id));
+
+/**
+ * Rebuild the exported taxonomy arrays and sets from current taxonomyData.
+ * Called after initial load and after S3 fallback load.
+ */
+function rebuildTaxonomyIndexes(): void {
+  const items = (taxonomyData && Array.isArray(taxonomyData.items)) ? taxonomyData.items : [];
+  
+  // Rebuild CANONICAL_RUBROS_TAXONOMY
+  CANONICAL_RUBROS_TAXONOMY.length = 0;
+  CANONICAL_RUBROS_TAXONOMY.push(...items.map((item: any) => ({
+    id: item.linea_codigo,
+    categoria_codigo: item.categoria_codigo,
+    categoria: item.categoria,
+    linea_codigo: item.linea_codigo,
+    linea_gasto: item.linea_gasto,
+    descripcion: item.descripcion,
+    tipo_ejecucion: item.tipo_ejecucion,
+    tipo_costo: item.tipo_costo,
+    fuente_referencia: item.fuente_referencia,
+    isActive: true,
+  })));
+  
+  // Rebuild CANONICAL_IDS
+  CANONICAL_IDS.clear();
+  CANONICAL_RUBROS_TAXONOMY.forEach(r => {
+    CANONICAL_IDS.add(r.linea_codigo || r.id);
+  });
+}
+
+/**
+ * Try to ensure taxonomy is loaded in memory.
+ * If we loaded locally at startup, this resolves quickly.
+ * If not and an S3 bucket is configured, we attempt to fetch the taxonomy asynchronously.
+ * After loading from S3, rebuilds all indexes and exports.
+ */
+export async function ensureTaxonomyLoaded(): Promise<void> {
+  if (taxonomyData && Array.isArray(taxonomyData.items) && taxonomyData.items.length > 0) {
+    return;
+  }
+
+  // Prevent concurrent S3 loads
+  if (isLoading) {
+    // Wait for the ongoing load to complete
+    while (isLoading) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return;
+  }
+
+  const bucket = process.env.TAXONOMY_S3_BUCKET;
+  if (!bucket) {
+    console.warn('[canonical-taxonomy] TAXONOMY_S3_BUCKET not set; using empty taxonomy.');
+    taxonomyData = { items: [] };
+    rebuildTaxonomyIndexes();
+    return;
+  }
+
+  const key = process.env.TAXONOMY_S3_KEY || 'taxonomy/rubros.taxonomy.json';
+
+  isLoading = true;
+  try {
+    // lazy import to avoid top-level dependency cost
+    const { S3Client: _S3Client, GetObjectCommand: _GetObjectCommand } = require('@aws-sdk/client-s3');
+    S3Client = _S3Client;
+    GetObjectCommand = _GetObjectCommand;
+
+    const s3 = new S3Client({});
+    const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const body = await streamToString(resp.Body);
+    taxonomyData = JSON.parse(body);
+    
+    // CRITICAL: Rebuild indexes after S3 load
+    rebuildTaxonomyIndexes();
+    
+    console.info(`[canonical-taxonomy] loaded taxonomy from S3: ${bucket}/${key} (${taxonomyData.items?.length || 0} items)`);
+  } catch (e: any) {
+    console.warn('[canonical-taxonomy] failed to load taxonomy from S3; falling back to empty taxonomy.', e?.message || e);
+    taxonomyData = { items: [] };
+    rebuildTaxonomyIndexes();
+  } finally {
+    isLoading = false;
+  }
+}
 
 /**
  * Legacy ID Mapping - maps old rubro_ids to canonical linea_codigo
@@ -60,9 +173,9 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0001': 'MOD-ING',
   'RB0002': 'MOD-LEAD',
   'RB0003': 'MOD-SDM',
-  'RB0004': 'MOD-OT',
-  'RB0005': 'MOD-CONT',
-  'RB0006': 'MOD-EXT',
+  'RB0004': 'MOD-IN3',      // MOD-OT → MOD-IN3 (Ingeniero Soporte N3)
+  'RB0005': 'MOD-IN2',      // MOD-CONT → MOD-IN2 (Ingeniero Soporte N2 externo)
+  'RB0006': 'MOD-IN2',      // MOD-EXT → MOD-IN2 (Ingeniero Soporte N2 externo)
   'RB0007': 'GSV-REU',
   'RB0008': 'GSV-RPT',
   'RB0009': 'GSV-AUD',
@@ -143,87 +256,64 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   // PR #942 and #945 aliases
   // Note: Mixed case entries are intentional - they match allocation data as-is
   // The lookup logic normalizes keys before comparison
-  
-  // Service Delivery Manager variations (mirror client-side aliases)
-  'Service Delivery Manager': 'MOD-SDM',
-  'Service Delivery Manager (SDM)': 'MOD-SDM',
-  'service delivery manager': 'MOD-SDM',
-  'service delivery manager (sdm)': 'MOD-SDM',
-  'service-delivery-manager-sdm': 'MOD-SDM',
-  'service delivery mgr': 'MOD-SDM',
-  'sdm': 'MOD-SDM',
-  'service-delivery-manager': 'MOD-SDM',
+  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
+  'mod-lead-ingeniero': 'MOD-LEAD',
+  'ingeniero-delivery': 'MOD-LEAD',
+  'Ingeniero Delivery': 'MOD-LEAD',
+  'ingeniero-lider': 'MOD-LEAD',
   'mod-sdm-service-delivery-manager': 'MOD-SDM',
   'mod-sdm-sdm': 'MOD-SDM',
-  
-  // Project Manager variations (mirror client-side aliases)
-  'Project Manager': 'MOD-LEAD',
-  'project manager': 'MOD-LEAD',
-  'project mgr': 'MOD-LEAD',
-  'pm': 'MOD-LEAD',
-  'project-manager': 'MOD-LEAD',
+  'service-delivery-manager': 'MOD-SDM',
+  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
+  'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
   'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
   'mod-pm': 'MOD-LEAD', // Lowercase variant
   
-  // Ingeniero Líder / Coordinator variations (mirror client-side aliases)
-  'ingeniero líder / coordinador': 'MOD-LEAD',
-  'ingeniero lider / coordinador': 'MOD-LEAD',
-  'ingeniero líder coordinador': 'MOD-LEAD',
-  'ingeniero lider coordinador': 'MOD-LEAD',
-  'ingeniero lider': 'MOD-LEAD',
-  'ingeniero líder': 'MOD-LEAD',
-  'ingeniero delivery': 'MOD-LEAD',
-  'ingeniero-lider': 'MOD-LEAD',
-  'ingeniero-delivery': 'MOD-LEAD',
-  'mod-lead-ingeniero-delivery': 'MOD-LEAD',
-  'mod-lead-ingeniero': 'MOD-LEAD',
-  'Ingeniero Delivery': 'MOD-LEAD',
-  
-  // Support Engineers variations (mirror client-side aliases)
-  'ingenieros de soporte (mensual)': 'MOD-ING',
-  'ingenieros de soporte mensual': 'MOD-ING',
-  'ingeniero soporte': 'MOD-ING',
-  'ingeniero soporte n1': 'MOD-ING',
-  'ingeniero-soporte': 'MOD-ING',
-  'ingeniero-soporte-n1': 'MOD-ING',
-  'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
-  
-  // Overtime / Guards variations (mirror client-side aliases)
-  'horas extra / guardias': 'MOD-OT',
-  'horas extra guardias': 'MOD-OT',
-  'horas extra': 'MOD-OT',
-  'guardias': 'MOD-OT',
-  
-  // Internal Contractors variations (mirror client-side aliases)
-  'contratistas técnicos internos': 'MOD-CONT',
-  'contratistas tecnicos internos': 'MOD-CONT',
-  'contratistas internos': 'MOD-CONT',
-  
-  // External Contractors variations (mirror client-side aliases)
-  'contratistas externos (labor)': 'MOD-EXT',
-  'contratistas externos labor': 'MOD-EXT',
-  'contratistas externos': 'MOD-EXT',
+  // Old non-canonical labor IDs that should map to canonical equivalents
+  'MOD-OT': 'MOD-IN3',   // Old "Other" → Ingeniero Soporte N3
+  'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
+  'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
 };
+
+/**
+ * Normalize a key for case-insensitive comparison
+ */
+function normalizeKey(s?: string): string {
+  return (s || '').toString().trim().toUpperCase();
+}
 
 /**
  * Get canonical rubro_id from any legacy format
  * 
  * @param legacyId - Any rubro ID (canonical or legacy)
- * @returns Canonical linea_codigo, or the input if already canonical
+ * @returns Canonical linea_codigo, or the input unchanged if unknown
  */
-export function getCanonicalRubroId(legacyId: string): string {
+export function getCanonicalRubroId(legacyId?: string): string | null {
+  if (!legacyId) return null;
+  
+  const normalized = normalizeKey(legacyId);
+  
   // Check if it's a legacy ID that needs mapping
   const mapped = LEGACY_RUBRO_ID_MAP[legacyId];
   if (mapped) {
     return mapped;
   }
   
-  // Check if it's already a canonical ID
-  if (CANONICAL_IDS.has(legacyId)) {
-    return legacyId;
+  // Check case-insensitive legacy mapping
+  const normalizedLegacy = Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalized
+  );
+  if (normalizedLegacy) {
+    return LEGACY_RUBRO_ID_MAP[normalizedLegacy];
   }
   
-  // Unknown ID - log warning and return as-is
+  // Check if it's already a canonical ID
+  const canonical = Array.from(CANONICAL_IDS).find(id => normalizeKey(id) === normalized);
+  if (canonical) {
+    return canonical;
+  }
+  
+  // Unknown ID - log warning and return unchanged (for graceful degradation)
   console.warn(`[canonical-taxonomy] Unknown rubro_id: ${legacyId} - not in canonical taxonomy or legacy map`);
   return legacyId;
 }
@@ -231,16 +321,17 @@ export function getCanonicalRubroId(legacyId: string): string {
 /**
  * Validate if a rubro_id is valid (canonical or has legacy mapping)
  */
-export function isValidRubroId(rubroId: string): boolean {
-  // Check canonical
-  if (CANONICAL_IDS.has(rubroId)) {
-    return true;
-  }
+export function isValidRubroId(rubroId?: string): boolean {
+  if (!rubroId) return false;
   
-  // Check legacy mapping
-  if (LEGACY_RUBRO_ID_MAP[rubroId]) {
-    return true;
-  }
+  const normalized = normalizeKey(rubroId);
+  
+  // Check if it's in the legacy map
+  if (LEGACY_RUBRO_ID_MAP[rubroId]) return true;
+  if (Object.keys(LEGACY_RUBRO_ID_MAP).find(key => normalizeKey(key) === normalized)) return true;
+  
+  // Check if it's a canonical ID
+  if (Array.from(CANONICAL_IDS).find(id => normalizeKey(id) === normalized)) return true;
   
   return false;
 }
@@ -249,7 +340,9 @@ export function isValidRubroId(rubroId: string): boolean {
  * Check if a rubro_id is legacy and should be migrated
  */
 export function isLegacyRubroId(rubroId: string): boolean {
-  return !!LEGACY_RUBRO_ID_MAP[rubroId];
+  return !!LEGACY_RUBRO_ID_MAP[rubroId] || !!Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalizeKey(rubroId)
+  );
 }
 
 /**
@@ -263,7 +356,7 @@ export function normalizeRubroId(rubroId: string): {
   warning?: string;
 } {
   const isLegacy = isLegacyRubroId(rubroId);
-  const canonicalId = getCanonicalRubroId(rubroId);
+  const canonicalId = getCanonicalRubroId(rubroId) || rubroId;
   const isValid = isValidRubroId(rubroId);
   
   let warning: string | undefined;
@@ -279,4 +372,20 @@ export function normalizeRubroId(rubroId: string): {
     isValid,
     warning,
   };
+}
+
+/**
+ * Get all canonical IDs as array
+ */
+export function getAllCanonicalIds(): string[] {
+  return Array.from(CANONICAL_IDS);
+}
+
+/**
+ * Get taxonomy entry by ID
+ */
+export function getTaxonomyById(id: string): CanonicalRubroTaxonomy | null {
+  const canonicalId = getCanonicalRubroId(id);
+  if (!canonicalId) return null;
+  return CANONICAL_RUBROS_TAXONOMY.find(r => r.linea_codigo === canonicalId) || null;
 }

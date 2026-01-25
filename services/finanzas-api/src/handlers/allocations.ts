@@ -122,127 +122,153 @@ async function normalizeAllocations(items: any[], baselineIdCandidate?: string):
     return baselineCache[bid];
   }
 
-  return Promise.all(items.map(async (it: any) => {
-    // Canonicalize rubro/line item id
-    const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
-
-    // Canonical amount: try multiple fields in priority order
-    let amount = coerceNumber(
-      it.amount ?? 
-      it.planned ?? 
-      it.monto_planeado ?? 
-      it.monto_proyectado ?? 
-      it.monto_real ?? 
-      it.forecast
-    );
-
-    // Month indices / calendar key - now with robust normalization
-    // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
-    let projectStartDate: string | undefined;
-
-    // Prefer baseline to obtain start_date (baseline includes project info)
-    const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
-    if (bidForMonth) {
-      try {
-        const baseline = await loadBaseline(bidForMonth);
-        projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
-        // baseline may also have durationMonths; we already use that elsewhere
-      } catch (e) {
-        // ignore; we'll try project metadata next
-      }
-    }
-
-    // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
-    if (!projectStartDate) {
-      let projectIdFromItem: string | undefined;
-      if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
-      else if (it.projectId) projectIdFromItem = it.projectId;
-      else if (it.project_id) projectIdFromItem = it.project_id;
-      if (projectIdFromItem) {
-        try {
-          const projectMeta = await getMetadata(projectIdFromItem, tableName("prefacturas"), /*context*/ undefined);
-          projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-
-    // Now compute monthIndex/calendarMonthKey robustly
-    let monthIndex = undefined;
-    let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
-    if (calendarMonthKey) {
-      try {
-        const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
-        monthIndex = normalized.monthIndex;
-        calendarMonthKey = normalized.calendarMonthKey;
-      } catch (e) {
-        // fallback to previous parsing logic if normalizeMonth throws
-        monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
-      }
-    } else {
-      // existing handling for numeric month inputs - unchanged
-      monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
-    }
-
-    // If labour-like rubro and amount==0, try to derive from baseline labour estimates
-    // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
-    // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
-    // Note: If your taxonomy includes labour rubros that don't start with "MOD",
-    // consider enhancing this to check against a canonical labour category list.
-    const isMOD = /^MOD/i.test(String(rubroId));
-    if (isMOD && !amount) {
-      // Prefer explicit baselineId else fallback to provided candidate
-      const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
-      if (bid) {
-        try {
-          const baseline = await loadBaseline(bid);
-          if (baseline) {
-            const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
-            // Attempt match by rubroId or line_item_id
-            const matched = (laborEstimates || []).find((le: any) => {
-              const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
-              return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
-            });
-            if (matched) {
-              // Derivation requires either:
-              // 1) total_cost field (preferred), or
-              // 2) hourly_rate + hours_per_month fields (fallback)
-              // If neither is available, derivation is skipped and amount remains 0
-              if (matched.total_cost || matched.totalCost) {
-                const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
-                const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
-                if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
-              } else if (matched.hourly_rate || matched.hourlyRate) {
-                const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
-                const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
-                const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
-                const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
-                const base = hr * hours * fte;
-                amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
-              }
-              if (amount && amount > 0) {
-                console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
-              }
-            }
-          }
-        } catch (e: any) {
-          console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
-        }
-      }
-    }
-
+  // Helper to perform basic normalization on an item
+  function basicNormalize(it: any) {
     return {
       ...it,
-      amount,
-      month_index: monthIndex,
-      monthIndex,
-      calendarMonthKey,
-      rubroId,
-      rubro_id: it.rubro_id ?? rubroId,
-      line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
+      amount: coerceNumber(it.amount ?? it.planned ?? it.monto_planeado ?? 0),
+      rubroId: it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null,
+      rubro_id: it.rubro_id || it.rubroId || null,
+      line_item_id: it.line_item_id || it.lineItemId || it.rubroId || null,
     };
+  }
+
+  // Filter out null/undefined items before processing
+  const validItems = items.filter(item => item != null);
+
+  const results = await Promise.allSettled(validItems.map(async (it: any) => {
+    try {
+      // Canonicalize rubro/line item id
+      const rubroId = it.rubroId || it.rubro_id || it.line_item_id || it.lineItemId || it.rubro || null;
+
+      // Canonical amount: try multiple fields in priority order
+      let amount = coerceNumber(
+        it.amount ?? 
+        it.planned ?? 
+        it.monto_planeado ?? 
+        it.monto_proyectado ?? 
+        it.monto_real ?? 
+        it.forecast
+      );
+
+      // Month indices / calendar key - now with robust normalization
+      // Load projectStartDate for each item (via baseline metadata first, fallback to project metadata)
+      let projectStartDate: string | undefined;
+
+      // Prefer baseline to obtain start_date (baseline includes project info)
+      const bidForMonth = it.baselineId || it.baseline_id || baselineIdCandidate;
+      if (bidForMonth) {
+        try {
+          const baseline = await loadBaseline(bidForMonth);
+          projectStartDate = baseline?.start_date || baseline?.payload?.start_date || baseline?.project_start_date;
+          // baseline may also have durationMonths; we already use that elsewhere
+        } catch (e) {
+          // ignore; we'll try project metadata next
+        }
+      }
+
+      // If still no projectStartDate, attempt to derive from the allocation's project key (PK=PROJECT#<id>)
+      if (!projectStartDate) {
+        let projectIdFromItem: string | undefined;
+        if (it.PK) projectIdFromItem = String(it.PK).replace(/^PROJECT#/, "");
+        else if (it.projectId) projectIdFromItem = it.projectId;
+        else if (it.project_id) projectIdFromItem = it.project_id;
+        if (projectIdFromItem) {
+          try {
+            // Use projects table for project metadata lookup (was incorrectly using prefacturas)
+            const projectMeta = await getMetadata(projectIdFromItem, tableName("projects"), /*context*/ undefined);
+            projectStartDate = projectMeta?.start_date || projectMeta?.payload?.start_date;
+          } catch (e) {
+            console.warn(`[allocations] getMetadata failed for project ${projectIdFromItem}`, { err: e?.message || e });
+          }
+        }
+      }
+
+      // Now compute monthIndex/calendarMonthKey robustly
+      let monthIndex = undefined;
+      let calendarMonthKey = it.calendarMonthKey ?? it.calendar_month ?? it.month ?? it.mes;
+      if (calendarMonthKey) {
+        try {
+          const normalized = normalizeMonth(calendarMonthKey, projectStartDate);
+          monthIndex = normalized.monthIndex;
+          calendarMonthKey = normalized.calendarMonthKey;
+        } catch (e) {
+          // fallback to previous parsing logic if normalizeMonth throws
+          monthIndex = parseMonthIndexFromCalendarKey(calendarMonthKey);
+        }
+      } else {
+        // existing handling for numeric month inputs - unchanged
+        monthIndex = it.month_index ?? it.monthIndex ?? (typeof it.month === 'number' ? it.month : undefined);
+      }
+
+      // If labour-like rubro and amount==0, try to derive from baseline labour estimates
+      // Heuristic: checks if rubroId starts with "MOD" (case-insensitive)
+      // This matches standard labour rubros like MOD-LEAD, MOD-SDM, MOD-ING, etc.
+      // Note: If your taxonomy includes labour rubros that don't start with "MOD",
+      // consider enhancing this to check against a canonical labour category list.
+      const isMOD = /^MOD/i.test(String(rubroId));
+      if (isMOD && !amount) {
+        // Prefer explicit baselineId else fallback to provided candidate
+        const bid = it.baselineId || it.baseline_id || baselineIdCandidate;
+        if (bid) {
+          try {
+            const baseline = await loadBaseline(bid);
+            if (baseline) {
+              const laborEstimates = (baseline.labor_estimates || baseline.payload?.labor_estimates || baseline.payload?.payload?.labor_estimates) || [];
+              // Attempt match by rubroId or line_item_id
+              const matched = (laborEstimates || []).find((le: any) => {
+                const leRubro = le.rubroId || le.rubro_id || le.line_item_id || le.id;
+                return leRubro && String(leRubro).toLowerCase() === String(rubroId).toLowerCase();
+              });
+              if (matched) {
+                // Derivation requires either:
+                // 1) total_cost field (preferred), or
+                // 2) hourly_rate + hours_per_month fields (fallback)
+                // If neither is available, derivation is skipped and amount remains 0
+                if (matched.total_cost || matched.totalCost) {
+                  const totalCost = coerceNumber(matched.total_cost ?? matched.totalCost);
+                  const duration = baseline.durationMonths || baseline.duration_months || matched.duration_months || matched.durationMonths || 12;
+                  if (duration > 0) amount = Math.round((totalCost / duration) * 100) / 100;
+                } else if (matched.hourly_rate || matched.hourlyRate) {
+                  const hr = coerceNumber(matched.hourly_rate ?? matched.hourlyRate);
+                  const hours = coerceNumber(matched.hours_per_month ?? matched.hoursPerMonth ?? matched.hours ?? 160);
+                  const fte = coerceNumber(matched.fte_count ?? matched.fteCount ?? 1);
+                  const oncost = coerceNumber(matched.on_cost_percentage ?? matched.onCostPercentage ?? 0);
+                  const base = hr * hours * fte;
+                  amount = Math.round((base * (1 + oncost / 100)) * 100) / 100;
+                }
+                if (amount && amount > 0) {
+                  console.info(`[allocations] Derived amount=${amount} for labour rubro ${rubroId} from baseline ${bid}`);
+                }
+              }
+            }
+          } catch (e: any) {
+            console.warn(`[allocations] Failed to derive labour amount for ${rubroId} / baseline ${bid}:`, e?.message || e);
+          }
+        }
+      }
+
+      return {
+        ...it,
+        amount,
+        month_index: monthIndex,
+        monthIndex,
+        calendarMonthKey,
+        rubroId,
+        rubro_id: it.rubro_id ?? rubroId,
+        line_item_id: it.line_item_id ?? it.lineItemId ?? rubroId,
+      };
+    } catch (err: any) {
+      console.warn(`[allocations] Failed to normalize item:`, err?.message || err, it);
+      // Return the item with minimal normalization on error
+      return basicNormalize(it);
+    }
   }));
+
+  // Extract successful results, filtering out any failures
+  return results
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+    .map(r => r.value);
 }
 
 /**
@@ -354,7 +380,7 @@ function normalizeMonth(
 /**
  * GET /allocations
  * Returns allocations from DynamoDB, filtered by projectId and optionally by baselineId
- * Always returns an array (never {data: []}) for frontend compatibility
+ * Returns normalized response: { data: [...] } for consistency with other endpoints
  * 
  * Query parameters:
  * - projectId (required): The project ID
@@ -368,6 +394,11 @@ function normalizeMonth(
  * Tracks all attempted keys for diagnostics
  */
 async function getAllocations(event: APIGatewayProxyEventV2) {
+  const requestId = event.requestContext?.requestId || 'unknown';
+  
+  // Track all attempted partition keys and their results for diagnostics (moved here for error handling)
+  const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
+  
   try {
     await ensureCanRead(event as any);
     
@@ -387,9 +418,6 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
     }
     
     const allocationsTable = tableName("allocations");
-    
-    // Track all attempted partition keys and their results for diagnostics
-    const triedKeys: Array<{ key: string; count: number; skPrefix?: string }> = [];
     
     // Helper function to query by partition key with optional SK filter
     async function queryByPK(pk: string, skPrefix?: string): Promise<any[]> {
@@ -417,20 +445,32 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         params.KeyConditionExpression = "#pk = :pk";
       }
       
-      const queryResult = await ddb.send(new QueryCommand(params));
-      
-      const items = queryResult.Items || [];
-      
-      // Filter to ensure we only return ALLOCATION# items (defense in depth)
-      const allocations = items.filter(item => 
-        item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
-      );
-      
-      triedKeys.push({ key: pk, count: allocations.length, skPrefix });
-      
-      console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
-      
-      return allocations;
+      try {
+        const queryResult = await ddb.send(new QueryCommand(params));
+        
+        const items = queryResult.Items || [];
+        
+        // Filter to ensure we only return ALLOCATION# items (defense in depth)
+        const allocations = items.filter(item => 
+          item != null && item.sk && typeof item.sk === 'string' && item.sk.startsWith('ALLOCATION#')
+        );
+        
+        triedKeys.push({ key: pk, count: allocations.length, skPrefix });
+        
+        console.log(`[allocations] Query: pk=${pk}, skPrefix=${skPrefix || 'none'}, found=${allocations.length} allocations`);
+        
+        return allocations;
+      } catch (err: any) {
+        // Log full context for diagnostics
+        console.error(`[allocations] Dynamo query failed for pk=${pk}, skPrefix=${skPrefix || 'none'}, requestId=${requestId}`, {
+          errorName: err?.name,
+          errorMessage: err?.message,
+          stack: err?.stack,
+          paramsPreview: { TableName: params.TableName, KeyConditionExpression: params.KeyConditionExpression }
+        });
+        // Return empty array to avoid whole-request failure for transient/partial table issues
+        return [];
+      }
     }
     
     // If projectId is provided, use robust retrieval with SK filtering
@@ -447,7 +487,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
       if (items.length > 0) {
         logInfo(`[allocations] ✅ Found ${items.length} allocations by ${pkCandidate}${skPrefix ? ` with SK filter ${skPrefix}` : ''}`);
         const normalized = await normalizeAllocations(items, baselineId);
-        return ok(event, normalized);
+        return ok(event, { data: normalized });
       }
       
       // If no baselineId was provided but we got 0 results, try to derive baselineId from project
@@ -473,7 +513,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations using derived baselineId ${derivedBaselineId}`);
                 const normalized = await normalizeAllocations(items, derivedBaselineId);
-                return ok(event, normalized);
+                return ok(event, { data: normalized });
               }
             }
           }
@@ -498,7 +538,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
               if (items.length > 0) {
                 logInfo(`[allocations] ✅ Found ${items.length} allocations via baseline→project resolution: ${pkCandidate} with baselineId ${incomingId}`);
                 const normalized = await normalizeAllocations(items, incomingId);
-                return ok(event, normalized);
+                return ok(event, { data: normalized });
               }
             } else {
               console.warn(`[allocations] Baseline ${incomingId} has no project_id`);
@@ -518,7 +558,7 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         if (items.length > 0) {
           logInfo(`[allocations] ✅ Found ${items.length} allocations by legacy baseline pk: ${pkCandidate}`);
           const normalized = await normalizeAllocations(items, incomingId);
-          return ok(event, normalized);
+          return ok(event, { data: normalized });
         }
       }
       
@@ -528,29 +568,48 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
         isBaselineLike,
       });
       
-      return ok(event, []);
+      return ok(event, { data: [] });
     }
     
     // No projectId - return all allocations with pagination limit
     const limit = 1000; // Reasonable limit to avoid timeouts
-    const scanResult = await ddb.send(
-      new ScanCommand({
+    try {
+      const scanResult = await ddb.send(
+        new ScanCommand({
+          TableName: allocationsTable,
+          Limit: limit,
+        })
+      );
+      
+      const items = scanResult.Items || [];
+      console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
+      
+      // Normalize items before returning
+      const normalized = await normalizeAllocations(items);
+      
+      // Return normalized response with data wrapper
+      return ok(event, { data: normalized });
+    } catch (scanErr: any) {
+      // Log scan failure with full context
+      console.error(`[allocations] Scan operation failed, requestId=${requestId}`, {
+        errorName: scanErr?.name,
+        errorMessage: scanErr?.message,
+        stack: scanErr?.stack,
         TableName: allocationsTable,
         Limit: limit,
-      })
-    );
-    
-    const items = scanResult.Items || [];
-    console.log(`[allocations] GET scan (all projects): ${items.length} items (limit: ${limit})`);
-    
-    // Normalize items before returning
-    const normalized = await normalizeAllocations(items);
-    
-    // Return bare array for frontend compatibility
-    return ok(event, normalized);
-  } catch (error) {
+      });
+      // Return empty data on scan failure (defensive handling)
+      return ok(event, { data: [] });
+    }
+  } catch (error: any) {
     logError("Error fetching allocations", error);
-    return serverError(event as any, "Failed to fetch allocations");
+    // Include full diagnostic context for traceability
+    console.error(`[allocations] Request ${requestId} failed:`, {
+      message: error?.message || error,
+      stack: error?.stack,
+      triedKeys,
+    });
+    return serverError(event as any, `Failed to fetch allocations (requestId: ${requestId})`);
   }
 }
 

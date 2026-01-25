@@ -36,6 +36,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -44,6 +45,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 15000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     assert.strictEqual(result.length, 1, 'Should have one project row');
@@ -71,6 +73,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -79,6 +82,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 20000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];
@@ -103,6 +107,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -111,6 +116,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 10000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];
@@ -135,6 +141,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -143,6 +150,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 10000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];
@@ -167,6 +175,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     lineItemCategoryMap.set('item5', 'Mano de Obra Directa'); // Labor category in map
     
     const result = buildSnapshotRows({
@@ -176,6 +185,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 10000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];
@@ -200,6 +210,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -208,6 +219,7 @@ describe('useMonthlySnapshotData - Cost Type Derivation', () => {
       monthBudget: 15000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     assert.strictEqual(result.length, 1, 'Should have one rubro row');
@@ -236,6 +248,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -244,6 +257,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
       monthBudget: 10000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     // The child row will have undefined costType (no labor keyword in description)
@@ -283,6 +297,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -291,6 +306,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
       monthBudget: 20000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const children = result[0].children!;
@@ -323,6 +339,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     
     const result = buildSnapshotRows({
       forecastData,
@@ -331,6 +348,7 @@ describe('useMonthlySnapshotData - Cost Type Filtering', () => {
       monthBudget: 5000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];
@@ -358,6 +376,7 @@ describe('useMonthlySnapshotData - Category Precedence', () => {
     ];
 
     const lineItemCategoryMap = new Map<string, string | undefined>();
+    const lineItemMetaMap = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     lineItemCategoryMap.set('item11', 'Equipos y Tecnología'); // Non-labor in map (should win over fallback)
     
     const result = buildSnapshotRows({
@@ -367,6 +386,7 @@ describe('useMonthlySnapshotData - Category Precedence', () => {
       monthBudget: 12000,
       useMonthlyBudget: true,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
 
     const childRow = result[0].children![0];

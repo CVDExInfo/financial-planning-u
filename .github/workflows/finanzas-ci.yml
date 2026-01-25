@@ -56,3 +56,139 @@ jobs:
   # If integration tests are needed in the future, they should be reworked to use
   # explicit test fixtures or a new data setup approach that doesn't rely on
   # the canonical-projects seed script.
+
+  check-forbidden-rubros:
+    name: Check for non-canonical rubro literals
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for non-canonical rubro literals
+        run: |
+          echo "Checking for non-canonical rubro literals..."
+          echo "Loading canonical IDs from data/rubros.taxonomy.json..."
+          
+          # Extract canonical IDs from taxonomy JSON
+          if ! command -v jq &> /dev/null; then
+            echo "Installing jq..."
+            sudo apt-get update -qq && sudo apt-get install -qq -y jq
+          fi
+          
+          CANONICAL_IDS=$(jq -r '.items[].linea_codigo' data/rubros.taxonomy.json | sort -u)
+          CANONICAL_COUNT=$(echo "$CANONICAL_IDS" | wc -l)
+          
+          echo "Loaded $CANONICAL_COUNT canonical rubro IDs"
+          echo ""
+          
+          # Create a temporary file with canonical IDs for fast lookup
+          echo "$CANONICAL_IDS" > /tmp/canonical-ids.txt
+          
+          # Search for rubro-like patterns in source code
+          # Pattern: Only match known rubro category codes (MOD, GSV, TEC, etc.) followed by hyphen and identifier
+          # This prevents false positives from other ID types (CHG-*, AVI-*, etc.)
+          echo "Scanning for rubro-like patterns in source code..."
+          
+          # Extract category codes from taxonomy to build dynamic regex
+          CATEGORY_CODES=$(jq -r '.items[].categoria_codigo' data/rubros.taxonomy.json | sort -u | tr '\n' '|' | sed 's/|$//')
+          echo "Matching rubro category codes: $CATEGORY_CODES"
+          echo ""
+          
+          # Find all potential rubro IDs in TypeScript/JavaScript files
+          # Exclude: comments, imports, tests, canonical-taxonomy definitions, docs, scripts
+          # Also exclude old hardcoded taxonomy files that need migration
+          # Use word boundary at start to ensure we match complete IDs only
+          # This prevents matching INV-2024-001 inside FINV-2024-001
+          # and prevents matching MOD-ING-001 inside AR-MOD-ING-001
+          POTENTIAL_RUBROS=$(git grep -h -o -P "\b(${CATEGORY_CODES})-[A-Z0-9-]+\b" -- \
+            '*.ts' '*.tsx' '*.js' '*.jsx' \
+            ':!node_modules' \
+            ':!.git' \
+            ':!dist' \
+            ':!build' \
+            ':!**/canonical-taxonomy.ts' \
+            ':!**/__tests__/**' \
+            ':!**/tests/**' \
+            ':!**/*.test.ts' \
+            ':!**/*.test.tsx' \
+            ':!**/*.spec.ts' \
+            ':!**/*.spec.tsx' \
+            ':!*.md' \
+            ':!data/rubros.taxonomy.json' \
+            ':!scripts/**' \
+            ':!**/scripts/**' \
+            ':!**/rubros.taxonomia.ts' \
+            ':!**/rubros-taxonomy.ts' \
+            2>/dev/null | sort -u || true)
+          
+          if [ -z "$POTENTIAL_RUBROS" ]; then
+            echo "✅ No rubro-like patterns found in source code"
+            exit 0
+          fi
+          
+          echo "Found $(echo "$POTENTIAL_RUBROS" | wc -l) unique rubro-like patterns"
+          echo ""
+          
+          FOUND_VIOLATIONS=0
+          NON_CANONICAL_IDS=""
+          
+          # Check each potential rubro against canonical list
+          while IFS= read -r rubro; do
+            [ -z "$rubro" ] && continue
+            
+            # Check if it's in the canonical list
+            if ! grep -q "^${rubro}$" /tmp/canonical-ids.txt; then
+              # Found a non-canonical ID, now check if it's actually used in code
+              # (not just in a comment or string for documentation)
+              # Use same pattern with negative lookbehind to avoid composite IDs
+              MATCHES=$(git grep -n -P "(?<![A-Z]-)${rubro}\b" -- \
+                '*.ts' '*.tsx' '*.js' '*.jsx' \
+                ':!node_modules' \
+                ':!.git' \
+                ':!dist' \
+                ':!build' \
+                ':!**/canonical-taxonomy.ts' \
+                ':!**/__tests__/**' \
+                ':!**/tests/**' \
+                ':!**/*.test.ts' \
+                ':!**/*.test.tsx' \
+                ':!**/*.spec.ts' \
+                ':!**/*.spec.tsx' \
+                ':!*.md' \
+                ':!data/rubros.taxonomy.json' \
+                ':!scripts/**' \
+                ':!**/scripts/**' \
+                ':!**/rubros.taxonomia.ts' \
+                ':!**/rubros-taxonomy.ts' \
+                2>/dev/null || true)
+              
+              if [ -n "$MATCHES" ]; then
+                echo "❌ Non-canonical rubro ID: $rubro"
+                echo "$MATCHES" | head -5
+                echo ""
+                FOUND_VIOLATIONS=1
+                NON_CANONICAL_IDS="${NON_CANONICAL_IDS}${rubro}\n"
+              fi
+            fi
+          done <<< "$POTENTIAL_RUBROS"
+          
+          if [ $FOUND_VIOLATIONS -eq 1 ]; then
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ FAIL: Found non-canonical rubro IDs in source code"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "The following rubro IDs are NOT in data/rubros.taxonomy.json:"
+            echo -e "$NON_CANONICAL_IDS"
+            echo ""
+            echo "Action required:"
+            echo "1. If these are legitimate rubros, add them to data/rubros.taxonomy.json"
+            echo "2. If these are legacy IDs, add mapping in LEGACY_RUBRO_ID_MAP (canonical-taxonomy.ts)"
+            echo "3. If these are typos or mistakes, correct them to use canonical IDs"
+            echo ""
+            echo "See data/rubros.taxonomy.json for the complete list of canonical IDs"
+            exit 1
+          else
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ PASS: All rubro IDs in source code are canonical"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          fi

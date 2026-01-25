@@ -1,9 +1,10 @@
  import {
   BatchWriteCommand,
   BatchWriteCommandInput,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
-import { ddb, tableName, GetCommand, ScanCommand, QueryCommand } from "./dynamo";
+import { ddb, tableName, GetCommand, ScanCommand } from "./dynamo";
 import { logError } from "../utils/logging";
 import { batchGetExistingItems } from "./dynamodbHelpers";
 import {
@@ -11,7 +12,6 @@ import {
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
-import { LEGACY_RUBRO_ID_MAP } from "./canonical-taxonomy";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -81,6 +81,90 @@ const getCanonicalRubroPrefix = (rubroIdOrSk: string | undefined): string => {
   return parts[0] || "";
 };
 
+/**
+ * Get validated canonical rubro ID from a rubro object or raw ID string.
+ * 
+ * This function ensures consistent canonical ID resolution across all code paths
+ * to prevent duplicate allocations from being created.
+ * 
+ * Priority order:
+ * 1. linea_codigo (most reliable for canonical IDs like "MOD-ING")
+ * 2. rubro_id or id (may be legacy RB#### format)
+ * 3. Extract from SK if present (e.g., "RUBRO#MOD-ING")
+ * 
+ * @param rubroOrId - Rubro object or raw ID string
+ * @param context - Context string for logging (e.g., "primary-path", "fallback-path")
+ * @returns Canonical rubro ID
+ * @throws Error if canonical ID cannot be determined
+ */
+const getValidatedCanonicalRubroId = (
+  rubroOrId: any,
+  context: string
+): string => {
+  // Handle string input
+  if (typeof rubroOrId === "string") {
+    const prefix = getCanonicalRubroPrefix(rubroOrId);
+    const canonical = getCanonicalRubroId(prefix) || prefix;
+    
+    if (!canonical || canonical === "") {
+      throw new Error(
+        `[materializers/${context}] Cannot determine canonical ID from string: ${rubroOrId}`
+      );
+    }
+    
+    return canonical;
+  }
+  
+  // Handle object input - try multiple fields in priority order
+  const linea_codigo = rubroOrId?.linea_codigo;
+  const rubroId = rubroOrId?.rubro_id || rubroOrId?.rubroId || rubroOrId?.id;
+  const sk = rubroOrId?.sk;
+  
+  // Priority 1: linea_codigo (most reliable)
+  if (linea_codigo) {
+    const canonical = getCanonicalRubroId(linea_codigo);
+    if (canonical) {
+      return canonical;
+    }
+  }
+  
+  // Priority 2: rubro_id/id
+  if (rubroId) {
+    const prefix = getCanonicalRubroPrefix(rubroId);
+    const canonical = getCanonicalRubroId(prefix);
+    if (canonical) {
+      return canonical;
+    }
+    
+    // If getCanonicalRubroId returned undefined, use prefix as fallback
+    if (prefix) {
+      console.warn(
+        `[materializers/${context}] Using unvalidated prefix as canonical ID: ${prefix}`
+      );
+      return prefix;
+    }
+  }
+  
+  // Priority 3: Extract from SK
+  if (sk) {
+    const prefix = getCanonicalRubroPrefix(sk);
+    const canonical = getCanonicalRubroId(prefix);
+    if (canonical) {
+      return canonical;
+    }
+  }
+  
+  // Failed to resolve
+  const debugInfo = JSON.stringify({
+    linea_codigo,
+    rubroId,
+    sk,
+  });
+  throw new Error(
+    `[materializers/${context}] Cannot determine canonical ID from rubro: ${debugInfo}`
+  );
+};
+
 type RubroTaxonomyEntry = {
   linea_codigo?: string;
   categoria?: string;
@@ -130,9 +214,6 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
 
   const byCategoryDescription = new Map<string, RubroTaxonomyEntry>();
   const byDescription = new Map<string, RubroTaxonomyEntry>();
-  
-  // Build index by linea_codigo for efficient lookup during alias seeding
-  const byLineaCodigo = new Map<string, RubroTaxonomyEntry>();
 
   for (const entry of entries) {
     const description =
@@ -145,31 +226,6 @@ const ensureTaxonomyIndex = async (): Promise<TaxonomyIndex> => {
     }
     if (description) {
       byDescription.set(normalizeKeyPart(description), entry);
-    }
-    
-    // Also index by linea_gasto if different from descripcion
-    if (entry.linea_gasto && entry.linea_gasto !== description) {
-      byDescription.set(normalizeKeyPart(entry.linea_gasto), entry);
-    }
-    
-    // Index by linea_codigo for O(1) lookup during alias seeding
-    if (entry.linea_codigo) {
-      byLineaCodigo.set(entry.linea_codigo, entry);
-    }
-  }
-  
-  // Seed with canonical aliases from LEGACY_RUBRO_ID_MAP for consistent server-side lookup
-  // This ensures aliases like "Service Delivery Manager" → MOD-SDM work on the server
-  // Using byLineaCodigo map for O(1) lookup instead of entries.find() for O(n*m) → O(n) complexity
-  for (const [alias, canonicalId] of Object.entries(LEGACY_RUBRO_ID_MAP)) {
-    const normalizedAlias = normalizeKeyPart(alias);
-    // Only add if not already in the map (avoid overwriting actual taxonomy entries)
-    if (!byDescription.has(normalizedAlias)) {
-      // Find the canonical entry for this ID using O(1) map lookup
-      const canonicalEntry = byLineaCodigo.get(canonicalId);
-      if (canonicalEntry) {
-        byDescription.set(normalizedAlias, canonicalEntry);
-      }
     }
   }
 
@@ -1081,11 +1137,8 @@ export const materializeAllocationsForBaseline = async (
   if (rubros.length > 0) {
     // PRIMARY PATH: Generate allocations from seeded rubros
     for (const rubro of rubros) {
-      const canonicalRubroPrefix = getCanonicalRubroPrefix(
-        rubro.rubroId || rubro.sk || ""
-      );
-      const canonicalRubroId =
-        getCanonicalRubroId(canonicalRubroPrefix) || canonicalRubroPrefix;
+      // Use validated canonical ID to ensure consistency with fallback path
+      const canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
 
       // Extract unit_cost (monthly cost)
       let unitCost = coerceNumber(rubro.unit_cost);
@@ -1188,21 +1241,12 @@ export const materializeAllocationsForBaseline = async (
 
     allocations.push(
       ...lineItems.flatMap((item) => {
-        const rubroStableId =
-          item.rubroId ||
-          item.rubro_id ||
-          item.linea_codigo ||
-          item.id ||
-          "unknown";
-        const canonical = getCanonicalRubroId(rubroStableId);
-        if (canonical === rubroStableId) {
-          // No mapping found - log warning
-          console.warn(`[materializers] No canonical mapping for rubro: ${rubroStableId}`);
-        }
+        // Use validated canonical ID to ensure consistency with primary path
+        const canonical = getValidatedCanonicalRubroId(item, "fallback-path");
         const lineItemId =
           item.id ||
           item.line_item_id ||
-          stableIdFromParts(rubroStableId, item.role, item.category);
+          stableIdFromParts(canonical, item.role, item.category);
         const totalCost = resolveTotalCost(item, months.length);
         const monthly = resolveMonthlyAmounts(item, months, totalCost);
 

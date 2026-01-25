@@ -161,14 +161,52 @@ Autenticación: JWT Cognito. Grupos típicos: `PMO`, `SDMT`, `FIN`, `EXEC_RO`. A
 - **Auth**: `PMO`, `FIN`, `SDMT` (solo lectura).
 - **Response**:
 ```json
-[
-  {
-    "invoice_id": "INV-001",
-    "project_id": "PRJ-001",
-    "periodo": "2025-02",
-    "monto": 23000,
-    "moneda": "USD",
-    "estatus": "registrada"
-  }
-]
+{
+  "data": [
+    {
+      "invoice_id": "INV-001",
+      "project_id": "PRJ-001",
+      "periodo": "2025-02",
+      "monto": 23000,
+      "moneda": "USD",
+      "estatus": "registrada",
+      "rubro_canonical": "MOD-ING",
+      "month": "2025-02",
+      "amount": 23000
+    }
+  ],
+  "projectId": "PRJ-001",
+  "total": 1
+}
 ```
+- **Notes**:
+  - Response includes `rubro_canonical` field computed from linea_codigo → rubroId → rubro → description for reliable matching
+  - `month` normalized from invoiceDate (YYYY-MM format)
+  - `amount` normalized from amount/total fields
+
+## Budgets
+
+### GET /budgets/all-in/monthly?year=2026
+- **Purpose**: Obtener presupuestos mensuales para un año específico.
+- **Auth**: `SDMT`, `EXEC_RO`, `ADMIN`.
+- **Response**:
+```json
+{
+  "year": 2026,
+  "currency": "USD",
+  "months": [
+    { "month": "2026-01", "amount": 1000000 },
+    { "month": "2026-02", "amount": 6000000 }
+  ],
+  "monthlyMap": {
+    "2026-01": 1000000,
+    "2026-02": 6000000
+  },
+  "updated_at": "2026-01-15T10:30:00Z",
+  "updated_by": "admin@example.com"
+}
+```
+- **Notes**:
+  - `monthlyMap` added for O(1) month-to-amount lookups
+  - `months` array preserved for backward compatibility
+

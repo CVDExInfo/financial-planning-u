@@ -7,6 +7,7 @@
 
 import type { ForecastCell, LineItem } from '@/types/domain';
 import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
+import { normalizeForecastCells } from '../utils/dataAdapters';
 
 export interface CategoryMonthTotals {
   forecast: number;
@@ -43,14 +44,19 @@ export interface CategoryRubro {
 /**
  * Build category totals from forecast data
  * Groups by category, computes monthly and overall totals
+ * 
+ * Note: Deduplicates input data before processing to ensure accurate totals
  */
 export function buildCategoryTotals(
   forecastData: ForecastCell[]
 ): Map<string, CategoryTotals> {
+  // Deduplicate input data first to prevent double-counting
+  const dedupedData = normalizeForecastCells(forecastData);
+  
   const categoryMap = new Map<string, CategoryTotals>();
 
   // Group data by category
-  forecastData.forEach(cell => {
+  dedupedData.forEach(cell => {
     const rubroId = cell.line_item_id;
     const month = cell.month;
     
@@ -121,15 +127,20 @@ export function buildCategoryTotals(
 /**
  * Build category rubros from forecast data and line items
  * Groups rubros by category, computes monthly and overall totals per rubro
+ * 
+ * Note: Deduplicates input data before processing to ensure accurate totals
  */
 export function buildCategoryRubros(
   forecastData: ForecastCell[],
   lineItems: LineItem[]
 ): Map<string, CategoryRubro[]> {
+  // Deduplicate input data first to prevent double-counting
+  const dedupedData = normalizeForecastCells(forecastData);
+  
   const categoryRubrosMap = new Map<string, Map<string, CategoryRubro>>();
 
   // Group data by category and rubro
-  forecastData.forEach(cell => {
+  dedupedData.forEach(cell => {
     const rubroId = cell.line_item_id;
     const month = cell.month;
     
@@ -234,8 +245,13 @@ export function buildCategoryRubros(
 
 /**
  * Build portfolio-level totals (across all categories)
+ * 
+ * Note: Deduplicates input data before processing to ensure accurate totals
  */
 export function buildPortfolioTotals(forecastData: ForecastCell[]): PortfolioTotals {
+  // Deduplicate input data first to prevent double-counting
+  const dedupedData = normalizeForecastCells(forecastData);
+  
   const portfolioTotals: PortfolioTotals = {
     byMonth: {},
     overall: {
@@ -248,7 +264,7 @@ export function buildPortfolioTotals(forecastData: ForecastCell[]): PortfolioTot
     },
   };
 
-  forecastData.forEach(cell => {
+  dedupedData.forEach(cell => {
     const month = cell.month;
 
     // Initialize month if not exists

@@ -7,9 +7,15 @@
  * All rubro_id references in the API, database, and UI MUST use the canonical
  * linea_codigo from this taxonomy.
  * 
- * Source: Client-approved taxonomy from R1 Modelo & Gobierno
- * Generated from: src/modules/rubros.taxonomia.ts (CATALOGO_RUBROS)
+ * Source: /data/rubros.taxonomy.json (Client-approved taxonomy from R1 Modelo & Gobierno)
+ * This file imports and normalizes the canonical JSON taxonomy.
  */
+
+import { normalizeKey } from './normalize-key';
+import taxonomyData from '../../../data/rubros.taxonomy.json';
+
+// Re-export normalizeKey for convenience and backward compatibility
+export { normalizeKey };
 
 export type TipoCosto = 'OPEX' | 'CAPEX';
 export type TipoEjecucion = 'mensual' | 'puntual/hito';
@@ -44,7 +50,8 @@ export interface CanonicalRubroTaxonomy {
 /**
  * CANONICAL TAXONOMY - The single source of truth
  * 
- * This array contains all approved rubros. Any rubro_id used in:
+ * This array is loaded from /data/rubros.taxonomy.json and contains all approved rubros.
+ * Any rubro_id used in:
  * - DynamoDB tables (rubros, project_rubros, allocations)
  * - API requests/responses
  * - UI forms and displays
@@ -52,860 +59,18 @@ export interface CanonicalRubroTaxonomy {
  * 
  * MUST match a linea_codigo from this list.
  */
-export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = [
-  {
-    id: 'MOD-ING',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-ING',
-    linea_gasto: 'Ingenieros de soporte (mensual)',
-    descripcion: 'Costo mensual de ingenieros asignados al servicio según % de asignación.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación pos‑puesta en marcha (cliente)',
-    isActive: true,
-  },
-  {
-    id: 'MOD-LEAD',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-LEAD',
-    linea_gasto: 'Ingeniero líder / coordinador',
-    descripcion: 'Perfil senior técnico con responsabilidad de coordinación técnica.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Buenas prácticas MSP',
-    isActive: true,
-  },
-  {
-    id: 'MOD-SDM',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-SDM',
-    linea_gasto: 'Service Delivery Manager (SDM)',
-    descripcion: 'Gestión operativa, relación con cliente, reportes, SLAs.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Modelo Service Delivery',
-    isActive: true,
-  },
-  {
-    id: 'MOD-OT',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-OT',
-    linea_gasto: 'Horas extra / guardias',
-    descripcion: 'On‑call, fines de semana, festivos.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'MSP',
-    isActive: true,
-  },
-  {
-    id: 'MOD-CONT',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-CONT',
-    linea_gasto: 'Contratistas técnicos internos',
-    descripcion: 'Soporte temporal bajo nómina interna.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'MSP',
-    isActive: true,
-  },
-  {
-    id: 'MOD-EXT',
-    categoria_codigo: 'MOD',
-    categoria: 'Mano de Obra Directa',
-    linea_codigo: 'MOD-EXT',
-    linea_gasto: 'Contratistas externos (labor)',
-    descripcion: 'Recursos por demanda no nómina.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'MSP',
-    isActive: true,
-  },
-  {
-    id: 'GSV-REU',
-    categoria_codigo: 'GSV',
-    categoria: 'Gestión del Servicio',
-    linea_codigo: 'GSV-REU',
-    linea_gasto: 'Reuniones de seguimiento',
-    descripcion: 'Reuniones periódicas de servicio con cliente (operativas/ejecutivas).',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'ITIL / Service Mgmt',
-    isActive: true,
-  },
-  {
-    id: 'GSV-RPT',
-    categoria_codigo: 'GSV',
-    categoria: 'Gestión del Servicio',
-    linea_codigo: 'GSV-RPT',
-    linea_gasto: 'Informes mensuales (SLA/KPI)',
-    descripcion: 'Generación y distribución de informes de desempeño.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'ITIL / SLA',
-    isActive: true,
-  },
-  {
-    id: 'GSV-AUD',
-    categoria_codigo: 'GSV',
-    categoria: 'Gestión del Servicio',
-    linea_codigo: 'GSV-AUD',
-    linea_gasto: 'Auditoría interna del servicio',
-    descripcion: 'Revisión de cumplimiento, controles, evidencias.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Gobernanza',
-    isActive: true,
-  },
-  {
-    id: 'GSV-TRN',
-    categoria_codigo: 'GSV',
-    categoria: 'Gestión del Servicio',
-    linea_codigo: 'GSV-TRN',
-    linea_gasto: 'Formación/certificación del equipo',
-    descripcion: 'Cursos y certificaciones relevantes para el servicio.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Industria MSP',
-    isActive: true,
-  },
-  {
-    id: 'REM-MANT-P',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-MANT-P',
-    linea_gasto: 'Mantenimiento preventivo (labor)',
-    descripcion: 'Horas de mantenimiento programado.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación pos‑puesta en marcha',
-    isActive: true,
-  },
-  {
-    id: 'REM-MANT-C',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-MANT-C',
-    linea_gasto: 'Mantenimiento correctivo (labor)',
-    descripcion: 'Atención a incidentes / fallas.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'MSP/NOC',
-    isActive: true,
-  },
-  {
-    id: 'REM-HH-EXT',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-HH-EXT',
-    linea_gasto: 'Manos remotas (proveedor externo)',
-    descripcion: 'Técnicos terceros on‑site por demanda.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Cliente + TEM',
-    isActive: true,
-  },
-  {
-    id: 'REM-TRNS',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-TRNS',
-    linea_gasto: 'Transporte/traslados técnicos',
-    descripcion: 'Taxis, peajes, combustible según política.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM buenas prácticas',
-    isActive: true,
-  },
-  {
-    id: 'REM-VIAT',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-VIAT',
-    linea_gasto: 'Viáticos de campo',
-    descripcion: 'Alojamiento y alimentación de técnicos en sitio.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM',
-    isActive: true,
-  },
-  {
-    id: 'REM-CONS',
-    categoria_codigo: 'REM',
-    categoria: 'Servicios Remotos / Campo',
-    linea_codigo: 'REM-CONS',
-    linea_gasto: 'Consumibles de campo',
-    descripcion: 'Cables, conectores, bridas, herramientas menores.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Field Service',
-    isActive: true,
-  },
-  {
-    id: 'TEC-LIC-MON',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-LIC-MON',
-    linea_gasto: 'Licencias de monitoreo/observabilidad',
-    descripcion: 'Herramientas NMS/APM/Logs.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Observabilidad/Ikusi servicios',
-    isActive: true,
-  },
-  {
-    id: 'TEC-ITSM',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-ITSM',
-    linea_gasto: 'Herramienta ITSM / tickets',
-    descripcion: 'Plataforma ITSM (SaaS).',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'ITIL',
-    isActive: true,
-  },
-  {
-    id: 'TEC-LAB',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-LAB',
-    linea_gasto: 'Equipamiento de laboratorio/soporte',
-    descripcion: 'Equipos de prueba, bancos de ensayo.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'CAPEX',
-    fuente_referencia: 'Operación técnica',
-    isActive: true,
-  },
-  {
-    id: 'TEC-HW-RPL',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-HW-RPL',
-    linea_gasto: 'Reemplazo de hardware de ingenieros',
-    descripcion: 'Renovación de laptops/workstations (3 años).',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'CAPEX',
-    fuente_referencia: 'Política de renovación',
-    isActive: true,
-  },
-  {
-    id: 'TEC-HW-FIELD',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-HW-FIELD',
-    linea_gasto: 'Equipos de campo instalados',
-    descripcion: 'Routers/switches/APs/antenas instalados en cliente.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'CAPEX',
-    fuente_referencia: 'Infraestructura de red',
-    isActive: true,
-  },
-  {
-    id: 'TEC-SUP-VND',
-    categoria_codigo: 'TEC',
-    categoria: 'Equipos y Tecnología',
-    linea_codigo: 'TEC-SUP-VND',
-    linea_gasto: 'Soporte de fabricante (contrato)',
-    descripcion: 'Renovación de soporte HW/SW (SmartNet, etc.).',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Vendors',
-    isActive: true,
-  },
-  {
-    id: 'INF-CLOUD',
-    categoria_codigo: 'INF',
-    categoria: 'Infraestructura / Nube / Data Center',
-    linea_codigo: 'INF-CLOUD',
-    linea_gasto: 'Servicios Cloud / hosting',
-    descripcion: 'SaaS/IaaS/PaaS asociados al servicio.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Cloud OPEX',
-    isActive: true,
-  },
-  {
-    id: 'INF-DC-EN',
-    categoria_codigo: 'INF',
-    categoria: 'Infraestructura / Nube / Data Center',
-    linea_codigo: 'INF-DC-EN',
-    linea_gasto: 'Energía/UPS/Clima (DC)',
-    descripcion: 'Costos energéticos y acondicionamiento.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación DC',
-    isActive: true,
-  },
-  {
-    id: 'INF-RACK',
-    categoria_codigo: 'INF',
-    categoria: 'Infraestructura / Nube / Data Center',
-    linea_codigo: 'INF-RACK',
-    linea_gasto: 'Racks / colocation',
-    descripcion: 'Arrendamiento de espacio en DC/edge.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Infraestructura',
-    isActive: true,
-  },
-  {
-    id: 'INF-BCK',
-    categoria_codigo: 'INF',
-    categoria: 'Infraestructura / Nube / Data Center',
-    linea_codigo: 'INF-BCK',
-    linea_gasto: 'Backup & DR',
-    descripcion: 'Copias y recuperación ante desastres.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Buenas prácticas resiliencia',
-    isActive: true,
-  },
-  {
-    id: 'TEL-CCTS',
-    categoria_codigo: 'TEL',
-    categoria: 'Telecomunicaciones',
-    linea_codigo: 'TEL-CCTS',
-    linea_gasto: 'Circuitos y enlaces',
-    descripcion: 'MPLS/Internet/SD‑WAN.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM / Ikusi service providers',
-    isActive: true,
-  },
-  {
-    id: 'TEL-UCAAS',
-    categoria_codigo: 'TEL',
-    categoria: 'Telecomunicaciones',
-    linea_codigo: 'TEL-UCAAS',
-    linea_gasto: 'UCaaS/Colaboración',
-    descripcion: 'Plataformas de voz/video/mensajería.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM',
-    isActive: true,
-  },
-  {
-    id: 'TEL-SIMS',
-    categoria_codigo: 'TEL',
-    categoria: 'Telecomunicaciones',
-    linea_codigo: 'TEL-SIMS',
-    linea_gasto: 'Planes móviles/datos',
-    descripcion: 'Líneas celulares del servicio.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM',
-    isActive: true,
-  },
-  {
-    id: 'TEL-NUM',
-    categoria_codigo: 'TEL',
-    categoria: 'Telecomunicaciones',
-    linea_codigo: 'TEL-NUM',
-    linea_gasto: 'Numeración/DIDs/Troncales',
-    descripcion: 'Servicios de numeración y troncales SIP.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Comms',
-    isActive: true,
-  },
-  {
-    id: 'SEC-SOC',
-    categoria_codigo: 'SEC',
-    categoria: 'Seguridad y Cumplimiento',
-    linea_codigo: 'SEC-SOC',
-    linea_gasto: 'Monitoreo SOC / ciberseguridad',
-    descripcion: 'Servicios SOC/EDR/SIEM.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Ciberseguridad Ikusi',
-    isActive: true,
-  },
-  {
-    id: 'SEC-VA',
-    categoria_codigo: 'SEC',
-    categoria: 'Seguridad y Cumplimiento',
-    linea_codigo: 'SEC-VA',
-    linea_gasto: 'Vulnerability/Pentest',
-    descripcion: 'Evaluaciones periódicas de seguridad.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Seguridad',
-    isActive: true,
-  },
-  {
-    id: 'SEC-COMP',
-    categoria_codigo: 'SEC',
-    categoria: 'Seguridad y Cumplimiento',
-    linea_codigo: 'SEC-COMP',
-    linea_gasto: 'Cumplimiento/auditorías',
-    descripcion: 'Controles y auditorías normativas.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Compliance',
-    isActive: true,
-  },
-  {
-    id: 'LOG-SPARES',
-    categoria_codigo: 'LOG',
-    categoria: 'Logística y Repuestos',
-    linea_codigo: 'LOG-SPARES',
-    linea_gasto: 'Pool de repuestos (spares)',
-    descripcion: 'Inventario de repuestos críticos.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Field ops / SLA',
-    isActive: true,
-  },
-  {
-    id: 'LOG-RMA',
-    categoria_codigo: 'LOG',
-    categoria: 'Logística y Repuestos',
-    linea_codigo: 'LOG-RMA',
-    linea_gasto: 'RMA / garantías',
-    descripcion: 'Gestión de devoluciones a fabricante.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Vendor mgmt',
-    isActive: true,
-  },
-  {
-    id: 'LOG-ENV',
-    categoria_codigo: 'LOG',
-    categoria: 'Logística y Repuestos',
-    linea_codigo: 'LOG-ENV',
-    linea_gasto: 'Envíos y courier',
-    descripcion: 'Paquetería de equipos y partes.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación logística',
-    isActive: true,
-  },
-  {
-    id: 'RIE-PEN',
-    categoria_codigo: 'RIE',
-    categoria: 'Riesgos y Penalizaciones',
-    linea_codigo: 'RIE-PEN',
-    linea_gasto: 'Penalizaciones por SLA',
-    descripcion: 'Penalties por incumplimiento de SLAs.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'SLA contratos',
-    isActive: true,
-  },
-  {
-    id: 'RIE-CTR',
-    categoria_codigo: 'RIE',
-    categoria: 'Riesgos y Penalizaciones',
-    linea_codigo: 'RIE-CTR',
-    linea_gasto: 'Contingencias operativas',
-    descripcion: 'Fondo de contingencias para eventos mayores.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Riesgo',
-    isActive: true,
-  },
-  {
-    id: 'RIE-SEG',
-    categoria_codigo: 'RIE',
-    categoria: 'Riesgos y Penalizaciones',
-    linea_codigo: 'RIE-SEG',
-    linea_gasto: 'Seguros asociados al servicio',
-    descripcion: 'Coberturas de equipos/operación.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Seguros',
-    isActive: true,
-  },
-  {
-    id: 'ADM-PMO',
-    categoria_codigo: 'ADM',
-    categoria: 'Administración / PMO / Prefactura',
-    linea_codigo: 'ADM-PMO',
-    linea_gasto: 'Costo PMO / gobernanza',
-    descripcion: 'Soporte de gobierno y metodología.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'PMO',
-    isActive: true,
-  },
-  {
-    id: 'ADM-BILL',
-    categoria_codigo: 'ADM',
-    categoria: 'Administración / PMO / Prefactura',
-    linea_codigo: 'ADM-BILL',
-    linea_gasto: 'Gestión de prefacturas/facturación',
-    descripcion: 'Procesamiento y conciliación de facturas.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Proceso Prefactura',
-    isActive: true,
-  },
-  {
-    id: 'ADM-FIN',
-    categoria_codigo: 'ADM',
-    categoria: 'Administración / PMO / Prefactura',
-    linea_codigo: 'ADM-FIN',
-    linea_gasto: 'Contabilidad/finanzas del servicio',
-    descripcion: 'Asientos, conciliaciones, cierres.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Finanzas',
-    isActive: true,
-  },
-  {
-    id: 'ADM-LIC',
-    categoria_codigo: 'ADM',
-    categoria: 'Administración / PMO / Prefactura',
-    linea_codigo: 'ADM-LIC',
-    linea_gasto: 'Licencias administrativas',
-    descripcion: 'Herramientas de oficina/gestión.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación',
-    isActive: true,
-  },
-  {
-    id: 'ADM-LEG',
-    categoria_codigo: 'ADM',
-    categoria: 'Administración / PMO / Prefactura',
-    linea_codigo: 'ADM-LEG',
-    linea_gasto: 'Servicios legales/contratos',
-    descripcion: 'Revisión y gestión contractual.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Legal',
-    isActive: true,
-  },
-  {
-    id: 'QLT-ISO',
-    categoria_codigo: 'QLT',
-    categoria: 'Calidad y Mejora Continua',
-    linea_codigo: 'QLT-ISO',
-    linea_gasto: 'Certificaciones (ISO/ITIL)',
-    descripcion: 'Renovaciones y auditorías externas.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Calidad',
-    isActive: true,
-  },
-  {
-    id: 'QLT-KAIZ',
-    categoria_codigo: 'QLT',
-    categoria: 'Calidad y Mejora Continua',
-    linea_codigo: 'QLT-KAIZ',
-    linea_gasto: 'Programas de mejora (Kaizen/Lean)',
-    descripcion: 'Iniciativas de optimización.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Mejora Continua',
-    isActive: true,
-  },
-  {
-    id: 'QLT-SAT',
-    categoria_codigo: 'QLT',
-    categoria: 'Calidad y Mejora Continua',
-    linea_codigo: 'QLT-SAT',
-    linea_gasto: 'Encuestas satisfacción cliente',
-    descripcion: 'Medición periódica de CSAT/OSAT.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'CX',
-    isActive: true,
-  },
-  {
-    id: 'PLT-PLANV',
-    categoria_codigo: 'PLT',
-    categoria: 'Plataformas de Gestión',
-    linea_codigo: 'PLT-PLANV',
-    linea_gasto: 'Planview / PPM',
-    descripcion: 'Licencias/uso para planificación/PPM.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Planview',
-    isActive: true,
-  },
-  {
-    id: 'PLT-SFDC',
-    categoria_codigo: 'PLT',
-    categoria: 'Plataformas de Gestión',
-    linea_codigo: 'PLT-SFDC',
-    linea_gasto: 'Salesforce (datos de costos)',
-    descripcion: 'Extracción/ingesta de Hoja de Costos.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Salesforce origen',
-    isActive: true,
-  },
-  {
-    id: 'PLT-SAP',
-    categoria_codigo: 'PLT',
-    categoria: 'Plataformas de Gestión',
-    linea_codigo: 'PLT-SAP',
-    linea_gasto: 'SAP / ERP',
-    descripcion: 'Integraciones contables/facturación.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'ERP',
-    isActive: true,
-  },
-  {
-    id: 'PLT-DLAKE',
-    categoria_codigo: 'PLT',
-    categoria: 'Plataformas de Gestión',
-    linea_codigo: 'PLT-DLAKE',
-    linea_gasto: 'Data Lake',
-    descripcion: 'Sincronización maestros (clientes/proveedores).',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Arquitectura IKUSI',
-    isActive: true,
-  },
-  {
-    id: 'DEP-HW',
-    categoria_codigo: 'DEP',
-    categoria: 'Depreciación y Amortización',
-    linea_codigo: 'DEP-HW',
-    linea_gasto: 'Depreciación hardware',
-    descripcion: 'Cálculo contable de activos HW.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'CapEx vs OpEx',
-    isActive: true,
-  },
-  {
-    id: 'DEP-SW',
-    categoria_codigo: 'DEP',
-    categoria: 'Depreciación y Amortización',
-    linea_codigo: 'DEP-SW',
-    linea_gasto: 'Amortización software perpetuo',
-    descripcion: 'Amortización de licencias perpetuas.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Contabilidad',
-    isActive: true,
-  },
-  {
-    id: 'NOC-MON',
-    categoria_codigo: 'NOC',
-    categoria: 'NOC / Operación 24x7',
-    linea_codigo: 'NOC-MON',
-    linea_gasto: 'Monitoreo 24x7',
-    descripcion: 'Servicios de NOC (turnos).',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Ikusi Enterprise Networks',
-    isActive: true,
-  },
-  {
-    id: 'NOC-ALR',
-    categoria_codigo: 'NOC',
-    categoria: 'NOC / Operación 24x7',
-    linea_codigo: 'NOC-ALR',
-    linea_gasto: 'Gestión de alertas/eventos',
-    descripcion: 'Triaging, escalamiento, reportes.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'NOC best practices',
-    isActive: true,
-  },
-  {
-    id: 'NOC-PLN',
-    categoria_codigo: 'NOC',
-    categoria: 'NOC / Operación 24x7',
-    linea_codigo: 'NOC-PLN',
-    linea_gasto: 'Planificación de capacidad',
-    descripcion: 'Capacity planning de red/infra.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Red/Infra',
-    isActive: true,
-  },
-  {
-    id: 'COL-UCC',
-    categoria_codigo: 'COL',
-    categoria: 'Colaboración / Productividad',
-    linea_codigo: 'COL-UCC',
-    linea_gasto: 'Licencias de colaboración (UCC)',
-    descripcion: 'Teams/Zoom/Meet, grabaciones, PBX cloud.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'UCaaS',
-    isActive: true,
-  },
-  {
-    id: 'COL-STG',
-    categoria_codigo: 'COL',
-    categoria: 'Colaboración / Productividad',
-    linea_codigo: 'COL-STG',
-    linea_gasto: 'Almacenamiento colaborativo',
-    descripcion: 'Drive/SharePoint/OneDrive.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'SaaS',
-    isActive: true,
-  },
-  {
-    id: 'COL-EMAIL',
-    categoria_codigo: 'COL',
-    categoria: 'Colaboración / Productividad',
-    linea_codigo: 'COL-EMAIL',
-    linea_gasto: 'Correo corporativo',
-    descripcion: 'Exchange/Google Workspace.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'SaaS',
-    isActive: true,
-  },
-  {
-    id: 'VIA-INT',
-    categoria_codigo: 'VIA',
-    categoria: 'Viajes Corporativos (no campo)',
-    linea_codigo: 'VIA-INT',
-    linea_gasto: 'Viajes internos gestión',
-    descripcion: 'Viajes no asociados a intervención de campo.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Operación',
-    isActive: true,
-  },
-  {
-    id: 'VIA-CLI',
-    categoria_codigo: 'VIA',
-    categoria: 'Viajes Corporativos (no campo)',
-    linea_codigo: 'VIA-CLI',
-    linea_gasto: 'Viajes cliente (reuniones)',
-    descripcion: 'Reuniones ejecutivas/operativas en cliente.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Cuenta/CSM',
-    isActive: true,
-  },
-  {
-    id: 'INV-ALM',
-    categoria_codigo: 'INV',
-    categoria: 'Inventarios / Almacén',
-    linea_codigo: 'INV-ALM',
-    linea_gasto: 'Almacenamiento de equipos',
-    descripcion: 'Bodegas y gestión de inventario.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Logística',
-    isActive: true,
-  },
-  {
-    id: 'INV-SGA',
-    categoria_codigo: 'INV',
-    categoria: 'Inventarios / Almacén',
-    linea_codigo: 'INV-SGA',
-    linea_gasto: 'Software WMS/SGA',
-    descripcion: 'Herramienta de gestión de almacén.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Logística tech',
-    isActive: true,
-  },
-  {
-    id: 'INV-SEG',
-    categoria_codigo: 'INV',
-    categoria: 'Inventarios / Almacén',
-    linea_codigo: 'INV-SEG',
-    linea_gasto: 'Seguros de inventario',
-    descripcion: 'Coberturas de pérdida/daño.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Seguros',
-    isActive: true,
-  },
-  {
-    id: 'LIC-FW',
-    categoria_codigo: 'LIC',
-    categoria: 'Licencias de Red y Seguridad',
-    linea_codigo: 'LIC-FW',
-    linea_gasto: 'Suscripciones firewall/IPS',
-    descripcion: 'Soporte/firmware/feeds de seguridad.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Seguridad',
-    isActive: true,
-  },
-  {
-    id: 'LIC-NET',
-    categoria_codigo: 'LIC',
-    categoria: 'Licencias de Red y Seguridad',
-    linea_codigo: 'LIC-NET',
-    linea_gasto: 'Suscripciones de red (DNA/Prime)',
-    descripcion: 'Controladores/licencias por dispositivo.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Enterprise Networks',
-    isActive: true,
-  },
-  {
-    id: 'LIC-EDR',
-    categoria_codigo: 'LIC',
-    categoria: 'Licencias de Red y Seguridad',
-    linea_codigo: 'LIC-EDR',
-    linea_gasto: 'EDR/antimalware endpoint',
-    descripcion: 'Protección endpoints del servicio.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'SOC',
-    isActive: true,
-  },
-  {
-    id: 'CTR-SLA',
-    categoria_codigo: 'CTR',
-    categoria: 'Cumplimiento Contractual',
-    linea_codigo: 'CTR-SLA',
-    linea_gasto: 'Gestión y medición de SLA',
-    descripcion: 'Métricas y evidencias contractuales.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'SLA mgmt',
-    isActive: true,
-  },
-  {
-    id: 'CTR-OLA',
-    categoria_codigo: 'CTR',
-    categoria: 'Cumplimiento Contractual',
-    linea_codigo: 'CTR-OLA',
-    linea_gasto: 'Acuerdos internos (OLA)',
-    descripcion: 'Compromisos entre áreas internas.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'ITSM',
-    isActive: true,
-  },
-  {
-    id: 'INN-POC',
-    categoria_codigo: 'INN',
-    categoria: 'Innovación y Roadmap',
-    linea_codigo: 'INN-POC',
-    linea_gasto: 'Pilotos/PoC de mejora',
-    descripcion: 'Pruebas de nuevas herramientas o procesos.',
-    tipo_ejecucion: 'puntual/hito',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'Innovación',
-    isActive: true,
-  },
-  {
-    id: 'INN-AUT',
-    categoria_codigo: 'INN',
-    categoria: 'Innovación y Roadmap',
-    linea_codigo: 'INN-AUT',
-    linea_gasto: 'Automatización/IA ligera',
-    descripcion: 'Bots, scripts, detección de anomalías.',
-    tipo_ejecucion: 'mensual',
-    tipo_costo: 'OPEX',
-    fuente_referencia: 'TEM/Observabilidad',
-    isActive: true,
-  }
-];
+export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = (taxonomyData.items || []).map((item: any) => ({
+  id: item.linea_codigo,
+  categoria_codigo: item.categoria_codigo,
+  categoria: item.categoria,
+  linea_codigo: item.linea_codigo,
+  linea_gasto: item.linea_gasto,
+  descripcion: item.descripcion,
+  tipo_ejecucion: item.tipo_ejecucion as TipoEjecucion,
+  tipo_costo: item.tipo_costo as TipoCosto,
+  fuente_referencia: item.fuente_referencia,
+  isActive: true, // All items in the JSON are considered active
+}));
 
 /**
  * Legacy ID Mapping
@@ -915,24 +80,24 @@ export const CANONICAL_RUBROS_TAXONOMY: CanonicalRubroTaxonomy[] = [
  * 
  * Sources:
  * - RB#### format: from rubros.catalog.ts (index-based mapping)
- * - RUBRO-### format: from old finanzas/data/rubros.taxonomia.ts
- * - RUBRO-*-* format: from seed files
+ * - RUBRO-### format: old seed scripts
+ * - Human-readable format: allocation data and estimator inputs
  */
 export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
-  // Old simple format (from finanzas/data/rubros.taxonomia.ts)
-  'RUBRO-001': 'MOD-ING',  // Ingeniería → MOD
-  'RUBRO-002': 'TEC-HW-FIELD',  // Infraestructura → TEC Hardware
-  'RUBRO-003': 'TEC-LIC-MON',  // Software → TEC Licenses
-  'RUBRO-004': 'GSV-REU',  // Servicios → GSV
-  'RUBRO-005': 'GSV-TRN',  // Capacitación → GSV Training
+  // Old simple format
+  'RUBRO-001': 'MOD-ING',
+  'RUBRO-002': 'TEC-HW-FIELD',
+  'RUBRO-003': 'TEC-LIC-MON',
+  'RUBRO-004': 'GSV-REU',
+  'RUBRO-005': 'GSV-TRN',
   
-  // Old catalog format (RB#### from rubros.catalog.ts - index-based 1:1 mapping)
+  // Old catalog format (RB####)
   'RB0001': 'MOD-ING',
   'RB0002': 'MOD-LEAD',
   'RB0003': 'MOD-SDM',
-  'RB0004': 'MOD-OT',
-  'RB0005': 'MOD-CONT',
-  'RB0006': 'MOD-EXT',
+  'RB0004': 'MOD-IN3',      // MOD-OT → MOD-IN3 (Ingeniero Soporte N3)
+  'RB0005': 'MOD-IN2',      // MOD-CONT → MOD-IN2 (Ingeniero Soporte N2 externo)
+  'RB0006': 'MOD-IN2',      // MOD-EXT → MOD-IN2 (Ingeniero Soporte N2 externo)
   'RB0007': 'GSV-REU',
   'RB0008': 'GSV-RPT',
   'RB0009': 'GSV-AUD',
@@ -998,18 +163,21 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0069': 'CTR-OLA',
   'RB0070': 'INN-POC',
   'RB0071': 'INN-AUT',
-
-  // Extended RB legacy IDs observed in production seeds/logs
-  'RB0075': 'INF-RACK',  // Racks y espacio de co-location
-  'RB0080': 'INF-BCK',   // Backup y disaster recovery
-
-  // Old seed format (from seed_project_rubros.ts)
+  
+  // Additional legacy IDs used in seed data
+  'RB0075': 'INF-RACK',   // Racks y espacio de co-location
+  'RB0080': 'INF-BCK',    // Backup y disaster recovery
+  
+  // Old seed format
   'RUBRO-SENIOR-DEV': 'MOD-LEAD',
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
   'RUBRO-LICENSE': 'TEC-LIC-MON',
   'RUBRO-CONSULTING': 'GSV-REU',
   
-  // Allocation tokens and human-readable names (observed in console warnings)
+  // Allocation tokens and human-readable names (added for frontend-backend alignment)
+  // PR #942 and #945 aliases
+  // Note: Mixed case entries are intentional - they match allocation data as-is
+  // The lookup logic normalizes keys before comparison
   'mod-lead-ingeniero-delivery': 'MOD-LEAD',
   'mod-lead-ingeniero': 'MOD-LEAD',
   'ingeniero-delivery': 'MOD-LEAD',
@@ -1018,16 +186,17 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'mod-sdm-service-delivery-manager': 'MOD-SDM',
   'mod-sdm-sdm': 'MOD-SDM',
   'service-delivery-manager': 'MOD-SDM',
-  'Service Delivery Manager': 'MOD-SDM', // Add title case variant
-  'Service Delivery Manager (SDM)': 'MOD-SDM', // Add variant with abbreviation
-  'SDM': 'MOD-SDM', // Add abbreviation alone
   'mod-ing-ingeniero-soporte-n1': 'MOD-ING',
-  'Ingeniero Soporte N1': 'MOD-ING', // Add title case variant
-  'Ingeniero Soporte N2': 'MOD-ING', // Add title case variant
-  'Ingeniero Soporte N3': 'MOD-ING', // Add title case variant
   'project-manager': 'MOD-LEAD', // Map to MOD-LEAD as MOD-PM/MOD-PMO doesn't exist in canonical taxonomy
   'Project Manager': 'MOD-LEAD', // Add title case variant
   'mod-pm-project-manager': 'MOD-LEAD',
+  'MOD-PM': 'MOD-LEAD', // Legacy server-generated MOD-PM mapping (from old PMO estimator)
+  'MOD-PMO': 'MOD-LEAD', // Legacy PMO variant
+  
+  // Old non-canonical labor IDs that should map to canonical equivalents
+  'MOD-OT': 'MOD-IN3',   // Old "Other" → Ingeniero Soporte N3
+  'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
+  'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
   
   // Category-suffixed patterns - Generated when allocation materializers or 
   // PMO Estimator append the Spanish categoria name to the rubro_id 
@@ -1043,238 +212,220 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'inf-rack-infraestructura-nube-data-center': 'INF-RACK',
 };
 
-/**
- * Index by canonical ID for fast lookups (O(1))
- * Defined early so functions can use it
- */
-export const TAXONOMY_BY_ID = new Map(
-  CANONICAL_RUBROS_TAXONOMY.map(r => [r.id, r])
-);
+// Build indexes for fast lookup
+const taxonomyById = new Map<string, CanonicalRubroTaxonomy>();
+const taxonomyByLineaCodigo = new Map<string, CanonicalRubroTaxonomy>();
+const taxonomyByLineaGasto = new Map<string, CanonicalRubroTaxonomy>();
+const taxonomyByDescripcion = new Map<string, CanonicalRubroTaxonomy>();
+
+for (const rubro of CANONICAL_RUBROS_TAXONOMY) {
+  const normalizedId = normalizeKey(rubro.id);
+  const normalizedLinea = normalizeKey(rubro.linea_codigo);
+  const normalizedGasto = normalizeKey(rubro.linea_gasto);
+  const normalizedDesc = normalizeKey(rubro.descripcion);
+  
+  taxonomyById.set(normalizedId, rubro);
+  taxonomyByLineaCodigo.set(normalizedLinea, rubro);
+  taxonomyByLineaGasto.set(normalizedGasto, rubro);
+  taxonomyByDescripcion.set(normalizedDesc, rubro);
+}
 
 /**
- * Set to track warned rubro IDs (throttle warnings to once per normalized key)
+ * TAXONOMY_BY_ID - Exported Map for O(1) taxonomy lookups
+ * Use getTaxonomyById() function for normalized lookups
  */
-const _rubrosWarned = new Set<string>();
+export const TAXONOMY_BY_ID = taxonomyById;
 
 /**
- * Warn about unknown rubro ID (throttled to once per normalized key)
+ * Get canonical rubro ID from a raw input string
+ * 
+ * Looks up the rubro by normalized ID, linea_codigo, linea_gasto, or descripcion.
+ * Returns the canonical linea_codigo if found, or null if not found.
+ * 
+ * @param raw - Raw rubro identifier (can be ID, legacy ID, linea_gasto, etc.)
+ * @returns Canonical linea_codigo or null
  */
-function warnUnknownRubro(legacyId: string) {
-  const normalized = normalizeKey(legacyId);
-  if (_rubrosWarned.has(normalized)) return;
-  _rubrosWarned.add(normalized);
-  console.warn(
-    `[rubros-taxonomy] Unknown rubro_id: "${legacyId}" - not in canonical taxonomy or legacy map. ` +
-    `Suggest adding alias to canonical taxonomy or legacy map.`
+export function getCanonicalRubroId(raw?: string): string | null {
+  if (!raw) return null;
+  
+  const normalized = normalizeKey(raw);
+  
+  // Check legacy mapping first
+  const legacyMapped = LEGACY_RUBRO_ID_MAP[raw];
+  if (legacyMapped) return legacyMapped;
+  
+  // Normalize and check legacy mapping again (for case-insensitive)
+  const normalizedLegacy = Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalized
+  );
+  if (normalizedLegacy) return LEGACY_RUBRO_ID_MAP[normalizedLegacy];
+  
+  // Check canonical taxonomy by various fields
+  const byId = taxonomyById.get(normalized);
+  if (byId) return byId.linea_codigo;
+  
+  const byLinea = taxonomyByLineaCodigo.get(normalized);
+  if (byLinea) return byLinea.linea_codigo;
+  
+  const byGasto = taxonomyByLineaGasto.get(normalized);
+  if (byGasto) return byGasto.linea_codigo;
+  
+  const byDesc = taxonomyByDescripcion.get(normalized);
+  if (byDesc) return byDesc.linea_codigo;
+  
+  return null;
+}
+
+/**
+ * Get rubro taxonomy entry by ID
+ * 
+ * @param id - Canonical ID or legacy ID
+ * @returns Full taxonomy entry or null
+ */
+export function getTaxonomyById(id?: string): CanonicalRubroTaxonomy | null {
+  if (!id) return null;
+  
+  const canonicalId = getCanonicalRubroId(id);
+  if (!canonicalId) return null;
+  
+  return taxonomyById.get(normalizeKey(canonicalId)) || null;
+}
+
+/**
+ * Get all canonical IDs
+ * 
+ * @returns Array of all canonical linea_codigo values
+ */
+export function getAllCanonicalIds(): string[] {
+  return Array.from(taxonomyById.keys());
+}
+
+/**
+ * Validate if a rubro ID is valid (canonical or has legacy mapping)
+ * 
+ * @param rubroId - Rubro ID to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidRubroId(rubroId?: string): boolean {
+  if (!rubroId) return false;
+  return getCanonicalRubroId(rubroId) !== null;
+}
+
+/**
+ * Check if a rubro ID is legacy and should be migrated
+ * 
+ * @param rubroId - Rubro ID to check
+ * @returns true if legacy, false otherwise
+ */
+export function isLegacyRubroId(rubroId: string): boolean {
+  return !!LEGACY_RUBRO_ID_MAP[rubroId] || !!Object.keys(LEGACY_RUBRO_ID_MAP).find(
+    key => normalizeKey(key) === normalizeKey(rubroId)
   );
 }
 
 /**
- * Index by category for grouped operations
- */
-export const TAXONOMY_BY_CATEGORY = new Map<string, CanonicalRubroTaxonomy[]>(
-  CANONICAL_RUBROS_TAXONOMY.reduce((acc, r) => {
-    const list = acc.get(r.categoria_codigo) || [];
-    list.push(r);
-    acc.set(r.categoria_codigo, list);
-    return acc;
-  }, new Map())
-);
-
-/**
- * Get canonical rubro_id from any legacy format
+ * Normalize a rubro ID to canonical format with validation
+ * Returns an object with canonical ID and any warnings
  * 
- * @param legacyId - Any rubro ID (canonical or legacy)
- * @returns Canonical linea_codigo, or the input if already canonical
+ * @param rubroId - Rubro ID to normalize
+ * @returns Object with canonicalId, isLegacy, isValid, and optional warning
  */
-export function getCanonicalRubroId(legacyId: string): string {
-  // Check if it's a legacy ID that needs mapping
-  const mapped = LEGACY_RUBRO_ID_MAP[legacyId];
-  if (mapped) {
-    return mapped;
+export function normalizeRubroId(rubroId: string): {
+  canonicalId: string;
+  isLegacy: boolean;
+  isValid: boolean;
+  warning?: string;
+} {
+  const isLegacy = isLegacyRubroId(rubroId);
+  const canonicalId = getCanonicalRubroId(rubroId) || rubroId;
+  const isValid = isValidRubroId(rubroId);
+  
+  let warning: string | undefined;
+  if (isLegacy) {
+    warning = `Legacy rubro_id '${rubroId}' mapped to canonical '${canonicalId}'`;
+  } else if (!isValid) {
+    warning = `Unknown rubro_id '${rubroId}' - not in canonical taxonomy`;
   }
   
-  // Check if it's already a canonical ID (O(1) lookup using Map)
-  if (TAXONOMY_BY_ID.has(legacyId)) {
-    return legacyId;
-  }
-  
-  // Unknown ID - log throttled warning and return as-is
-  warnUnknownRubro(legacyId);
-  return legacyId;
+  return {
+    canonicalId,
+    isLegacy,
+    isValid,
+    warning,
+  };
 }
 
 /**
- * Get taxonomy entry by canonical ID (O(1) lookup)
+ * Get all rubros by category
+ * 
+ * @param categoryCode - Category code (e.g., 'MOD', 'GSV')
+ * @returns Array of rubros in that category
  */
-export function getTaxonomyById(rubroId: string): CanonicalRubroTaxonomy | undefined {
-  const canonicalId = getCanonicalRubroId(rubroId);
-  return TAXONOMY_BY_ID.get(canonicalId);
+export function getRubrosByCategory(categoryCode: string): CanonicalRubroTaxonomy[] {
+  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo === categoryCode);
 }
 
 /**
- * Get all taxonomy entries by category
+ * Get all categories
+ * 
+ * @returns Array of unique category codes with names
  */
-export function getTaxonomyByCategory(categoryCodigo: string): CanonicalRubroTaxonomy[] {
-  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo === categoryCodigo);
-}
-
-/**
- * Validate if a rubro_id is valid (canonical or has legacy mapping)
- * Uses O(1) Map lookup for optimal performance
- */
-export function isValidRubroId(rubroId: string): boolean {
-  // Check canonical (O(1) lookup)
-  if (TAXONOMY_BY_ID.has(rubroId)) {
-    return true;
+export function getAllCategories(): Array<{ code: string; name: string }> {
+  const categories = new Map<string, string>();
+  for (const rubro of CANONICAL_RUBROS_TAXONOMY) {
+    categories.set(rubro.categoria_codigo, rubro.categoria);
   }
-  
-  // Check legacy mapping (O(1) object property lookup)
-  if (LEGACY_RUBRO_ID_MAP[rubroId]) {
-    return true;
-  }
-  
-  return false;
+  return Array.from(categories.entries()).map(([code, name]) => ({ code, name }));
 }
 
 /**
- * Get all active rubros (for UI dropdowns, etc.)
+ * Get all active rubros (currently all rubros in taxonomy are active)
+ * 
+ * @returns Array of all active canonical rubros
  */
 export function getActiveRubros(): CanonicalRubroTaxonomy[] {
   return CANONICAL_RUBROS_TAXONOMY.filter(r => r.isActive);
 }
 
 /**
- * Get labor rubros only (MOD category)
+ * LABOR_CANONICAL_KEYS - Set of canonical labor (MOD - Mano de Obra) rubro IDs
+ * Used for fast labor classification in forecast and allocation logic
  */
-export function getLaborRubros(): CanonicalRubroTaxonomy[] {
-  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo === 'MOD' && r.isActive);
-}
+export const LABOR_CANONICAL_KEYS_SET = new Set([
+  'MOD-ING',
+  'MOD-LEAD',
+  'MOD-SDM',
+  'MOD-IN3',
+  'MOD-IN2',
+].map(normalizeKey));
 
 /**
- * Get non-labor rubros (all except MOD)
+ * LABOR_CANONICAL_KEYS - Array version for iteration
  */
-export function getNonLaborRubros(): CanonicalRubroTaxonomy[] {
-  return CANONICAL_RUBROS_TAXONOMY.filter(r => r.categoria_codigo !== 'MOD' && r.isActive);
-}
+export const LABOR_CANONICAL_KEYS = Array.from(LABOR_CANONICAL_KEYS_SET);
 
 /**
- * Canonical labor keys - all known MOD (Mano de Obra Directa) identifiers
- * These are normalized variants that should always be treated as Labor
- * 
- * Used by taxonomy lookup functions to ensure consistent labor classification
- * across SDMT Forecast, PMO Estimator, and other modules.
+ * CANONICAL_ALIASES - Maps human-readable role names and legacy IDs to canonical rubro IDs
+ * This provides explicit resolution for common textual forms
  */
-import { normalizeKey } from './normalize-key';
-
-// Re-export normalizeKey for convenience
-export { normalizeKey } from './normalize-key';
-
-export const LABOR_CANONICAL_KEYS = [
-  'LINEA#MOD-EXT','MOD-EXT','LINEA#MOD-OT','MOD-OT','LINEA#MOD-ING','MOD-ING',
-  'LINEA#MOD-LEAD','MOD-LEAD','LINEA#MOD-CONT','MOD-CONT','LINEA#MOD-SDM','MOD-SDM',
-  'LINEA#MOD-PM','MOD-PM','LINEA#MOD-PMO','MOD-PMO',
-  'MOD-IN1','MOD-IN2','MOD-IN3','MOD','CATEGORIA#MOD','Mano de Obra Directa',
-  'Ingeniero Soporte N1','Ingeniero Soporte N2','Ingeniero Soporte N3',
-  'Ingeniero Lider','Project Manager','Service Delivery Manager',
-  // Additional MOD-LEAD aliases
-  'mod-lead-ingeniero-delivery','ingeniero delivery','ingeniero-delivery',
-  'mod-lead-ingeniero','Ingeniero Delivery','ingeniero-lider',
-  // Additional MOD-SDM aliases
-  'mod-sdm-service-delivery-manager','service delivery manager','service-delivery-manager',
-  'mod-sdm-sdm',
-  // Additional MOD-ING aliases
-  'mod-ing-ingeniero-soporte-n1','ingeniero soporte n1','ingeniero-soporte-n1',
-  // Additional Project Manager aliases
-  'project-manager','project manager',
-  // Additional MOD-PM aliases
-  'mod-pm-project-manager', 'mod-pm'
-].map(normalizeKey);
-
-/**
- * Normalized canonical labor keys set for O(1) lookup
- * Used for fast labor classification checks
- */
-export const LABOR_CANONICAL_KEYS_SET = new Set(LABOR_CANONICAL_KEYS);
-
-/**
- * CANONICAL_ALIASES - Explicit mapping of common textual forms to canonical IDs
- * 
- * This map provides fast, explicit resolution of frequently-seen rubro textual names
- * to their canonical taxonomy IDs. Used by lookupTaxonomy before tolerant fallback.
- * 
- * These aliases address the high-frequency textual rubros/roles seen in logs and warnings.
- * Added to fix: "Service Delivery Manager" → MOD-SDM, "Project Manager" → MOD-LEAD, etc.
- * 
- * All keys are pre-normalized for consistent O(1) lookup.
- */
-const _buildCanonicalAliases = (): Record<string, string> => {
-  const aliases: Record<string, string> = {
-    // Service Delivery Manager variations
-    // Note: normalizeKey converts parentheses to hyphens, spaces to hyphens
-    'service delivery manager': 'MOD-SDM',
-    'service delivery manager (sdm)': 'MOD-SDM',
-    'service-delivery-manager-sdm': 'MOD-SDM',  // Result of normalizing "(SDM)" variant
-    'service delivery mgr': 'MOD-SDM',
-    'sdm': 'MOD-SDM',
-    'service-delivery-manager': 'MOD-SDM',
-    
-    // Project Manager variations
-    'project manager': 'MOD-LEAD',
-    'project mgr': 'MOD-LEAD',
-    'pm': 'MOD-LEAD',
-    'project-manager': 'MOD-LEAD',
-    
-    // Ingeniero Líder / Coordinator variations
-    // Note: Spanish accents (í → i) are removed by normalizeKey
-    'ingeniero líder / coordinador': 'MOD-LEAD',
-    'ingeniero lider / coordinador': 'MOD-LEAD',
-    'ingeniero líder coordinador': 'MOD-LEAD',
-    'ingeniero lider coordinador': 'MOD-LEAD',
-    'ingeniero lider': 'MOD-LEAD',
-    'ingeniero líder': 'MOD-LEAD',
-    'ingeniero delivery': 'MOD-LEAD',
-    'ingeniero-lider': 'MOD-LEAD',
-    'ingeniero-delivery': 'MOD-LEAD',
-    
-    // Support Engineers variations
-    'ingenieros de soporte (mensual)': 'MOD-ING',
-    'ingenieros de soporte mensual': 'MOD-ING',
-    'ingeniero soporte': 'MOD-ING',
-    'ingeniero soporte n1': 'MOD-ING',
-    'ingeniero-soporte': 'MOD-ING',
-    'ingeniero-soporte-n1': 'MOD-ING',
-    
-    // Overtime / Guards variations
-    'horas extra / guardias': 'MOD-OT',
-    'horas extra guardias': 'MOD-OT',
-    'horas extra': 'MOD-OT',
-    'guardias': 'MOD-OT',
-    
-    // Internal Contractors variations
-    // Note: técnicos → tecnicos (accent removed)
-    'contratistas técnicos internos': 'MOD-CONT',
-    'contratistas tecnicos internos': 'MOD-CONT',
-    'contratistas internos': 'MOD-CONT',
-    
-    // External Contractors variations
-    'contratistas externos (labor)': 'MOD-EXT',
-    'contratistas externos labor': 'MOD-EXT',
-    'contratistas externos': 'MOD-EXT',
-  };
+export const CANONICAL_ALIASES: Record<string, string> = {
+  // Human-readable role names
+  'service delivery manager': 'MOD-SDM',
+  'delivery manager': 'MOD-SDM',
+  'sdm': 'MOD-SDM',
+  'project manager': 'MOD-LEAD',
+  'pm': 'MOD-LEAD',
+  'lead engineer': 'MOD-LEAD',
+  'engineering lead': 'MOD-LEAD',
+  'ingeniero delivery': 'MOD-LEAD',
+  'ingeniero lider': 'MOD-LEAD',
+  'support engineer': 'MOD-ING',
+  'engineer': 'MOD-ING',
+  'ingeniero': 'MOD-ING',
+  'contractor': 'MOD-IN2',
+  'external': 'MOD-IN2',
   
-  // Normalize all keys to ensure consistent lookup
-  const normalized: Record<string, string> = {};
-  Object.entries(aliases).forEach(([key, value]) => {
-    const normKey = normalizeKey(key);
-    normalized[normKey] = value;
-    // Also keep original key if it differs from normalized (for debugging/clarity)
-    if (normKey !== key) {
-      normalized[key] = value;
-    }
-  });
-  
-  return normalized;
+  // Legacy MOD-PM mapping (no longer canonical, maps to MOD-LEAD)
+  'mod-pm': 'MOD-LEAD',
+  'mod-pmo': 'MOD-LEAD',
 };
-
-export const CANONICAL_ALIASES = _buildCanonicalAliases();

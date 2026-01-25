@@ -19,16 +19,6 @@ export function SDMTCashflow() {
   const [loading, setLoading] = useState(true);
   const { login } = useAuth();
 
-  // Load data when project changes
-  useEffect(() => {
-    if (!hasPremiumFinanzasFeatures) return;
-
-    if (selectedProjectId) {
-      console.log('💰 Cashflow: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
-      loadCashflowData();
-    }
-  }, [hasPremiumFinanzasFeatures, selectedProjectId, selectedPeriod, projectChangeCount]);
-
   const loadCashflowData = async () => {
     try {
       setLoading(true);
@@ -62,6 +52,16 @@ export function SDMTCashflow() {
       setLoading(false);
     }
   };
+
+  // Load data when project changes
+  useEffect(() => {
+    if (!hasPremiumFinanzasFeatures) return;
+
+    if (selectedProjectId) {
+      console.log('💰 Cashflow: Loading data for project:', selectedProjectId, 'change count:', projectChangeCount);
+      loadCashflowData();
+    }
+  }, [hasPremiumFinanzasFeatures, selectedProjectId, selectedPeriod, projectChangeCount]);
 
   // Project performance data
   const projectPerformanceData = [

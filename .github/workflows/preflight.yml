@@ -50,6 +50,9 @@ jobs:
       - name: Lint
         run: pnpm lint || echo "⚠️ Lint warnings found (non-blocking)"
 
+      - name: Check canonical rubro taxonomy compliance
+        run: node ci/check-canonical-rubros.cjs
+
       - name: Run forecast fallback tests
         env:
           VITE_API_BASE_URL: http://localhost

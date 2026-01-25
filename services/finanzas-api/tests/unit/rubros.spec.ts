@@ -84,7 +84,8 @@ describe("rubros handler", () => {
 
   it("returns attached project rubros with catalog metadata (baseline-first flow)", async () => {
     // Use canonical rubros from the baseline
-    const testRubroId = CANONICAL_RUBROS.MOD_ENGINEERS;
+    const testRubroId = CANONICAL_RUBROS.MOD_ENGINEERS; // Legacy: RB0001
+    const canonicalId = "MOD-ING"; // Expected canonical ID
     
     // Mock queryProjectRubros to return baseline-filtered rubros
     baselineSDMT.queryProjectRubros.mockResolvedValueOnce([
@@ -123,10 +124,9 @@ describe("rubros handler", () => {
     expect(payload.project_id).toBe(TEST_PROJECT_ID);
     expect(payload.data).toEqual([
       expect.objectContaining({
-        id: testRubroId,
-        rubro_id: testRubroId,
+        id: canonicalId, // Should return canonical ID
+        rubro_id: canonicalId, // Should return canonical ID
         nombre: expect.stringContaining("ingenieros"),
-        linea_codigo: testRubroId,
         tipo_costo: "Recurrente",
         categoria: "MOD",
       }),
