@@ -822,6 +822,9 @@ export function SDMTForecast() {
         );
       });
       
+      // Calculate total actual from matched invoices
+      const totalActualFromInvoices = updatedData.reduce((sum, cell) => sum + (cell.actual || 0), 0);
+      
       if (unmatchedInvoices.length > 0) {
         console.debug(
           `[Forecast] unmatchedInvoices=${unmatchedInvoices.length}/${matchedInvoices.length}`,
@@ -840,6 +843,17 @@ export function SDMTForecast() {
           }
         );
       }
+      
+      // Log summary of actuals
+      console.debug(
+        `[Forecast] Actuals summary for ${projectId}:`,
+        {
+          totalInvoices: invoices.length,
+          matchedInvoices: matchedInvoices.length,
+          totalActualAmount: totalActualFromInvoices,
+          cellsWithActuals: updatedData.filter(c => (c.actual || 0) > 0).length,
+        }
+      );
     }
 
     // Final check before setting state
@@ -3009,8 +3023,9 @@ export function SDMTForecast() {
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs max-w-xs">
-                            Gastos reales registrados en el sistema desde
-                            facturas conciliadas
+                            {totalActual === 0 
+                              ? "Sin gastos reales. Los valores reales provienen de facturas conciliadas en el módulo de Reconciliación."
+                              : "Gastos reales registrados en el sistema desde facturas conciliadas"}
                           </p>
                         </TooltipContent>
                       </Tooltip>
