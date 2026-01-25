@@ -72,7 +72,7 @@ jobs:
           echo "   Mode: dry-run"
           pnpm exec tsx \
             scripts/migrations/migrate-taxonomy-storage.ts \
-            --dry-run
+            --dry-run 2>&1 | tee scripts/migrations/migration-${{ github.event.inputs.environment }}-${{ github.run_number }}.log
 
       - name: Run migration (apply)
         if: github.event.inputs.mode == 'apply'
@@ -86,7 +86,7 @@ jobs:
           echo "   THIS WILL MODIFY DATABASE RECORDS"
           pnpm exec tsx \
             scripts/migrations/migrate-taxonomy-storage.ts \
-            --apply
+            --apply 2>&1 | tee scripts/migrations/migration-${{ github.event.inputs.environment }}-${{ github.run_number }}.log
 
       - name: Upload migration report
         if: always()
