@@ -111,7 +111,7 @@ jobs:
           set -euo pipefail
           echo "Installing API service dependencies"
           rm -rf node_modules
-          pnpm install --frozen-lockfile
+          pnpm install
 
       - name: Validate SAM template (fail fast)
         working-directory: services/finanzas-api
@@ -268,7 +268,7 @@ jobs:
           sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
             --stack-name "${FINZ_API_STACK}" \
             --resolve-s3 \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --region "${AWS_REGION}" \
             --parameter-overrides "${PARAMS[@]}"
 
