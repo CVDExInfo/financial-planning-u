@@ -95,6 +95,7 @@ import { ForecastRubrosTable } from "./components/ForecastRubrosTable";
 import { TopVarianceProjectsTable } from "./components/TopVarianceProjectsTable";
 import { TopVarianceRubrosTable } from "./components/TopVarianceRubrosTable";
 import { MonthlySnapshotGrid } from "./components/MonthlySnapshotGrid";
+import { ForecastActionsMenu } from "./components/ForecastActionsMenu";
 import { DataHealthPanel } from "@/components/finanzas/DataHealthPanel";
 import type {
   BudgetSimulationState,
@@ -2805,96 +2806,18 @@ export function SDMTForecast() {
           </div>
 
           {/* Primary Actions - Right Side */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={handlePersistForecasts}
-              disabled={
-                savingForecasts || dirtyForecastCount === 0 || !canEditForecast
-              }
-              className="gap-2 h-9"
-              size="sm"
-            >
-              {savingForecasts ? <LoadingSpinner size="sm" /> : null}
-              Guardar Pronóstico
-              {dirtyForecastCount > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {dirtyForecastCount}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              onClick={handlePersistActuals}
-              disabled={savingActuals || dirtyActualCount === 0}
-              className="gap-2 h-9"
-              variant="outline"
-              size="sm"
-            >
-              {savingActuals ? <LoadingSpinner size="sm" /> : null}
-              Guardar
-              {dirtyActualCount > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {dirtyActualCount}
-                </Badge>
-              )}
-            </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2 h-9" size="sm">
-                  <Share2 size={16} />
-                  Exportar
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Compartir Datos de Pronóstico</DialogTitle>
-                  <DialogDescription>
-                    Exportar y compartir datos de pronóstico en múltiples
-                    formatos para interesados y reportes.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button
-                      variant="outline"
-                      className="h-20 flex flex-col gap-2"
-                      onClick={handleExcelExport}
-                      disabled={exporting !== null}
-                    >
-                      {exporting === "excel" ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <FileSpreadsheet size={24} />
-                      )}
-                      <span>Reporte Excel</span>
-                      <span className="text-xs text-muted-foreground">
-                        {exporting === "excel"
-                          ? "Generando..."
-                          : "Pronóstico detallado con fórmulas"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-20 flex flex-col gap-2"
-                      onClick={handlePDFExport}
-                      disabled={exporting !== null}
-                    >
-                      {exporting === "pdf" ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <Share2 size={24} />
-                      )}
-                      <span>Resumen PDF</span>
-                      <span className="text-xs text-muted-foreground">
-                        {exporting === "pdf"
-                          ? "Generando..."
-                          : "Formato de resumen ejecutivo"}
-                      </span>
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <ForecastActionsMenu
+            onSaveForecast={handlePersistForecasts}
+            savingForecast={savingForecasts}
+            dirtyForecastCount={dirtyForecastCount}
+            canEditForecast={canEditForecast}
+            onSaveActuals={handlePersistActuals}
+            savingActuals={savingActuals}
+            dirtyActualCount={dirtyActualCount}
+            onExcelExport={handleExcelExport}
+            onPDFExport={handlePDFExport}
+            exporting={exporting}
+          />
         </div>
       </div>
 
