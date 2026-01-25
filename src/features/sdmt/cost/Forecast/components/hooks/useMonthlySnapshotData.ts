@@ -7,6 +7,8 @@ import {
   deriveCostType,
 } from '../monthlySnapshotTypes';
 import { isLabor } from '@/lib/rubros-category-utils';
+import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
+import { getCanonicalRubroId, getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -54,6 +56,98 @@ export interface MonthlySnapshotDataResult {
   costBreakdown: CostBreakdown;
 }
 
+const filterRowByCostType = (row: SnapshotRow, costTypeFilter: CostTypeFilter): SnapshotRow | null => {
+  if (row.children && row.children.length > 0) {
+    const filteredChildren = row.children
+      .map((child) => filterRowByCostType(child, costTypeFilter))
+      .filter((child): child is SnapshotRow => child !== null);
+
+    if (filteredChildren.length > 0) {
+      return { ...row, children: filteredChildren };
+    }
+    return null;
+  }
+
+  if (row.costType === undefined) {
+    // Try to infer from name/code using same labor heuristics
+    const inferredLabor = isLabor(undefined, row.name) || isLabor(undefined, row.code);
+    if (costTypeFilter === 'labor' && inferredLabor) return row;
+    if (costTypeFilter === 'non-labor' && !inferredLabor) return row;
+    return costTypeFilter === 'all' ? row : null;
+  }
+
+  if (costTypeFilter === 'labor' && row.costType === 'labor') return row;
+  if (costTypeFilter === 'non-labor' && row.costType === 'non-labor') return row;
+
+  return null;
+};
+
+export const determineStatus = (
+  budget: number,
+  forecast: number,
+  actual: number,
+  useMonthlyBudget: boolean,
+): SnapshotRow['status'] => {
+  if (!useMonthlyBudget || budget === 0) {
+    if (forecast === 0 && actual === 0) return 'Sin Datos';
+    return 'Sin Presupuesto';
+  }
+
+  const consumptionPercent = (actual / budget) * 100;
+  const forecastOverBudget = forecast > budget;
+
+  if (forecastOverBudget || consumptionPercent > 100) {
+    return 'Sobre Presupuesto';
+  }
+
+  if (consumptionPercent > 90) {
+    return 'En Riesgo';
+  }
+
+  return 'En Meta';
+};
+
+const calculateSummaryTotals = (rows: SnapshotRow[]) => {
+  const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0);
+  const totalForecast = rows.reduce((sum, row) => sum + row.forecast, 0);
+  const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
+  return { totalBudget, totalForecast, totalActual };
+};
+
+const calculateSummaryForMonth = ({ totalBudget, totalForecast, totalActual }: MonthlySnapshotDataResult['summaryTotals']) => {
+  const consumoPct = totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0;
+  const varianceAbs = totalActual - totalBudget;
+  const variancePct = totalBudget > 0 ? (varianceAbs / totalBudget) * 100 : 0;
+  return { budget: totalBudget, forecast: totalForecast, actual: totalActual, consumoPct, varianceAbs, variancePct };
+};
+
+const calculateCostBreakdown = (rows: SnapshotRow[]): CostBreakdown => {
+  let laborTotal = 0;
+  let nonLaborTotal = 0;
+
+  rows.forEach((row) => {
+    const targets = row.children && row.children.length > 0 ? row.children : [row];
+    targets.forEach((item) => {
+      if (item.costType === 'labor') {
+        laborTotal += item.forecast;
+      } else if (item.costType === 'non-labor') {
+        nonLaborTotal += item.forecast;
+      }
+    });
+  });
+
+  const total = laborTotal + nonLaborTotal;
+  const laborPct = total > 0 ? (laborTotal / total) * 100 : 0;
+  const nonLaborPct = total > 0 ? (nonLaborTotal / total) * 100 : 0;
+
+  return {
+    laborTotal,
+    nonLaborTotal,
+    laborPct,
+    nonLaborPct,
+  };
+};
+
 export function useMonthlySnapshotData({
   forecastData,
   lineItems,
@@ -65,6 +159,35 @@ export function useMonthlySnapshotData({
   showOnlyVariance,
   costTypeFilter,
 }: UseMonthlySnapshotDataParams): MonthlySnapshotDataResult {
+  // Build improved meta maps with canonical taxonomy support
+  const lineItemMetaMap = useMemo(() => {
+    const m = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
+    lineItems.forEach(li => {
+      const normalized = normalizeRubroId(li.id || '');
+      const canonical = getCanonicalRubroId(normalized);
+      const taxonomy = getTaxonomyById(normalized);
+      
+      // Prefer taxonomy description if available, otherwise use line item description
+      const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
+      const category = taxonomy?.categoria || li.category || '';
+      
+      // Add entries for normalized ID, canonical ID, and any taxonomy ID
+      if (normalized) {
+        m.set(normalized, { description: desc, category, canonicalId: canonical });
+      }
+      if (canonical && canonical !== normalized) {
+        m.set(canonical, { description: desc, category, canonicalId: canonical });
+      }
+      // Also index by taxonomyId if present (check for potential taxonomy ID properties)
+      const potentialTaxonomyId = (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).taxonomyId || 
+                                   (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).rubro_taxonomy_id;
+      if (potentialTaxonomyId && !m.has(potentialTaxonomyId)) {
+        m.set(potentialTaxonomyId, { description: desc, category, canonicalId: canonical });
+      }
+    });
+    return m;
+  }, [lineItems]);
+
   const lineItemCategoryMap = useMemo(() => {
     const map = new Map<string, string | undefined>();
     lineItems.forEach((item) => {
@@ -86,8 +209,9 @@ export function useMonthlySnapshotData({
       monthBudget,
       useMonthlyBudget,
       lineItemCategoryMap,
+      lineItemMetaMap,
     });
-  }, [forecastData, actualMonthIndex, groupingMode, monthBudget, useMonthlyBudget, lineItemCategoryMap]);
+  }, [forecastData, actualMonthIndex, groupingMode, monthBudget, useMonthlyBudget, lineItemCategoryMap, lineItemMetaMap]);
 
   const filteredRows = useMemo(() => {
     return filterSnapshotRows({ rows: snapshotRows, costTypeFilter, searchQuery, showOnlyVariance });
@@ -126,6 +250,7 @@ interface BuildSnapshotRowsParams {
   monthBudget: number | null;
   useMonthlyBudget: boolean;
   lineItemCategoryMap: Map<string, string | undefined>;
+  lineItemMetaMap: Map<string, { description?: string; category?: string; canonicalId?: string }>;
 }
 
 export function buildSnapshotRows({
@@ -135,6 +260,7 @@ export function buildSnapshotRows({
   monthBudget,
   useMonthlyBudget,
   lineItemCategoryMap,
+  lineItemMetaMap,
 }: BuildSnapshotRowsParams): SnapshotRow[] {
   const monthData = forecastData.filter((cell) => cell.month === actualMonthIndex);
 
@@ -159,8 +285,15 @@ export function buildSnapshotRows({
       const projectId = cell.projectId || 'unknown';
       const projectName = cell.projectName || 'Proyecto desconocido';
       const rubroId = cell.rubroId || cell.line_item_id;
-      const rubroName = cell.description || 'Sin descripción';
-      const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
+      const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+      
+      // Resolve rubro name and category using lineItemMetaMap
+      const meta = lineItemMetaMap.get(cell.line_item_id) || 
+                   lineItemMetaMap.get(rubroId) || 
+                   lineItemMetaMap.get(canonical);
+      
+      const rubroName = cell.description || meta?.description || 'Sin descripción';
+      const resolvedCategory = cell.category || meta?.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
       
       // Prefer explicit category, but fall back to descriptive fields when category missing.
       // Fallback order: cell.description → rubroName → cell.projectName → empty string
@@ -236,10 +369,17 @@ export function buildSnapshotRows({
 
   monthData.forEach((cell) => {
     const rubroId = cell.rubroId || cell.line_item_id;
-    const rubroName = cell.description || cell.category || 'Sin categoría';
+    const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+    
+    // Resolve rubro name and category using lineItemMetaMap
+    const meta = lineItemMetaMap.get(cell.line_item_id) || 
+                 lineItemMetaMap.get(rubroId) || 
+                 lineItemMetaMap.get(canonical);
+    
+    const rubroName = cell.description || meta?.description || cell.category || 'Sin categoría';
     const projectId = cell.projectId || 'unknown';
     const projectName = cell.projectName || 'Proyecto desconocido';
-    const resolvedCategory = cell.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
+    const resolvedCategory = cell.category || meta?.category || lineItemCategoryMap.get(cell.line_item_id) || lineItemCategoryMap.get(rubroId);
     
     // Prefer explicit category, but fall back to descriptive fields when category missing.
     // Fallback order: cell.description → projectName → rubroName → empty string
@@ -340,94 +480,3 @@ export function filterSnapshotRows({ rows, costTypeFilter, searchQuery, showOnly
   return workingRows;
 }
 
-const filterRowByCostType = (row: SnapshotRow, costTypeFilter: CostTypeFilter): SnapshotRow | null => {
-  if (row.children && row.children.length > 0) {
-    const filteredChildren = row.children
-      .map((child) => filterRowByCostType(child, costTypeFilter))
-      .filter((child): child is SnapshotRow => child !== null);
-
-    if (filteredChildren.length > 0) {
-      return { ...row, children: filteredChildren };
-    }
-    return null;
-  }
-
-  if (row.costType === undefined) {
-    // Try to infer from name/code using same labor heuristics
-    const inferredLabor = isLabor(undefined, row.name) || isLabor(undefined, row.code);
-    if (costTypeFilter === 'labor' && inferredLabor) return row;
-    if (costTypeFilter === 'non-labor' && !inferredLabor) return row;
-    return costTypeFilter === 'all' ? row : null;
-  }
-
-  if (costTypeFilter === 'labor' && row.costType === 'labor') return row;
-  if (costTypeFilter === 'non-labor' && row.costType === 'non-labor') return row;
-
-  return null;
-};
-
-export const determineStatus = (
-  budget: number,
-  forecast: number,
-  actual: number,
-  useMonthlyBudget: boolean,
-): SnapshotRow['status'] => {
-  if (!useMonthlyBudget || budget === 0) {
-    if (forecast === 0 && actual === 0) return 'Sin Datos';
-    return 'Sin Presupuesto';
-  }
-
-  const consumptionPercent = (actual / budget) * 100;
-  const forecastOverBudget = forecast > budget;
-
-  if (forecastOverBudget || consumptionPercent > 100) {
-    return 'Sobre Presupuesto';
-  }
-
-  if (consumptionPercent > 90) {
-    return 'En Riesgo';
-  }
-
-  return 'En Meta';
-};
-
-const calculateSummaryTotals = (rows: SnapshotRow[]) => {
-  const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0);
-  const totalForecast = rows.reduce((sum, row) => sum + row.forecast, 0);
-  const totalActual = rows.reduce((sum, row) => sum + row.actual, 0);
-  return { totalBudget, totalForecast, totalActual };
-};
-
-const calculateSummaryForMonth = ({ totalBudget, totalForecast, totalActual }: MonthlySnapshotDataResult['summaryTotals']) => {
-  const consumoPct = totalBudget > 0 ? (totalActual / totalBudget) * 100 : 0;
-  const varianceAbs = totalActual - totalBudget;
-  const variancePct = totalBudget > 0 ? (varianceAbs / totalBudget) * 100 : 0;
-  return { budget: totalBudget, forecast: totalForecast, actual: totalActual, consumoPct, varianceAbs, variancePct };
-};
-
-const calculateCostBreakdown = (rows: SnapshotRow[]): CostBreakdown => {
-  let laborTotal = 0;
-  let nonLaborTotal = 0;
-
-  rows.forEach((row) => {
-    const targets = row.children && row.children.length > 0 ? row.children : [row];
-    targets.forEach((item) => {
-      if (item.costType === 'labor') {
-        laborTotal += item.forecast;
-      } else if (item.costType === 'non-labor') {
-        nonLaborTotal += item.forecast;
-      }
-    });
-  });
-
-  const total = laborTotal + nonLaborTotal;
-  const laborPct = total > 0 ? (laborTotal / total) * 100 : 0;
-  const nonLaborPct = total > 0 ? (nonLaborTotal / total) * 100 : 0;
-
-  return {
-    laborTotal,
-    nonLaborTotal,
-    laborPct,
-    nonLaborPct,
-  };
-};

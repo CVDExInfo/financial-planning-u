@@ -3,8 +3,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getCanonicalRubroId, LEGACY_RUBRO_ID_MAP, LABOR_CANONICAL_KEYS_SET, CANONICAL_ALIASES } from '../canonical-taxonomy';
-import { normalizeKey } from '@/lib/strings/normalizeKey';
+import { 
+  getCanonicalRubroId, 
+  LEGACY_RUBRO_ID_MAP, 
+  LABOR_CANONICAL_KEYS_SET,
+  CANONICAL_ALIASES 
+} from '../canonical-taxonomy';
+import { normalizeKey } from '../normalize-key';
 
 describe('Canonical Aliases - Console Warning Fixes', () => {
   it('should map mod-pm-project-manager to MOD-LEAD', () => {

@@ -115,6 +115,7 @@ export type ForecastCell = {
   matchingIds?: string[]; // Alternative IDs for invoice matching (canonical, synthetic, aliases)
   monthLabel?: string; // YYYY-MM format for calendar month alignment
   rubroId?: string; // Explicit rubro ID for canonical taxonomy lookup
+  canonicalRubroId?: string; // Canonical rubro ID from taxonomy (single source of truth)
 };
 
 // Invoice/Evidence documents
@@ -138,6 +139,8 @@ export type InvoiceDoc = {
   reconciled_by?: string; // User who reconciled/matched the invoice
   deletion_requested_by?: string; // User who requested deletion
   deletion_requested_at?: string; // When deletion was requested
+  rubroId?: string; // Rubro identifier (alternative field name)
+  rubro_id?: string; // Rubro identifier (snake_case variant)
 };
 
 // Scenario modeling

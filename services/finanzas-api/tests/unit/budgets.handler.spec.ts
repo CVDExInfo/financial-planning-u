@@ -434,6 +434,10 @@ describe("budgets handler", () => {
       expect(payload.months).toHaveLength(2);
       expect(payload.months[0].month).toBe("2025-01");
       expect(payload.months[0].amount).toBe(100000);
+      // Verify monthlyMap is returned for frontend convenience
+      expect(payload.monthlyMap).toBeDefined();
+      expect(payload.monthlyMap["2025-01"]).toBe(100000);
+      expect(payload.monthlyMap["2025-02"]).toBe(120000);
     });
 
     it("returns 404 when monthly budgets do not exist", async () => {

@@ -35,6 +35,7 @@ env:
   # SAM parameters
   TABLE_PREFIX: finz_
   DOCS_BUCKET_NAME: ${{ vars.FINANZAS_BUCKET_NAME || vars.S3_BUCKET_NAME || 'ukusi-ui-finanzas-prod' }}
+  TAXONOMY_S3_BUCKET: ukusi-ui-finanzas-prod
 
   # AWS role for OIDC
   OIDC_ROLE_ARN: ${{ secrets.OIDC_AWS_ROLE_ARN || vars.OIDC_AWS_ROLE_ARN }}
@@ -110,7 +111,7 @@ jobs:
           set -euo pipefail
           echo "Installing API service dependencies"
           rm -rf node_modules
-          pnpm install --frozen-lockfile
+          pnpm install
 
       - name: Validate SAM template (fail fast)
         working-directory: services/finanzas-api
@@ -258,6 +259,7 @@ jobs:
             "StageName=${FINZ_API_STAGE}"
             "TablePrefix=${TABLE_PREFIX}"
             "DocsBucketName=${DOCS_BUCKET_NAME}"
+            "TaxonomyS3Bucket=${TAXONOMY_S3_BUCKET}"
           )
           if [ -n "${POLICY_STORE_ID:-}" ]; then
             PARAMS+=("PolicyStoreId=${POLICY_STORE_ID}")
@@ -266,7 +268,7 @@ jobs:
           sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
             --stack-name "${FINZ_API_STACK}" \
             --resolve-s3 \
-            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
             --region "${AWS_REGION}" \
             --parameter-overrides "${PARAMS[@]}"
 

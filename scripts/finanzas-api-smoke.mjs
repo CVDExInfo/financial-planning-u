@@ -184,6 +184,37 @@ const tests = [
       ],
     }),
   },
+  {
+    name: "Allocations GET",
+    method: "GET",
+    requires: ["projectId"],
+    path: (c) => {
+      // Include baseline if available for more specific query
+      if (c.baselineId) {
+        return `/allocations?projectId=${encodeURIComponent(c.projectId)}&baseline=${encodeURIComponent(c.baselineId)}`;
+      }
+      return `/allocations?projectId=${encodeURIComponent(c.projectId)}`;
+    },
+    validate: (data) => {
+      // Validate response structure
+      if (!data || typeof data !== "object") {
+        throw new Error("Response should be an object");
+      }
+      if (!Array.isArray(data.data)) {
+        throw new Error("Response should have data array");
+      }
+      // If we have allocations, validate first item structure
+      if (data.data.length > 0) {
+        const item = data.data[0];
+        if (!item.rubroId && !item.rubro_id) {
+          console.warn("⚠️ Allocation item missing rubroId/rubro_id");
+        }
+        if (typeof item.amount !== "number" && item.amount !== null && item.amount !== undefined) {
+          console.warn("⚠️ Allocation amount is not numeric:", item.amount);
+        }
+      }
+    },
+  },
 ];
 
 async function hit(test, token) {
@@ -242,6 +273,18 @@ async function hit(test, token) {
       test.capture(parsed, ctx);
     } catch (error) {
       console.warn("Capture callback failed:", error);
+    }
+  }
+
+  if (
+    typeof test.validate === "function" &&
+    res.status >= 200 &&
+    res.status < 300
+  ) {
+    try {
+      test.validate(parsed, ctx);
+    } catch (error) {
+      console.warn("Validation failed:", error.message);
     }
   }
 

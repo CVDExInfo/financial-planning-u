@@ -68,7 +68,8 @@ import {
   getChangeType,
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
-import { normalizeForecastCells } from "@/features/sdmt/cost/utils/dataAdapters";
+import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
+import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
@@ -77,9 +78,11 @@ import {
   getBaselineById,
   type BaselineDetail,
   acceptBaseline,
+  getAllocations,
 } from "@/api/finanzas";
 import { getForecastPayload, getProjectInvoices } from "./forecastService";
 import { normalizeInvoiceMonth } from "./useSDMTForecastData";
+import { computeForecastFromAllocations, type Allocation } from "./computeForecastFromAllocations";
 import finanzasClient from "@/api/finanzasClient";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
@@ -116,7 +119,6 @@ import {
   buildPortfolioTotals,
 } from "./categoryGrouping";
 import { buildProjectTotals, buildProjectRubros } from "./projectGrouping";
-import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 import { getBaselineDuration, clampMonthIndex } from "./monthHelpers";
 
@@ -175,6 +177,7 @@ type LineItemLike = Record<string, unknown>;
 
 // Constants
 const MINIMUM_PROJECTS_FOR_PORTFOLIO = 2; // ALL_PROJECTS + at least one real project
+const PORTFOLIO_PROJECTS_WAIT_MS = Number(import.meta.env.VITE_FINZ_PORTFOLIO_WAIT_MS || 500); // Wait time for projects to populate (race condition mitigation)
 
 // Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
@@ -489,93 +492,6 @@ export function SDMTForecast() {
       setMaterializationTimeout(null);
     }
   }, [currentProject?.baselineId, isPortfolioView]);
-
-  const loadForecastData = useCallback(async () => {
-    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
-    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
-    if (!isPortfolioView && !selectedProjectId) {
-      console.log("❌ No project selected and not portfolio view, skipping forecast load");
-      return;
-    }
-
-    // Create a new abort controller for this request
-    abortControllerRef.current = new AbortController();
-
-    // Generate unique request key to identify this specific request
-    const requestKey = `${selectedProjectId}__${
-      currentProject?.baselineId || ""
-    }__${Date.now()}`;
-    latestRequestKeyRef.current = requestKey;
-
-    try {
-      setLoading(true);
-      setIsLoadingForecast(true);
-      setForecastError(null);
-      setDirtyActuals({});
-      setDirtyForecasts({});
-
-      // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
-      const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
-      const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
-
-      if (import.meta.env.DEV) {
-        console.debug("[Forecast] Loading data", {
-          projectId: selectedProjectId,
-          months,
-          isCurrentMonthMode,
-          selectedPeriod,
-          requestKey,
-        });
-      }
-
-      if (isPortfolioView) {
-        await loadPortfolioForecast(months, requestKey);
-      } else {
-        await loadSingleProjectForecast(selectedProjectId, months, requestKey);
-      }
-
-      // Verify this is still the latest request before applying results
-      if (latestRequestKeyRef.current !== requestKey) {
-        if (import.meta.env.DEV) {
-          console.debug("[Forecast] Discarding stale response", {
-            requestKey,
-            latest: latestRequestKeyRef.current,
-          });
-        }
-        return; // Stale response, ignore it
-      }
-    } catch (error) {
-      // Ignore aborted requests
-      if (error instanceof Error && error.name === "AbortError") {
-        if (import.meta.env.DEV) {
-          console.debug("[Forecast] Request aborted", { requestKey });
-        }
-        return;
-      }
-
-      console.error(
-        "❌ Failed to load forecast data for project:",
-        selectedProjectId,
-        error
-      );
-      const message = handleFinanzasApiError(error, {
-        onAuthError: login,
-        fallback: "No se pudo cargar el forecast.",
-      });
-
-      // Only set error if this is still the latest request
-      if (latestRequestKeyRef.current === requestKey) {
-        setForecastError(message);
-        setForecastData([]); // Clear data on error
-      }
-    } finally {
-      // Only clear loading if this is still the latest request
-      if (latestRequestKeyRef.current === requestKey) {
-        setLoading(false);
-        setIsLoadingForecast(false);
-      }
-    }
-  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
 
   const transformLineItemsToForecast = (
     lineItems: LineItemLike[],
@@ -895,7 +811,7 @@ export function SDMTForecast() {
       );
     }
     
-    const candidateProjects = projects.filter(
+    let candidateProjects = projects.filter(
       (project) => project.id && project.id !== ALL_PROJECTS_ID
     );
     // TODO(SDMT): Replace per-project fan-out with aggregate portfolio endpoints when available.
@@ -911,22 +827,33 @@ export function SDMTForecast() {
             "[Forecast] Portfolio: Waiting for projects to load..."
           );
         }
+        // Short wait to avoid spurious empty projects on initial load / race conditions
+        await new Promise((res) => setTimeout(res, PORTFOLIO_PROJECTS_WAIT_MS));
+        candidateProjects = projects.filter((p) => p.id && p.id !== ALL_PROJECTS_ID);
+        if (candidateProjects.length === 0) {
+          if (import.meta.env.DEV) {
+            console.debug("[Forecast] Portfolio: still no candidate projects after waiting");
+          }
+          setForecastData([]);
+          return;
+        }
+        // If we now have candidates after waiting, proceed with them below
+      } else {
+        // If we have projects but they're all filtered out, that's a real empty state
+        setForecastError("No hay proyectos disponibles para consolidar.");
         setForecastData([]);
         return;
       }
-      // If we have projects but they're all filtered out, that's a real empty state
-      setForecastError("No hay proyectos disponibles para consolidar.");
-      setForecastData([]);
-      return;
     }
 
     const portfolioResults = await Promise.all(
       candidateProjects.map(async (project) => {
         try {
-          const [payload, invoices, projectLineItems] = await Promise.all([
+          const [payload, invoices, projectLineItems, allocations] = await Promise.all([
             getForecastPayload(project.id, months),
             getProjectInvoices(project.id),
             getProjectRubros(project.id).catch(() => [] as LineItem[]),
+            getAllocations(project.id, project.baselineId).catch(() => [] as Allocation[]),
           ]);
 
           // Check if request is still valid after async operations
@@ -949,22 +876,54 @@ export function SDMTForecast() {
           const hasAcceptedBaseline = baselineStatus === "accepted";
           let usedFallback = false;
 
+          // Log allocations fetched for portfolio project
+          if (import.meta.env.DEV) {
+            console.debug(
+              `[loadPortfolioForecast] project ${project.id}: forecast=${payload.data?.length || 0} allocations=${allocations?.length || 0} rubros=${projectLineItems.length}`
+            );
+          }
+
+          // Fallback hierarchy (matching single-project view in useSDMTForecastData):
+          // 1. Try allocations if forecast is empty and allocations exist
+          // 2. Else try lineItems if available
           if (
             (!normalized || normalized.length === 0) &&
-            projectLineItems.length > 0 &&
             hasAcceptedBaseline
           ) {
-            if (import.meta.env.DEV) {
-              console.debug(
-                `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+            // Try allocations first if available (preferred fallback)
+            if (allocations && allocations.length > 0) {
+              if (import.meta.env.DEV) {
+                console.debug(
+                  `[SDMTForecast] Using allocations fallback for ${project.id}, baseline ${project.baselineId}: ${allocations.length} allocations`
+                );
+              }
+              // Convert allocations to forecast cells format
+              // Allocations have: month, planned, forecast, actual, rubroId/rubro_id
+              normalized = allocations.map((alloc: any) => ({
+                line_item_id: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
+                month: alloc.month,
+                planned: alloc.planned || 0,
+                forecast: alloc.forecast || alloc.planned || 0,
+                actual: alloc.actual || 0,
+                variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
+                last_updated: alloc.last_updated || new Date().toISOString(),
+                updated_by: alloc.updated_by || 'system',
+              }));
+              usedFallback = true;
+            } else if (projectLineItems.length > 0) {
+              // Fall back to baseline rubros if no allocations
+              if (import.meta.env.DEV) {
+                console.debug(
+                  `[SDMTForecast] Using baseline fallback for ${project.id}, baseline ${project.baselineId}: ${projectLineItems.length} line items`
+                );
+              }
+              normalized = transformLineItemsToForecast(
+                projectLineItems,
+                months,
+                project.id
               );
+              usedFallback = true;
             }
-            normalized = transformLineItemsToForecast(
-              projectLineItems,
-              months,
-              project.id
-            );
-            usedFallback = true;
           } else if (normalized.length > 0 && import.meta.env.DEV) {
             console.debug(
               `[SDMTForecast] Using server forecast rows for ${project.id}, baseline ${project.baselineId}`
@@ -1063,26 +1022,160 @@ export function SDMTForecast() {
     }
 
     const aggregatedData = validResults.flatMap((result) => result.data);
-    const aggregatedLineItems = validResults.flatMap(
-      (result) => result.lineItems
-    );
+    
+    // Build canonical map to deduplicate line items by canonical ID
+    const canonicalMap = new Map<string, LineItem>();
+    const allLineItemsFlattened = validResults.flatMap((result) => result.lineItems);
+    
+    for (const li of allLineItemsFlattened) {
+      const normalizedId = normalizeRubroId(li.id);
+      const canonical = getCanonicalRubroId(normalizedId) || normalizedId;
+      const taxonomy = getTaxonomyById(normalizedId);
+      
+      const existing = canonicalMap.get(canonical);
+      
+      if (!existing) {
+        // Use taxonomy description if available, otherwise use line item description
+        const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
+        const category = taxonomy?.categoria || li.category || '';
+        
+        canonicalMap.set(canonical, { 
+          ...li, 
+          id: canonical,
+          description: desc,
+          category: category,
+        });
+      } else {
+        // Merge metadata: prefer taxonomy description or longest description
+        const taxonomyDesc = taxonomy?.linea_gasto || taxonomy?.descripcion;
+        const currentDesc = existing.description || '';
+        const newDesc = taxonomyDesc || li.description || '';
+        
+        // Prefer taxonomy description, then longest description
+        if (taxonomyDesc) {
+          existing.description = taxonomyDesc;
+        } else if (newDesc.length > currentDesc.length) {
+          existing.description = newDesc;
+        }
+        
+        // Prefer taxonomy category
+        const taxonomyCategory = taxonomy?.categoria;
+        if (taxonomyCategory) {
+          existing.category = taxonomyCategory;
+        } else {
+          existing.category = existing.category || li.category;
+        }
+      }
+    }
+    
+    const portfolioLineItemsArray = Array.from(canonicalMap.values());
+    
     const firstGeneratedAt = validResults.find(
       (result) => result.generatedAt
     )?.generatedAt;
 
     setDataSource("api");
     setGeneratedAt(firstGeneratedAt || new Date().toISOString());
-    setPortfolioLineItems(aggregatedLineItems);
+    setPortfolioLineItems(portfolioLineItemsArray);
     setForecastData(aggregatedData);
 
     if (import.meta.env.DEV) {
       console.debug("[Forecast] Portfolio data loaded", {
         projects: candidateProjects.length,
         records: aggregatedData.length,
-        lineItems: aggregatedLineItems.length,
+        lineItems: portfolioLineItemsArray.length,
+        uniqueCanonicalIds: canonicalMap.size,
       });
     }
   };
+
+  const loadForecastData = useCallback(async () => {
+    // If we're in portfolio (TODOS) view, we MUST load portfolio-wide forecast even when there is
+    // no selectedProjectId. Only skip forecast load when not in portfolio view and no project selected.
+    if (!isPortfolioView && !selectedProjectId) {
+      console.log("❌ No project selected and not portfolio view, skipping forecast load");
+      return;
+    }
+
+    // Create a new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
+    // Generate unique request key to identify this specific request
+    const requestKey = `${selectedProjectId}__${
+      currentProject?.baselineId || ""
+    }__${Date.now()}`;
+    latestRequestKeyRef.current = requestKey;
+
+    try {
+      setLoading(true);
+      setIsLoadingForecast(true);
+      setForecastError(null);
+      setDirtyActuals({});
+      setDirtyForecasts({});
+
+      // Handle CURRENT_MONTH period - always load 12 months but filter to current month later
+      const isCurrentMonthMode = selectedPeriod === "CURRENT_MONTH";
+      const months = isCurrentMonthMode ? 12 : parseInt(selectedPeriod);
+
+      if (import.meta.env.DEV) {
+        console.debug("[Forecast] Loading data", {
+          projectId: selectedProjectId,
+          months,
+          isCurrentMonthMode,
+          selectedPeriod,
+          requestKey,
+        });
+      }
+
+      if (isPortfolioView) {
+        await loadPortfolioForecast(months, requestKey);
+      } else {
+        await loadSingleProjectForecast(selectedProjectId, months, requestKey);
+      }
+
+      // Verify this is still the latest request before applying results
+      if (latestRequestKeyRef.current !== requestKey) {
+        if (import.meta.env.DEV) {
+          console.debug("[Forecast] Discarding stale response", {
+            requestKey,
+            latest: latestRequestKeyRef.current,
+          });
+        }
+        return; // Stale response, ignore it
+      }
+    } catch (error) {
+      // Ignore aborted requests
+      if (error instanceof Error && error.name === "AbortError") {
+        if (import.meta.env.DEV) {
+          console.debug("[Forecast] Request aborted", { requestKey });
+        }
+        return;
+      }
+
+      console.error(
+        "❌ Failed to load forecast data for project:",
+        selectedProjectId,
+        error
+      );
+      const message = handleFinanzasApiError(error, {
+        onAuthError: login,
+        fallback: "No se pudo cargar el forecast.",
+      });
+
+      // Only set error if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setForecastError(message);
+        setForecastData([]); // Clear data on error
+      }
+    } finally {
+      // Only clear loading if this is still the latest request
+      if (latestRequestKeyRef.current === requestKey) {
+        setLoading(false);
+        setIsLoadingForecast(false);
+      }
+    }
+  }, [isPortfolioView, selectedProjectId, currentProject?.baselineId, selectedPeriod, login]);
+
 
   // Consolidated data loading effect: handles initial load, route changes, and event-driven refreshes
   // This ensures forecast loads on:
@@ -2698,6 +2791,15 @@ export function SDMTForecast() {
                     Ver Rubros →
                   </Button>
                 )}
+              </div>
+            )}
+            {/* Debug flag banner (dev only) */}
+            {import.meta.env.DEV && (
+              <div className="text-xs text-muted-foreground mt-1">
+                Debug Flags:
+                <span className="ml-2 font-mono bg-muted/10 px-2 py-1 rounded">
+                  NEW_FORECAST_LAYOUT={String(NEW_FORECAST_LAYOUT_ENABLED)}
+                </span>
               </div>
             )}
           </div>

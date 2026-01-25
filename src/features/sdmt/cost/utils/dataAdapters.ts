@@ -1,4 +1,5 @@
 import type { ForecastCell, LineItem } from "@/types/domain";
+import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
 const normalizeRubroId = (id?: string): string => {
   if (!id) return "";
@@ -145,7 +146,11 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     return [];
   }
 
-  const normalized = cells.map((cell, index) => {
+  // Deduplication map: key = <canonicalRubroId>||<month>, value = merged cell
+  const deduplicationMap: Record<string, ForecastCell> = {};
+  const invalidCells: ForecastCell[] = []; // Track invalid cells separately for backward compatibility
+
+  cells.forEach((cell, index) => {
     const planned = toNumber(
       cell?.planned ?? cell?.amount_planned ?? cell?.planned_amount ?? cell?.plan
     );
@@ -180,10 +185,24 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     const matchingIds: string[] = [];
     if (lineItemId) matchingIds.push(lineItemId);
     
+    // Add canonical ID for matching (if different from lineItemId)
+    const canonicalId = getCanonicalRubroId(lineItemId);
+    if (canonicalId && canonicalId !== lineItemId && !matchingIds.includes(canonicalId)) {
+      matchingIds.push(canonicalId);
+    }
+    
     // Add all potential ID variations for matching
     const rubroId = cell?.rubroId || cell?.rubro_id;
     if (rubroId && !matchingIds.includes(normalizeRubroId(rubroId))) {
       matchingIds.push(normalizeRubroId(rubroId));
+    }
+    
+    // Add canonical version of rubroId
+    if (rubroId) {
+      const canonicalRubroId = getCanonicalRubroId(normalizeRubroId(rubroId));
+      if (canonicalRubroId && !matchingIds.includes(canonicalRubroId)) {
+        matchingIds.push(canonicalRubroId);
+      }
     }
     
     // Add original IDs before normalization for backend compatibility
@@ -228,6 +247,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       matchingIds: matchingIds.length > 0 ? matchingIds : undefined,
       monthLabel,
       rubroId: rubroId || lineItemId,
+      canonicalRubroId: canonicalId,
     };
 
     // Add baseline_id to the cell if provided (for traceability)
@@ -237,19 +257,87 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
       );
     }
 
-    return normalizedCell;
+    // Deduplication logic: merge cells with same canonical rubroId + month
+    // Skip cells with invalid line_item_id or month (but preserve them for backward compatibility)
+    if (!lineItemId || month < 1 || month > 60) {
+      if (options?.debugMode) {
+        console.warn('[normalizeForecastCells] Tracking invalid cell separately (not deduplicated):', {
+          line_item_id: lineItemId,
+          month: month
+        });
+      }
+      invalidCells.push(normalizedCell);
+      return; // Skip deduplication for invalid cells
+    }
+
+    // Use canonical ID for deduplication to merge legacy and canonical IDs
+    // (already computed above for matchingIds)
+    const deduplicationKey = `${canonicalId}||${month}`;
+    
+    if (deduplicationMap[deduplicationKey]) {
+      // Merge duplicate: sum numeric values (with defensive null checks)
+      const existing = deduplicationMap[deduplicationKey];
+      existing.planned = (existing.planned || 0) + (normalizedCell.planned || 0);
+      existing.forecast = (existing.forecast || 0) + (normalizedCell.forecast || 0);
+      existing.actual = (existing.actual || 0) + (normalizedCell.actual || 0);
+      existing.variance = (existing.forecast || 0) - (existing.planned || 0);
+      
+      // Merge matchingIds arrays (dedupe)
+      if (normalizedCell.matchingIds) {
+        const existingIds = new Set(existing.matchingIds || []);
+        normalizedCell.matchingIds.forEach(id => existingIds.add(id));
+        existing.matchingIds = Array.from(existingIds);
+      }
+      
+      // Keep most recent update timestamp (using Date objects for proper comparison)
+      if (normalizedCell.last_updated && (!existing.last_updated || new Date(normalizedCell.last_updated) > new Date(existing.last_updated || ''))) {
+        existing.last_updated = normalizedCell.last_updated;
+        existing.updated_by = normalizedCell.updated_by;
+      }
+      
+      // Merge notes (concatenate if both exist)
+      if (normalizedCell.notes && existing.notes !== normalizedCell.notes) {
+        existing.notes = existing.notes 
+          ? `${existing.notes}; ${normalizedCell.notes}`
+          : normalizedCell.notes;
+      }
+      
+      // Merge variance_reason (prefer non-empty, concatenate if both exist)
+      if (normalizedCell.variance_reason && existing.variance_reason !== normalizedCell.variance_reason) {
+        existing.variance_reason = existing.variance_reason 
+          ? `${existing.variance_reason}; ${normalizedCell.variance_reason}`
+          : normalizedCell.variance_reason;
+      }
+      
+      if (options?.debugMode) {
+        console.debug(`[normalizeForecastCells] Merged duplicate cell: ${deduplicationKey}`, {
+          canonicalId,
+          lineItemId,
+          merged: existing,
+          original: normalizedCell,
+        });
+      }
+    } else {
+      // First occurrence of this canonical rubro + month combination
+      // Use canonical ID as the line_item_id for consistency
+      normalizedCell.line_item_id = canonicalId;
+      deduplicationMap[deduplicationKey] = normalizedCell;
+    }
   });
 
-  // Defensive check: log summary of normalization
+  // Convert deduplication map to array and add invalid cells
+  const normalized = [...Object.values(deduplicationMap), ...invalidCells];
+
+  // Defensive check: log summary of normalization and deduplication
   if (options?.debugMode) {
     const validCells = normalized.filter(c => c.line_item_id && c.month >= 1 && c.month <= 60);
-    const invalidCells = normalized.length - validCells.length;
+    const invalidCellsCount = normalized.length - validCells.length;
     
     console.log('[normalizeForecastCells] Summary:', {
       inputCount: cells.length,
       normalizedCount: normalized.length,
       validCells: validCells.length,
-      invalidCells,
+      invalidCells: invalidCellsCount,
       baselineId: options?.baselineId,
       sampleMatchingIds: normalized.slice(0, 3).map(c => ({ 
         line_item_id: c.line_item_id, 

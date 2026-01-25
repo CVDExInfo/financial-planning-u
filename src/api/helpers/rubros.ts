@@ -55,7 +55,7 @@ const MOD_ROLE_TO_LINEA_CODIGO: Record<MODRole, string> = {
   'Ingeniero Soporte N2': 'MOD-ING',
   'Ingeniero Soporte N3': 'MOD-ING',
   'Service Delivery Manager': 'MOD-SDM',
-  'Project Manager': 'MOD-LEAD', // Changed from MOD-PM to MOD-LEAD per canonical taxonomy
+  'Project Manager': 'MOD-LEAD', // Maps to MOD-LEAD (canonical taxonomy uses MOD-PMO for dedicated PM role)
 };
 
 /**

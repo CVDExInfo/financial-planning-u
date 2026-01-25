@@ -332,3 +332,130 @@ For questions about scripts:
 ---
 
 **Last Updated**: 2025-11-10
+
+---
+
+## Taxonomy Validation & Reconciliation
+
+### validate-taxonomy-dynamo-full.cjs
+
+**Purpose**: Validates that DynamoDB `finz_rubros_taxonomia` table is in sync with frontend canonical taxonomy and backend mapping.
+
+**What it validates**:
+- ✅ Frontend canonical IDs exist in DynamoDB
+- ✅ Backend-derived IDs exist in DynamoDB
+- ✅ Partition keys follow `LINEA#<linea_codigo>` format
+- ✅ Attributes match (descripcion, categoria, fuente_referencia, etc.)
+- ✅ No duplicate entries for same linea_codigo
+
+**Requirements**:
+- Node 18+
+- AWS credentials with `dynamodb:Scan` permission
+- Environment variables:
+  - `AWS_REGION` (default: us-east-2)
+  - `TAXONOMY_TABLE` (default: finz_rubros_taxonomia)
+
+**Usage**:
+```bash
+# Basic validation
+AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia \
+  node scripts/validate-taxonomy-dynamo-full.cjs
+
+# Output: tmp/taxonomy_report_full.json
+```
+
+**Output**: Creates `tmp/taxonomy_report_full.json` with detailed findings:
+- `missingInDynamo`: Canonical IDs not in DynamoDB
+- `extraInDynamo`: DynamoDB IDs not in canonical taxonomy
+- `attributeMismatches`: Items with incorrect attributes
+- `backendMissingFrontend`: Backend IDs missing from frontend
+- `frontendMissingBackend`: Frontend IDs not used in backend
+
+**Exit codes**:
+- `0` = Validation completed successfully
+- `2` = Validation failed (AWS error, file not found, etc.)
+
+**Used in**: `.github/workflows/deploy-ui.yml` (CI validation gate)
+
+---
+
+### remediate-taxonomy-dynamo.cjs
+
+**Purpose**: Interactive CLI tool to fix taxonomy mismatches identified by the validator.
+
+**What it does**:
+1. **P1 - Fix PK mismatches**: Copy→Put→Delete with backups
+2. **P2 - Create missing IDs**: Put minimal items from canonical taxonomy
+3. **P3 - Update attributes**: Fix descripcion, categoria, etc.
+4. **P4 - List extras**: Log legacy/deprecated IDs for manual review
+
+**Requirements**:
+- Node 18+
+- AWS credentials with DynamoDB read/write permissions:
+  - `dynamodb:GetItem`
+  - `dynamodb:PutItem`
+  - `dynamodb:UpdateItem`
+  - `dynamodb:DeleteItem`
+- Valid report from `validate-taxonomy-dynamo-full.cjs`
+
+**Usage**:
+```bash
+# Interactive remediation (prompts for each change)
+AWS_REGION=us-east-2 TAXONOMY_TABLE=finz_rubros_taxonomia \
+  node scripts/remediate-taxonomy-dynamo.cjs tmp/taxonomy_report_full.json
+
+# The script will:
+# 1. Display each issue with context
+# 2. Prompt: "Fix this issue? (y/N)"
+# 3. Create backup before modification
+# 4. Apply approved change
+# 5. Log action to tmp/remediation-log.json
+```
+
+**Safety Features**:
+- ✅ Interactive approval for EVERY change
+- ✅ Automatic backups to `tmp/backups/`
+- ✅ Complete audit log in `tmp/remediation-log.json`
+- ✅ Rollback capability (re-put backed-up items)
+
+**Output Files**:
+- `tmp/backups/backup_<pk>_<sk>.json` - Backup of each modified item
+- `tmp/remediation-log.json` - Complete log of all actions
+
+**Example Session**:
+```
+$ node scripts/remediate-taxonomy-dynamo.cjs tmp/taxonomy_report_full.json
+
+PK mismatches to consider (priority 1):
+ID MOD-IN2 has pk mismatch: pk is "LINEA#MOD-EXT" but expected LINEA#MOD-IN2
+Fix PK for MOD-IN2 (copy->put->delete)? (y/N): y
+✅ Backup created: tmp/backups/backup_LINEA-MOD-EXT_CATEGORIA-MOD.json
+✅ Created LINEA#MOD-IN2|CATEGORIA#MOD
+✅ Deleted LINEA#MOD-EXT|CATEGORIA#MOD
+
+Missing canonical IDs to create (priority 2): 3
+Create minimal item for MOD-XYZ? (y/N): y
+✅ Created LINEA#MOD-XYZ|CATEGORIA#MOD
+
+Remediation finished; log written to tmp/remediation-log.json
+```
+
+**Rollback Procedure**:
+```bash
+# If you need to undo changes, restore from backups:
+aws dynamodb put-item \
+  --table-name finz_rubros_taxonomia \
+  --item file://tmp/backups/backup_LINEA-MOD-EXT_CATEGORIA-MOD.json \
+  --region us-east-2
+```
+
+---
+
+## Documentation
+
+For complete implementation details, see:
+- `TAXONOMY_VALIDATION_IMPLEMENTATION_SUMMARY.md` - Full documentation
+- `tmp/taxonomy_report_full.json.template` - Example report structure
+- `tmp/taxonomy_remediation_plan.json.template` - Example remediation plan
+- `tmp/summary.txt.template` - Example human-readable summary
+

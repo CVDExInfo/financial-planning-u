@@ -109,17 +109,6 @@ const createInitialUploadForm = (): UploadFormState => ({
 
 // Note: Additional formatting functions (formatMatrixLabel, formatRubroLabel) are available
 // from lineItemFormatters.ts for backward compatibility with other modules.
-const formatMatrixLabel = (
-  item?: LineItem,
-  month?: number,
-  fallbackId?: string
-) => {
-  const base = formatRubroLabel(item, fallbackId);
-  return typeof month === "number" && Number.isFinite(month)
-    ? `${base} (Month ${month})`
-    : base;
-};
-
 const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
   if (!item) return fallbackId || "Rubro";
   const category = (item as any).categoria?.trim() || item.category?.trim();
@@ -130,6 +119,17 @@ const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
   const codePart = lineaCodigo || item.id || fallbackId || "";
   const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";
   return `${categoryLabel} — ${description}${codePart ? ` [${codePart}]` : ""}${tipoCostoSuffix}`;
+};
+
+const formatMatrixLabel = (
+  item?: LineItem,
+  month?: number,
+  fallbackId?: string
+) => {
+  const base = formatRubroLabel(item, fallbackId);
+  return typeof month === "number" && Number.isFinite(month)
+    ? `${base} (Month ${month})`
+    : base;
 };
 
 const formatCurrency = (amount: number) =>

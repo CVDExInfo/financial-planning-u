@@ -59,7 +59,14 @@ describe("materializers", () => {
     await materializeAllocationsForBaseline(baseline, { dryRun: false });
 
     expect(ddb.send).toHaveBeenCalled();
-    const command = (ddb.send as jest.Mock).mock.calls[0][0] as { input?: any };
+    // Find the BatchWriteCommand call (after QueryCommand for rubros)
+    const batchWriteCall = (ddb.send as jest.Mock).mock.calls.find((call) => {
+      const command = call[0];
+      return command?.input?.RequestItems?.mock_allocations;
+    });
+    
+    expect(batchWriteCall).toBeDefined();
+    const command = batchWriteCall[0] as { input?: any };
     const requestItems = command?.input?.RequestItems?.mock_allocations;
     expect(requestItems).toHaveLength(6); // 2 line items * 3 months
 
