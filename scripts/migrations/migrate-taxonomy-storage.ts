@@ -25,6 +25,9 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 // Use backend canonicalizer (node-safe, S3 fallback)
 import { getCanonicalRubroId } from "../../services/finanzas-api/src/lib/canonical-taxonomy.ts";
+// Write artifacts
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
 
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 const TABLE_PREFIX = process.env.TABLE_PREFIX || "finz_";
@@ -332,6 +335,45 @@ async function main(): Promise<void> {
       console.log(`   Run with --apply to perform the migration.`);
     } else {
       console.log(`\n✅ Migration complete. ${totalMigrated} items migrated, ${totalFailed} failed.`);
+    }
+    // Write artifacts (JSON report + textual log) to scripts/migrations/
+    try {
+      const outDir = join(process.cwd(), "scripts", "migrations");
+      await mkdir(outDir, { recursive: true });
+
+      const now = new Date();
+      const ts = now.toISOString().replace(/[:.]/g, "-");
+      const envName = (process.env.TABLE_PREFIX || "finz").replace(/[^a-z0-9_-]/gi, "");
+      const modeSlug = mode.replace(/\s+/g, "-").toLowerCase();
+
+      const report = {
+        generated_at: now.toISOString(),
+        mode,
+        region: AWS_REGION,
+        table_prefix: TABLE_PREFIX,
+        stats,
+      };
+      const reportPath = join(outDir, `migration-report-${envName}-${modeSlug}-${ts}.json`);
+      await writeFile(reportPath, JSON.stringify(report, null, 2), "utf8");
+
+      let log = '';
+      log += `Taxonomy Migration Report - ${now.toISOString()}\n`;
+      log += `Mode: ${mode}\n`;
+      log += `AWS_REGION: ${AWS_REGION}\n`;
+      log += `TABLE_PREFIX: ${TABLE_PREFIX}\n\n`;
+      log += `Rubros: total=${stats.rubros.total} need=${stats.rubros.needsMigration} migrated=${stats.rubros.migrated} failed=${stats.rubros.failed}\n`;
+      log += `Allocations: total=${stats.allocations.total} need=${stats.allocations.needsMigration} migrated=${stats.allocations.migrated} failed=${stats.allocations.failed}\n`;
+      log += `Prefacturas: total=${stats.prefacturas.total} need=${stats.prefacturas.needsMigration} migrated=${stats.prefacturas.migrated} failed=${stats.prefacturas.failed}\n\n`;
+      log += `Totals: migrated=${totalMigrated} failed=${totalFailed}\n`;
+
+      const logPath = join(outDir, `migration-log-${envName}-${modeSlug}-${ts}.log`);
+      await writeFile(logPath, log, "utf8");
+
+      console.log(`\n📝 Wrote migration artifacts:`);
+      console.log(`  - JSON: ${reportPath}`);
+      console.log(`  - LOG:  ${logPath}`);
+    } catch (err) {
+      console.warn("⚠️  Failed to write migration artifacts:", err);
     }
 
     process.exit(totalFailed > 0 ? 1 : 0);
