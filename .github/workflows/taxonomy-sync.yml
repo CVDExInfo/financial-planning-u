@@ -134,14 +134,16 @@ jobs:
     name: Apply Taxonomy Migration to DynamoDB
     needs: deploy-artifacts
     runs-on: ubuntu-latest
+    # Only run automatic apply on main — change as needed
     if: github.ref_name == 'main'
     permissions:
-      id-token: write        # <<< add this
+      id-token: write
       contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Configure AWS credentials
+
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
@@ -153,11 +155,28 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Install dependencies (pnpm)
         run: |
-          npm ci
-          npm i -g pnpm
-          pnpm install
+          # Enable corepack and ensure pnpm is available
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+          # Use frozen install if lockfile exists; otherwise install normally
+          if [ -f pnpm-lock.yaml ]; then
+            echo "pnpm-lock.yaml found — running frozen install"
+            pnpm install --frozen-lockfile
+          else
+            echo "pnpm-lock.yaml not found — running pnpm install"
+            pnpm install
+          fi
 
       - name: Run taxonomy migration (APPLY)
         env:
@@ -165,7 +184,13 @@ jobs:
           TABLE_PREFIX: finz_
         run: |
           echo "🔍 Running migration in apply mode..."
-          pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --apply || { echo "Migration failed"; exit 1; }
+          set -o pipefail
+          pnpm exec tsx scripts/migrations/migrate-taxonomy-storage.ts --apply 2>&1 | tee scripts/migrations/migration-apply-${{ github.run_number }}.log
+          # Ensure script exit status is respected
+          if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            echo "Migration failed. See scripts/migrations/migration-apply-${{ github.run_number }}.log"
+            exit 1
+          fi
 
       - name: Upload migration artifacts
         uses: actions/upload-artifact@v4
