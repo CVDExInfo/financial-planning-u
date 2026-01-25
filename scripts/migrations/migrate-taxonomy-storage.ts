@@ -336,7 +336,7 @@ async function main(): Promise<void> {
     } else {
       console.log(`\n✅ Migration complete. ${totalMigrated} items migrated, ${totalFailed} failed.`);
     }
-    // write artifacts (JSON report + textual log) to scripts/migrations/
+    // Write artifacts (JSON report + textual log) to scripts/migrations/
     try {
       const outDir = join(process.cwd(), "scripts", "migrations");
       await mkdir(outDir, { recursive: true });
