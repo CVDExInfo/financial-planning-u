@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * scripts/fix-noncanonical-rubros.js
+ * scripts/fix-noncanonical-rubros.cjs
  *
  * Scans allocations and project_rubros tables for rows with non-canonical rubro_id values,
  * computes the canonical ID, and optionally updates them with legacy tracking.
  *
  * Usage:
- *  node scripts/fix-noncanonical-rubros.js --dryrun
- *  ALLOCATIONS_TABLE=allocations PROJECT_RUBROS_TABLE=project_rubros node scripts/fix-noncanonical-rubros.js --dryrun
- *  ALLOCATIONS_TABLE=allocations PROJECT_RUBROS_TABLE=project_rubros node scripts/fix-noncanonical-rubros.js --apply --batch=50
+ *  node scripts/fix-noncanonical-rubros.cjs --dryrun
+ *  ALLOCATIONS_TABLE=allocations PROJECT_RUBROS_TABLE=project_rubros node scripts/fix-noncanonical-rubros.cjs --dryrun
+ *  ALLOCATIONS_TABLE=allocations PROJECT_RUBROS_TABLE=project_rubros node scripts/fix-noncanonical-rubros.cjs --apply --batch=50
  *
  * Safety:
  *  - Dry-run mode (--dryrun) lists items that would be updated without making changes
@@ -29,8 +29,8 @@ const BATCH = parseInt(args.batch || "50", 10);
 if (!DRYRUN && !APPLY) {
   console.log("ERROR: Specify either --dryrun or --apply");
   console.log("\nUsage:");
-  console.log("  node scripts/fix-noncanonical-rubros.js --dryrun");
-  console.log("  node scripts/fix-noncanonical-rubros.js --apply --batch=50");
+  console.log("  node scripts/fix-noncanonical-rubros.cjs --dryrun");
+  console.log("  node scripts/fix-noncanonical-rubros.cjs --apply --batch=50");
   process.exit(1);
 }
 

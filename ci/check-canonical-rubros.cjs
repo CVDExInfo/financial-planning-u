@@ -84,7 +84,7 @@ const excludePatterns = [
   '*.md',
   'ci/check-forbidden-rubros.sh',
   'ci/check-canonical-rubros.js',
-  'scripts/fix-noncanonical-rubros.js',
+  'scripts/fix-noncanonical-rubros.cjs',
   'scripts/find-missing-rubros.ts',
   'services/finanzas-api/src/lib/canonical-taxonomy.ts',
   'src/lib/rubros/canonical-taxonomy.ts',
