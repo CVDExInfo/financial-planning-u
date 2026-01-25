@@ -70,7 +70,7 @@ jobs:
           echo "🔍 Running migration in dry-run mode..."
           echo "   Environment: ${{ github.event.inputs.environment }}"
           echo "   Mode: dry-run"
-          node --loader ts-node/esm \
+          pnpm exec tsx \
             scripts/migrations/migrate-taxonomy-storage.ts \
             --dry-run
 
@@ -84,7 +84,7 @@ jobs:
           echo "   Environment: ${{ github.event.inputs.environment }}"
           echo "   Mode: apply"
           echo "   THIS WILL MODIFY DATABASE RECORDS"
-          node --loader ts-node/esm \
+          pnpm exec tsx \
             scripts/migrations/migrate-taxonomy-storage.ts \
             --apply
 
