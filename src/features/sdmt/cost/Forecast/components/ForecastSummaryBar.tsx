@@ -50,6 +50,12 @@ export function ForecastSummaryBar({
   // State for summary-only view toggle
   const [isSummaryOnly, setIsSummaryOnly] = useState(true);
 
+  // Handler for metric buttons - shows expanded view
+  const handleMetricClick = () => setIsSummaryOnly(false);
+  
+  // Handler for Resumen button - shows summary-only view
+  const handleResumenClick = () => setIsSummaryOnly(true);
+
   // Check for budget parity issue: if both monthly and annual budgets exist and differ by > 1%
   const hasBudgetParityIssue = useMemo(() => {
     if (monthlyBudgetSum > 0 && budgetAllIn > 0) {
@@ -227,13 +233,14 @@ export function ForecastSummaryBar({
           </div>
 
           {/* Matriz del Mes - Action Buttons (6 evenly distributed) */}
-          <div className="grid grid-cols-6 gap-3 w-full">
+          <nav className="grid grid-cols-6 gap-3 w-full" aria-label="Matriz del Mes - Vista Ejecutiva">
             <div className="flex justify-center">
               <Button
                 variant={isSummaryOnly ? "outline" : "default"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(false)}
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Presupuesto"
               >
                 Presupuesto
               </Button>
@@ -243,7 +250,8 @@ export function ForecastSummaryBar({
                 variant={isSummaryOnly ? "outline" : "default"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(false)}
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Pronóstico"
               >
                 Pronóstico
               </Button>
@@ -253,7 +261,8 @@ export function ForecastSummaryBar({
                 variant={isSummaryOnly ? "outline" : "default"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(false)}
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Real"
               >
                 Real
               </Button>
@@ -263,7 +272,8 @@ export function ForecastSummaryBar({
                 variant={isSummaryOnly ? "outline" : "default"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(false)}
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de % Consumo"
               >
                 % Consumo
               </Button>
@@ -273,7 +283,8 @@ export function ForecastSummaryBar({
                 variant={isSummaryOnly ? "outline" : "default"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(false)}
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Varianza"
               >
                 Varianza
               </Button>
@@ -283,12 +294,13 @@ export function ForecastSummaryBar({
                 variant={isSummaryOnly ? "default" : "outline"}
                 size="sm"
                 className="w-full"
-                onClick={() => setIsSummaryOnly(true)}
+                onClick={handleResumenClick}
+                aria-label="Ver solo resumen ejecutivo"
               >
                 Resumen
               </Button>
             </div>
-          </div>
+          </nav>
 
           {/* KPI Cards Row - Show when in summary-only mode or always visible */}
           {isSummaryOnly && (
