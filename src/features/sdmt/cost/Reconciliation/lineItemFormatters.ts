@@ -10,7 +10,7 @@
  */
 
 import type { LineItem } from "@/types/domain";
-import { getCanonicalRubroById, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 // Helper type for extended line items with Spanish property names
 // This supports both Spanish (categoria, linea_codigo, tipo_costo) and English property names
