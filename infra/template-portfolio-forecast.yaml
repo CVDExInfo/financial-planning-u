@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Portfolio Forecast API - SAM Template
+  DashboardV2 backend endpoints for aggregated portfolio forecast data
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment
+  
+  CognitoUserPoolArn:
+    Type: String
+    Description: ARN of the Cognito User Pool for authentication
+  
+  ForecastTableName:
+    Type: String
+    Default: finanzas-forecast
+    Description: DynamoDB table name for forecast data
+  
+  AuditLogTableName:
+    Type: String
+    Default: finanzas-audit-log
+    Description: DynamoDB table name for audit logs
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        FORECAST_TABLE: !Ref ForecastTableName
+        AUDIT_TABLE: !Ref AuditLogTableName
+        NODE_OPTIONS: '--enable-source-maps'
+    Tracing: Active
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn: !Ref CognitoUserPoolArn
+
+Resources:
+  # API Gateway
+  PortfolioForecastApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Name: !Sub 'portfolio-forecast-api-${Environment}'
+      Description: Portfolio Forecast API for DashboardV2
+      TracingEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '$context.requestId $context.error.message $context.error.messageString'
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+
+  # CloudWatch Log Groups
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/portfolio-forecast-${Environment}'
+      RetentionInDays: 30
+
+  GetPortfolioForecastLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/get-portfolio-forecast-${Environment}'
+      RetentionInDays: 30
+
+  BulkUpsertForecastLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/bulk-upsert-forecast-${Environment}'
+      RetentionInDays: 30
+
+  # Lambda Functions
+  GetPortfolioForecastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'get-portfolio-forecast-${Environment}'
+      CodeUri: ../services/portfolio-forecast/
+      Handler: dist/handlers/getPortfolioForecast.handler
+      Description: Get aggregated portfolio forecast data
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ForecastTableName
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ForecastTableName}'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ForecastTableName}/index/*'
+      Events:
+        GetForecast:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PortfolioForecastApi
+            Path: /portfolio/forecast
+            Method: GET
+      Environment:
+        Variables:
+          RESPONSE_CACHE_TTL: '30'
+
+  BulkUpsertForecastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bulk-upsert-forecast-${Environment}'
+      CodeUri: ../services/portfolio-forecast/
+      Handler: dist/handlers/bulkUpsertForecast.handler
+      Description: Bulk upsert forecast values with idempotency and audit logging
+      Timeout: 60
+      MemorySize: 1024
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ForecastTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogTableName
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:ConditionCheckItem
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ForecastTableName}'
+      Events:
+        BulkUpsert:
+          Type: Api
+          Properties:
+            RestApiId: !Ref PortfolioForecastApi
+            Path: /portfolio/bulk-upsert-forecast
+            Method: POST
+      Environment:
+        Variables:
+          MAX_BATCH_SIZE: '1000'
+          IDEMPOTENCY_TTL: '86400'
+
+  # CloudWatch Alarms
+  GetForecastErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'portfolio-forecast-get-errors-${Environment}'
+      AlarmDescription: Alert when GET /portfolio/forecast has high error rate
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetPortfolioForecastFunction
+      TreatMissingData: notBreaching
+
+  GetForecastLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'portfolio-forecast-get-latency-${Environment}'
+      AlarmDescription: Alert when GET /portfolio/forecast p95 latency > 800ms
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 800
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetPortfolioForecastFunction
+      TreatMissingData: notBreaching
+
+  BulkUpsertErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'portfolio-forecast-upsert-errors-${Environment}'
+      AlarmDescription: Alert when POST /portfolio/bulk-upsert-forecast has high error rate
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BulkUpsertForecastFunction
+      TreatMissingData: notBreaching
+
+  # Custom Metrics Dashboard
+  PortfolioForecastDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'PortfolioForecast-${Environment}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", {"stat": "Sum", "label": "Total Invocations"}],
+                  [".", "Errors", {"stat": "Sum", "label": "Errors"}],
+                  [".", "Throttles", {"stat": "Sum", "label": "Throttles"}]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "${AWS::Region}",
+                "title": "API Invocations & Errors",
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Duration", {"stat": "Average", "label": "Avg Duration"}],
+                  ["...", {"stat": "p95", "label": "p95 Duration"}],
+                  ["...", {"stat": "p99", "label": "p99 Duration"}]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "${AWS::Region}",
+                "title": "API Latency",
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            }
+          ]
+        }
+
+Outputs:
+  PortfolioForecastApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${PortfolioForecastApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  GetPortfolioForecastFunctionArn:
+    Description: ARN of GetPortfolioForecast Lambda function
+    Value: !GetAtt GetPortfolioForecastFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GetForecastFunctionArn'
+
+  BulkUpsertForecastFunctionArn:
+    Description: ARN of BulkUpsertForecast Lambda function
+    Value: !GetAtt BulkUpsertForecastFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-BulkUpsertFunctionArn'
+
+  DashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=PortfolioForecast-${Environment}'
