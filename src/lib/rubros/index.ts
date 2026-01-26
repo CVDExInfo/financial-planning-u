@@ -62,7 +62,7 @@ const items: RubroItem[] = ((taxonomyData as RawTaxonomyData).items || []).map((
  */
 export function findRubroByLineaCodigo(raw: string): RubroItem | undefined {
   if (!raw) return undefined;
-  const normalized = String(raw || '').trim().toUpperCase();
+  const normalized = raw.trim().toUpperCase();
   
   // First try exact match
   const exactMatch = items.find(
