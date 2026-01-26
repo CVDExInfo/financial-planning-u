@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/command";
 import { FinanzasApiError } from "@/api/finanzas";
 import { BaselineStatusPanel } from "@/components/baseline/BaselineStatusPanel";
+import { formatRubroLabel } from "@/features/sdmt/cost/Reconciliation/lineItemFormatters";
 
 const defaultForm = {
   title: "",
@@ -120,17 +121,6 @@ const statusTone = (status: ChangeStatus) => {
     default:
       return "text-muted-foreground bg-muted";
   }
-};
-
-const formatRubroLabel = (item?: { category?: string; subtype?: string; description?: string }, fallbackId?: string) => {
-  if (!item) return fallbackId || "Rubro";
-  const category = item.category?.trim();
-  const subtype = item.subtype?.trim();
-  const description = item.description?.trim() || fallbackId || "Rubro";
-  const categoryLabel = subtype
-    ? `${category ?? "General"} / ${subtype}`
-    : category ?? "General";
-  return `Rubro — ${categoryLabel} — ${description}`;
 };
 
 export function SDMTChanges() {
