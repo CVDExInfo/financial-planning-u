@@ -69,7 +69,7 @@ import {
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
 import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
-import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId, getTaxonomyById } from "@/lib/rubros";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
@@ -1111,7 +1111,7 @@ export function SDMTForecast() {
     
     for (const li of allLineItemsFlattened) {
       const normalizedId = normalizeRubroId(li.id);
-      const canonical = getCanonicalRubroId(normalizedId) || normalizedId;
+      const canonical = canonicalizeRubroId(normalizedId) || normalizedId;
       const taxonomy = getTaxonomyById(normalizedId);
       
       const existing = canonicalMap.get(canonical);
@@ -3461,7 +3461,6 @@ export function SDMTForecast() {
                       <CardTitle className="text-lg">
                         Cuadrícula de Pronóstico
                       </CardTitle>
-                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                     </div>
                     
                     <CollapsibleTrigger asChild>
@@ -3522,7 +3521,7 @@ export function SDMTForecast() {
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
               showRangeIcon={false}
-              defaultExpanded={true}
+              defaultExpanded={false}
               maxMonths={60}
               onScrollToDetail={(params) => {
                 // Scroll to the 12-month grid section
@@ -4046,7 +4045,6 @@ export function SDMTForecast() {
                   <CardTitle className="text-lg">
                     Monitoreo mensual de proyectos vs. presupuesto
                   </CardTitle>
-                  <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                 </div>
                 
                 <div className="flex items-center gap-3">

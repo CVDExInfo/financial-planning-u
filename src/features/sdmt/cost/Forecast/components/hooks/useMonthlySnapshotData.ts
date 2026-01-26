@@ -8,7 +8,7 @@ import {
 } from '../monthlySnapshotTypes';
 import { isLabor } from '@/lib/rubros-category-utils';
 import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
-import { getCanonicalRubroId, getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId, getTaxonomyById } from '@/lib/rubros';
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -164,7 +164,7 @@ export function useMonthlySnapshotData({
     const m = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     lineItems.forEach(li => {
       const normalized = normalizeRubroId(li.id || '');
-      const canonical = getCanonicalRubroId(normalized);
+      const canonical = canonicalizeRubroId(normalized);
       const taxonomy = getTaxonomyById(normalized);
       
       // Prefer taxonomy description if available, otherwise use line item description
@@ -285,7 +285,7 @@ export function buildSnapshotRows({
       const projectId = cell.projectId || 'unknown';
       const projectName = cell.projectName || 'Proyecto desconocido';
       const rubroId = cell.rubroId || cell.line_item_id;
-      const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+      const canonical = cell.canonicalRubroId || canonicalizeRubroId(normalizeRubroId(rubroId));
       
       // Resolve rubro name and category using lineItemMetaMap
       const meta = lineItemMetaMap.get(cell.line_item_id) || 
@@ -369,7 +369,7 @@ export function buildSnapshotRows({
 
   monthData.forEach((cell) => {
     const rubroId = cell.rubroId || cell.line_item_id;
-    const canonical = cell.canonicalRubroId || getCanonicalRubroId(normalizeRubroId(rubroId));
+    const canonical = cell.canonicalRubroId || canonicalizeRubroId(normalizeRubroId(rubroId));
     
     // Resolve rubro name and category using lineItemMetaMap
     const meta = lineItemMetaMap.get(cell.line_item_id) || 

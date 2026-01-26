@@ -27,8 +27,8 @@ import finanzasClient from "@/api/finanzasClient";
 import { 
   CANONICAL_RUBROS_TAXONOMY, 
   type CanonicalRubroTaxonomy,
-  getCanonicalRubroId,
 } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";
@@ -108,7 +108,7 @@ CANONICAL_RUBROS_TAXONOMY.forEach((taxonomy) => {
   
   // Also index by linea_gasto for invoice matching (normalize to handle matching)
   // Note: Normalized keys may collide, but this is acceptable for fuzzy matching fallback
-  // Primary matching still uses canonical IDs via getCanonicalRubroId()
+  // Primary matching still uses canonical IDs via canonicalizeRubroId()
   if (taxonomy.linea_gasto) {
     const normalizedLineaGasto = normalizeString(taxonomy.linea_gasto);
     if (import.meta.env.DEV && taxonomyByRubroId[normalizedLineaGasto]) {
@@ -277,7 +277,7 @@ export const normalizeInvoiceMonth = (invoiceMonth: any, baselineStartMonth?: nu
  * 1. projectId guard: If both present and different → no match
  * 2. line_item_id: Compare canonicalized line_item_id
  * 3. matchingIds array: Check if invoice ID is in cell's matching IDs
- * 4. canonical rubroId: Use getCanonicalRubroId to compare
+ * 4. canonical rubroId: Use canonicalizeRubroId to compare
  * 5. taxonomy lookup: Check if both resolve to same canonical taxonomy entry
  * 6. normalized description: Final fallback
  * 
@@ -378,8 +378,8 @@ export const matchInvoiceToCell = (
   
   // Prioritize rubro_canonical from backend (if present) for more reliable matching
   if (invRubroId && cellRubroId) {
-    const invCanonical = inv.rubro_canonical || getCanonicalRubroId(invRubroId);
-    const cellCanonical = getCanonicalRubroId(cellRubroId);
+    const invCanonical = inv.rubro_canonical || canonicalizeRubroId(invRubroId);
+    const cellCanonical = canonicalizeRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
       if (shouldLogDiagnostics) {
         console.debug('[matchInvoiceToCell] ✓ MATCH via canonical rubroId:', { 
@@ -444,8 +444,8 @@ export const matchInvoiceToCell = (
       reasons.push('Missing rubroId in invoice or cell');
     }
     if (invRubroId && cellRubroId) {
-      const invCanonical = getCanonicalRubroId(invRubroId);
-      const cellCanonical = getCanonicalRubroId(cellRubroId);
+      const invCanonical = canonicalizeRubroId(invRubroId);
+      const cellCanonical = canonicalizeRubroId(cellRubroId);
       if (invCanonical !== cellCanonical) {
         reasons.push(`Canonical mismatch: ${invCanonical} !== ${cellCanonical}`);
       }
@@ -956,8 +956,8 @@ export function useSDMTForecastData({
             const rowRubroId = row.rubroId || row.line_item_id;
             
             if (invRubroId && rowRubroId) {
-              const invCanonical = getCanonicalRubroId(invRubroId);
-              const rowCanonical = getCanonicalRubroId(rowRubroId);
+              const invCanonical = canonicalizeRubroId(invRubroId);
+              const rowCanonical = canonicalizeRubroId(rowRubroId);
               
               if (invCanonical && rowCanonical && invCanonical === rowCanonical) {
                 const invAmount = normalizeInvoiceAmount(inv);

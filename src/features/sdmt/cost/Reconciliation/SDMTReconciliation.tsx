@@ -75,7 +75,7 @@ import {
 } from "./lineItemFormatters";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { isMODCategory } from "@/lib/cost-utils";
-import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId, getTaxonomyById } from "@/lib/rubros";
 
 /** --------- Types & helpers --------- */
 
@@ -954,7 +954,7 @@ export default function SDMTReconciliation() {
                     if (!selectedItem) return "";
 
                     // 1. Try to use canonical taxonomy source of truth first
-                    const canonicalId = getCanonicalRubroId(uploadFormData.line_item_id);
+                    const canonicalId = canonicalizeRubroId(uploadFormData.line_item_id);
                     const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
                     
                     if (canonical) {
