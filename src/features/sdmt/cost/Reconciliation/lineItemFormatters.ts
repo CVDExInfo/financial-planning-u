@@ -4,9 +4,13 @@
  * 
  * Utilities for formatting line item labels in reconciliation and forecast views.
  * Separates primary hierarchical information from secondary metadata for better UX.
+ * 
+ * UPDATED: Now uses canonical taxonomy from @/lib/rubros/canonical-taxonomy
+ * to ensure consistent display of rubros across all forms.
  */
 
 import type { LineItem } from "@/types/domain";
+import { getCanonicalRubroById, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 // Helper type for extended line items with Spanish property names
 // This supports both Spanish (categoria, linea_codigo, tipo_costo) and English property names
@@ -32,15 +36,18 @@ export interface FormattedLineItemLabel {
 /**
  * Format line item display with structured primary and secondary information.
  * 
- * Primary: Category hierarchy and description
- * Secondary: Code, type, and period metadata
+ * Uses canonical taxonomy from @/lib/rubros/canonical-taxonomy to ensure
+ * consistent display format: ${linea_codigo} — ${linea_gasto}
+ * 
+ * Primary: Code and canonical description from taxonomy
+ * Secondary: Category and type metadata
  * 
  * @example
- * Input: { categoria: "Infraestructura / Nube", description: "Data Center", linea_codigo: "INF-CLOUD", tipo_costo: "OPEX" }
+ * Input: { id: "MOD-PMO" } // Will lookup canonical taxonomy
  * Output: {
- *   primary: "Infraestructura / Nube — Data Center",
- *   secondary: "Code: INF-CLOUD · Type: OPEX",
- *   tooltip: "Infraestructura / Nube — Data Center [INF-CLOUD] • OPEX"
+ *   primary: "MOD-PMO — Project Manager",
+ *   secondary: "Category: Mano de Obra Directa · Type: OPEX",
+ *   tooltip: "MOD-PMO — Project Manager [Mano de Obra Directa] • OPEX"
  * }
  */
 export function formatLineItemDisplay(
@@ -62,30 +69,35 @@ export function formatLineItemDisplay(
   }
 
   const extended = item as ExtendedLineItem;
-  const category = (extended.categoria || item.category)?.trim();
-  const description = item.description?.trim() || "";
-  const lineaCodigo = extended.linea_codigo?.trim();
-  const tipoCosto = extended.tipo_costo?.trim();
+  
+  // Try to get canonical taxonomy definition first
+  const canonicalId = getCanonicalRubroId(item.id);
+  const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
+  
+  // Prefer canonical data, fallback to item properties
+  const lineaCodigo = canonical?.linea_codigo || extended.linea_codigo?.trim() || item.id;
+  const lineaGasto = canonical?.linea_gasto || item.description?.trim();
+  const categoria = canonical?.categoria || extended.categoria?.trim() || item.category?.trim();
+  const tipoCosto = canonical?.tipo_costo || extended.tipo_costo?.trim();
 
-  // Build primary label: category hierarchy and description
-  const categoryLabel = category || "General";
+  // Build primary label: canonical format ${linea_codigo} — ${linea_gasto}
   const primaryParts: string[] = [];
   
-  if (options.showHierarchy && categoryLabel) {
-    primaryParts.push(categoryLabel);
+  if (options.showCode && lineaCodigo) {
+    primaryParts.push(lineaCodigo);
   }
   
-  if (description) {
-    primaryParts.push(description);
+  if (lineaGasto) {
+    primaryParts.push(lineaGasto);
   }
 
   const primary = primaryParts.join(" — ") || "Line item";
 
-  // Build secondary label: code, type, period metadata
+  // Build secondary label: category, type, period metadata
   const secondaryParts: string[] = [];
 
-  if (options.showCode && lineaCodigo) {
-    secondaryParts.push(`Code: ${lineaCodigo}`);
+  if (options.showHierarchy && categoria) {
+    secondaryParts.push(`Category: ${categoria}`);
   }
 
   if (options.showType && tipoCosto) {
@@ -98,26 +110,46 @@ export function formatLineItemDisplay(
 
   const secondary = secondaryParts.join(" · ");
 
-  // Build tooltip with full information (legacy format for consistency)
-  const codePart = lineaCodigo ? ` [${lineaCodigo}]` : "";
+  // Build tooltip with full information
+  const categoryPart = categoria ? ` [${categoria}]` : "";
   const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";
   const periodSuffix =
     options.showPeriod && typeof month === "number" && Number.isFinite(month)
       ? ` (Month ${month})`
       : "";
   
-  const tooltip = `${categoryLabel} — ${description || "Line item"}${codePart}${tipoCostoSuffix}${periodSuffix}`;
+  const tooltip = `${lineaCodigo} — ${lineaGasto || "Line item"}${categoryPart}${tipoCostoSuffix}${periodSuffix}`;
 
   return { primary, secondary, tooltip };
 }
 
 /**
- * Format a simple line item label (legacy format for backwards compatibility).
- * Use formatLineItemDisplay() for new implementations.
+ * Format a simple line item label using canonical taxonomy.
+ * 
+ * Uses canonical taxonomy to ensure consistent format: ${linea_codigo} — ${linea_gasto}
+ * Falls back to legacy format if canonical taxonomy is not found.
+ * 
+ * @example
+ * Input: { id: "MOD-PMO" }
+ * Output: "MOD-PMO — Project Manager"
+ * 
+ * @param item - Line item to format
+ * @param fallbackId - Fallback ID if item is undefined
+ * @returns Formatted label string
  */
 export function formatRubroLabel(item?: LineItem, fallbackId?: string): string {
   if (!item) return fallbackId || "Line item";
   
+  // Try to get canonical taxonomy definition first
+  const canonicalId = getCanonicalRubroId(item.id);
+  const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
+  
+  if (canonical) {
+    // Use canonical format: ${linea_codigo} — ${linea_gasto}
+    return `${canonical.linea_codigo} — ${canonical.linea_gasto}`;
+  }
+  
+  // Fallback to legacy format if canonical not found
   const extended = item as ExtendedLineItem;
   const category = (extended.categoria || item.category)?.trim();
   const description = item.description?.trim() || fallbackId || "Line item";

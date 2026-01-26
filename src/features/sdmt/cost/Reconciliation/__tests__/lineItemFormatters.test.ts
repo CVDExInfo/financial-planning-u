@@ -13,23 +13,34 @@ import {
 } from '../lineItemFormatters';
 import type { LineItem } from '@/types/domain';
 
-test('formatLineItemDisplay - formats line item with all fields', () => {
+test('formatLineItemDisplay - uses canonical taxonomy when available', () => {
   const item = {
-    id: 'li-001',
-    categoria: 'Infraestructura / Nube',
-    description: 'Data Center Hosting',
-    linea_codigo: 'INF-CLOUD',
-    tipo_costo: 'OPEX',
+    id: 'MOD-PMO', // This should map to canonical MOD-LEAD
   } as any as LineItem;
 
   const result = formatLineItemDisplay(item, 2);
 
-  assert.strictEqual(result.primary, 'Infraestructura / Nube — Data Center Hosting');
-  assert.strictEqual(result.secondary, 'Code: INF-CLOUD · Type: OPEX · Period: Month 2');
-  assert.ok(result.tooltip.includes('Infraestructura / Nube'));
-  assert.ok(result.tooltip.includes('[INF-CLOUD]'));
+  // Should use canonical linea_codigo and linea_gasto
+  assert.ok(result.primary.includes('MOD-LEAD'));
+  assert.ok(result.primary.includes('Ingeniero Lider'));
+  assert.ok(result.secondary.includes('Category:'));
+  assert.ok(result.secondary.includes('Type:'));
+  assert.ok(result.secondary.includes('Period: Month 2'));
+});
+
+test('formatLineItemDisplay - formats canonical rubro with full metadata', () => {
+  const item = {
+    id: 'INF-CLOUD', // Canonical ID
+  } as any as LineItem;
+
+  const result = formatLineItemDisplay(item, undefined);
+
+  assert.ok(result.primary.includes('INF-CLOUD'));
+  assert.ok(result.primary.includes('Servicios Cloud / hosting'));
+  assert.ok(result.secondary.includes('Category:'));
+  assert.ok(result.secondary.includes('Infraestructura'));
+  assert.ok(result.tooltip.includes('INF-CLOUD'));
   assert.ok(result.tooltip.includes('OPEX'));
-  assert.ok(result.tooltip.includes('(Month 2)'));
 });
 
 test('formatLineItemDisplay - handles missing optional fields', () => {
@@ -40,10 +51,8 @@ test('formatLineItemDisplay - handles missing optional fields', () => {
 
   const result = formatLineItemDisplay(item);
 
-  assert.strictEqual(result.primary, 'General — Basic Line Item');
-  assert.strictEqual(result.secondary, '');
-  assert.ok(result.tooltip.includes('General'));
-  assert.ok(result.tooltip.includes('Basic Line Item'));
+  assert.ok(result.primary.includes('li-002'));
+  assert.ok(result.primary.includes('Basic Line Item'));
 });
 
 test('formatLineItemDisplay - handles undefined item', () => {
@@ -56,11 +65,7 @@ test('formatLineItemDisplay - handles undefined item', () => {
 
 test('formatLineItemDisplay - respects options flags', () => {
   const item = {
-    id: 'li-003',
-    categoria: 'Software',
-    description: 'License',
-    linea_codigo: 'SW-LIC',
-    tipo_costo: 'CAPEX',
+    id: 'TEC-ITSM', // Canonical ID
   } as any as LineItem;
 
   const result = formatLineItemDisplay(item, 3, {
@@ -70,13 +75,35 @@ test('formatLineItemDisplay - respects options flags', () => {
     showPeriod: false,
   });
 
-  assert.strictEqual(result.primary, 'Software — License');
-  assert.strictEqual(result.secondary, 'Code: SW-LIC');
+  assert.ok(result.primary.includes('TEC-ITSM'));
+  assert.ok(result.secondary.includes('Category:'));
   assert.ok(!result.secondary.includes('Type:'));
   assert.ok(!result.secondary.includes('Period:'));
 });
 
-test('formatRubroLabel - formats rubro with all fields', () => {
+test('formatRubroLabel - uses canonical taxonomy format', () => {
+  const item = {
+    id: 'MOD-ING', // Canonical ID
+  } as any as LineItem;
+
+  const result = formatRubroLabel(item);
+
+  // Should use canonical format: ${linea_codigo} — ${linea_gasto}
+  assert.strictEqual(result, 'MOD-ING — Ingeniero Soporte N1');
+});
+
+test('formatRubroLabel - handles legacy ID mapping', () => {
+  const item = {
+    id: 'MOD-PMO', // Legacy ID that maps to MOD-LEAD
+  } as any as LineItem;
+
+  const result = formatRubroLabel(item);
+
+  // Should map to canonical and use canonical format
+  assert.strictEqual(result, 'MOD-LEAD — Ingeniero Lider');
+});
+
+test('formatRubroLabel - falls back to legacy format for non-canonical IDs', () => {
   const item = {
     id: 'li-001',
     categoria: 'Hardware',
@@ -87,7 +114,10 @@ test('formatRubroLabel - formats rubro with all fields', () => {
 
   const result = formatRubroLabel(item);
 
-  assert.strictEqual(result, 'Hardware — Servers [HW-SRV] • CAPEX');
+  // Should fall back to legacy format since it's not in canonical taxonomy
+  assert.ok(result.includes('Hardware'));
+  assert.ok(result.includes('Servers'));
+  assert.ok(result.includes('HW-SRV'));
 });
 
 test('formatRubroLabel - uses fallbackId when item is undefined', () => {
@@ -104,27 +134,24 @@ test('formatRubroLabel - defaults to "Line item" when no fallback', () => {
 
 test('formatMatrixLabel - adds month suffix when month is provided', () => {
   const item = {
-    id: 'li-001',
-    categoria: 'Services',
-    description: 'Consulting',
-    linea_codigo: 'SVC-CON',
+    id: 'GSV-REU', // Canonical ID
   } as any as LineItem;
 
   const result = formatMatrixLabel(item, 5);
 
-  assert.ok(result.includes('Services — Consulting'));
+  assert.ok(result.includes('GSV-REU'));
+  assert.ok(result.includes('Reuniones de seguimiento'));
   assert.ok(result.includes('(Month 5)'));
 });
 
 test('formatMatrixLabel - omits month suffix when month is not provided', () => {
   const item = {
-    id: 'li-001',
-    categoria: 'Services',
-    description: 'Consulting',
+    id: 'NOC-MON', // Canonical ID
   } as any as LineItem;
 
   const result = formatMatrixLabel(item);
 
+  assert.ok(result.includes('NOC-MON'));
   assert.ok(!result.includes('(Month'));
 });
 

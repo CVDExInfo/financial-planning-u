@@ -71,9 +71,11 @@ import {
 import {
   formatLineItemDisplay,
   extractFriendlyFilename,
+  formatRubroLabel,
 } from "./lineItemFormatters";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { isMODCategory } from "@/lib/cost-utils";
+import { getCanonicalRubroById, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 
 /** --------- Types & helpers --------- */
 
@@ -107,20 +109,7 @@ const createInitialUploadForm = (): UploadFormState => ({
   invoice_date: "",
 });
 
-// Note: Additional formatting functions (formatMatrixLabel, formatRubroLabel) are available
-// from lineItemFormatters.ts for backward compatibility with other modules.
-const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
-  if (!item) return fallbackId || "Rubro";
-  const category = (item as any).categoria?.trim() || item.category?.trim();
-  const description = item.description?.trim() || fallbackId || "Rubro";
-  const lineaCodigo = (item as any).linea_codigo?.trim();
-  const tipoCosto = (item as any).tipo_costo?.trim();
-  const categoryLabel = category || "General";
-  const codePart = lineaCodigo || item.id || fallbackId || "";
-  const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";
-  return `${categoryLabel} — ${description}${codePart ? ` [${codePart}]` : ""}${tipoCostoSuffix}`;
-};
-
+// formatMatrixLabel is available from lineItemFormatters.ts, but we keep a local version for convenience
 const formatMatrixLabel = (
   item?: LineItem,
   month?: number,
@@ -964,23 +953,23 @@ export default function SDMTReconciliation() {
                     );
                     if (!selectedItem) return "";
 
-                    // 1. Try to use strict taxonomy source of truth first
-                    if (taxonomyByRubroId && uploadFormData.line_item_id) {
-                      const taxEntry = taxonomyByRubroId[uploadFormData.line_item_id];
-                      if (taxEntry) {
-                        const parts: string[] = [];
-                        if (taxEntry.category) parts.push(taxEntry.category);
-                        if (taxEntry.description) parts.push(taxEntry.description);
-                        
-                        // Keep Tipo Costo from the line item object as it might be specific to the project configuration
-                        const tipoCosto = (selectedItem as any)?.tipo_costo?.trim();
-                        if (tipoCosto) parts.push(`Tipo: ${tipoCosto}`);
-                        
-                        return parts.join(" — ");
-                      }
+                    // 1. Try to use canonical taxonomy source of truth first
+                    const canonicalId = getCanonicalRubroById(uploadFormData.line_item_id);
+                    const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
+                    
+                    if (canonical) {
+                      // Use canonical format: ${linea_codigo} — ${linea_gasto}
+                      // Plus category and type as metadata
+                      const parts: string[] = [];
+                      parts.push(`${canonical.linea_codigo} — ${canonical.linea_gasto}`);
+                      
+                      if (canonical.categoria) parts.push(`Categoría: ${canonical.categoria}`);
+                      if (canonical.tipo_costo) parts.push(`Tipo: ${canonical.tipo_costo}`);
+                      
+                      return parts.join(" • ");
                     }
 
-                    // 2. Fallback to existing logic
+                    // 2. Fallback to existing logic if canonical not found
                     const category = (selectedItem as any).categoria?.trim() || selectedItem.category?.trim();
                     const description = selectedItem.description?.trim();
                     const tipoCosto = (selectedItem as any).tipo_costo?.trim();
