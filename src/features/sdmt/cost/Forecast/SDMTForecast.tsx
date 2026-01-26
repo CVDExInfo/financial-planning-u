@@ -3461,7 +3461,6 @@ export function SDMTForecast() {
                       <CardTitle className="text-lg">
                         Cuadrícula de Pronóstico
                       </CardTitle>
-                      <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                     </div>
                     
                     <CollapsibleTrigger asChild>
@@ -3522,7 +3521,7 @@ export function SDMTForecast() {
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
               showRangeIcon={false}
-              defaultExpanded={true}
+              defaultExpanded={false}
               maxMonths={60}
               onScrollToDetail={(params) => {
                 // Scroll to the 12-month grid section
@@ -4046,7 +4045,6 @@ export function SDMTForecast() {
                   <CardTitle className="text-lg">
                     Monitoreo mensual de proyectos vs. presupuesto
                   </CardTitle>
-                  <Badge variant="secondary" className="ml-2">M1-M12</Badge>
                 </div>
                 
                 <div className="flex items-center gap-3">
