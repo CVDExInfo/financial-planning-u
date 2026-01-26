@@ -837,6 +837,235 @@ export const finanzasClient = {
     });
     return data;
   },
+
+  /**
+   * Get aggregated portfolio forecast data (DashboardV2)
+   * Single-call endpoint for portfolio-level forecast data
+   * 
+   * @param year - Fiscal year
+   * @param months - Number of months to include (1-60)
+   * @param options - Optional filters (projectIds, rubroIds)
+   * @returns Portfolio forecast response with metadata, summary, and detailed data
+   */
+  async getPortfolioForecast(
+    year: number,
+    months: number,
+    options?: {
+      projectIds?: string[];
+      rubroIds?: string[];
+    }
+  ): Promise<{
+    metadata: {
+      generatedAt: string;
+      year: number;
+      months: number;
+      currency: string;
+      filters?: {
+        projectIds?: string[];
+        rubroIds?: string[];
+      };
+    };
+    summary: {
+      totalPlanned: number;
+      totalActual: number;
+      totalForecast: number;
+      variance: number;
+      variancePercent: number;
+      runwayMonths?: number;
+      budgetUtilization?: number;
+    };
+    rubros: Array<{
+      canonicalId: string;
+      name: string;
+      category: string;
+      monthlyData: Array<{
+        monthIndex: number;
+        monthLabel: string;
+        planned: number;
+        actual: number;
+        forecast: number;
+        variance: number;
+      }>;
+      totals: {
+        totalPlanned: number;
+        totalActual: number;
+        totalForecast: number;
+        totalVariance: number;
+      };
+      last_updated?: string;
+    }>;
+    projects: Array<{
+      projectId: string;
+      projectName: string;
+      rubros: Array<{
+        canonicalId: string;
+        name: string;
+        category: string;
+        monthlyData: Array<{
+          monthIndex: number;
+          monthLabel: string;
+          planned: number;
+          actual: number;
+          forecast: number;
+          variance: number;
+        }>;
+        totals: {
+          totalPlanned: number;
+          totalActual: number;
+          totalForecast: number;
+          totalVariance: number;
+        };
+        last_updated?: string;
+      }>;
+      totals: {
+        totalPlanned: number;
+        totalActual: number;
+        totalForecast: number;
+        totalVariance: number;
+      };
+    }>;
+  }> {
+    checkAuth();
+    
+    const params = new URLSearchParams({
+      year: year.toString(),
+      months: months.toString(),
+    });
+    
+    if (options?.projectIds?.length) {
+      params.append('projectIds', options.projectIds.join(','));
+    }
+    
+    if (options?.rubroIds?.length) {
+      params.append('rubroIds', options.rubroIds.join(','));
+    }
+    
+    const data = await http<{
+      metadata: {
+        generatedAt: string;
+        year: number;
+        months: number;
+        currency: string;
+        filters?: {
+          projectIds?: string[];
+          rubroIds?: string[];
+        };
+      };
+      summary: {
+        totalPlanned: number;
+        totalActual: number;
+        totalForecast: number;
+        variance: number;
+        variancePercent: number;
+        runwayMonths?: number;
+        budgetUtilization?: number;
+      };
+      rubros: Array<{
+        canonicalId: string;
+        name: string;
+        category: string;
+        monthlyData: Array<{
+          monthIndex: number;
+          monthLabel: string;
+          planned: number;
+          actual: number;
+          forecast: number;
+          variance: number;
+        }>;
+        totals: {
+          totalPlanned: number;
+          totalActual: number;
+          totalForecast: number;
+          totalVariance: number;
+        };
+        last_updated?: string;
+      }>;
+      projects: Array<{
+        projectId: string;
+        projectName: string;
+        rubros: Array<{
+          canonicalId: string;
+          name: string;
+          category: string;
+          monthlyData: Array<{
+            monthIndex: number;
+            monthLabel: string;
+            planned: number;
+            actual: number;
+            forecast: number;
+            variance: number;
+          }>;
+          totals: {
+            totalPlanned: number;
+            totalActual: number;
+            totalForecast: number;
+            totalVariance: number;
+          };
+          last_updated?: string;
+        }>;
+        totals: {
+          totalPlanned: number;
+          totalActual: number;
+          totalForecast: number;
+          totalVariance: number;
+        };
+      }>;
+    }>(`portfolio/forecast?${params.toString()}`);
+    
+    return data;
+  },
+
+  /**
+   * Bulk upsert forecast values (DashboardV2)
+   * Idempotent bulk update/insert with optimistic concurrency control
+   * 
+   * @param request - Bulk upsert request with idempotency key and items
+   * @returns Bulk upsert response with per-item status
+   */
+  async bulkUpsertForecast(request: {
+    idempotencyKey: string;
+    items: Array<{
+      projectId: string;
+      canonicalRubroId: string;
+      monthIndex: number;
+      value: number;
+      valueType: 'forecast' | 'actual';
+      expected_last_updated?: string;
+    }>;
+  }): Promise<{
+    idempotencyKey: string;
+    totalItems: number;
+    successCount: number;
+    failureCount: number;
+    results: Array<{
+      index: number;
+      status: 'success' | 'conflict' | 'error';
+      message?: string;
+      current_last_updated?: string;
+    }>;
+    auditLogId?: string;
+  }> {
+    checkAuth();
+    
+    const data = await http<{
+      idempotencyKey: string;
+      totalItems: number;
+      successCount: number;
+      failureCount: number;
+      results: Array<{
+        index: number;
+        status: 'success' | 'conflict' | 'error';
+        message?: string;
+        current_last_updated?: string;
+      }>;
+      auditLogId?: string;
+    }>('portfolio/bulk-upsert-forecast', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    
+    return data;
+  },
 };
 
 export default finanzasClient;
