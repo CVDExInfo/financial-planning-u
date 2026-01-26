@@ -167,7 +167,8 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
 
   const handleNext = () => {
     // Validate canonical rubro IDs before proceeding
-    const invalid = nonLaborEstimates.some((item) => !getCanonicalRubroId(item.rubroId || ""));
+    // Use canonicalizeRubroId from unified rubros helpers (already imported)
+    const invalid = nonLaborEstimates.some((item) => !canonicalizeRubroId(item.rubroId || ""));
     
     if (invalid) {
       // Show friendly validation
@@ -464,7 +465,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         className="w-full justify-start text-xs"
                         onClick={() => {
                           // Ensure canonical ID is used
-                          const canonical = getCanonicalRubroId(rubro.id) || rubro.id;
+                          const canonical = canonicalizeRubroId(rubro.id) || rubro.id;
                           const newItem: NonLaborEstimate = {
                             rubroId: canonical,
                             category: categoryName,
