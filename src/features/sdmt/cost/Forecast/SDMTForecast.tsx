@@ -3814,55 +3814,6 @@ export function SDMTForecast() {
             />
           )}
 
-          {/* Position #7: Monitoreo mensual de proyectos vs. presupuesto */}
-          {/* Second instance of ForecastRubrosTable for project-level monitoring */}
-          {/* Must render EXPANDED by default (defaultOpen=true) per FINAL_FORECAST_LAYOUT.md */}
-          {NEW_FORECAST_LAYOUT_ENABLED && !loading && (
-            <Collapsible defaultOpen={true}>
-              <Card className="space-y-2">
-                <CardHeader className="pb-2 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">
-                        Monitoreo mensual de proyectos vs. presupuesto
-                      </CardTitle>
-                      <Badge variant="secondary" className="ml-2">Por Proyecto</Badge>
-                    </div>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        aria-label="Expandir/Colapsar Monitoreo mensual"
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    <ForecastRubrosTable
-                      categoryTotals={categoryTotals}
-                      categoryRubros={categoryRubros}
-                      projectTotals={projectTotals}
-                      projectRubros={projectRubros}
-                      portfolioTotals={portfolioTotalsForCharts}
-                      monthlyBudgets={monthlyBudgets}
-                      onSaveBudget={handleSaveBudgetFromTable}
-                      formatCurrency={formatCurrency}
-                      canEditBudget={canEditBudget}
-                      defaultFilter="labor"
-                      useNewDesignSystem={NEW_DESIGN_SYSTEM}
-                    />
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          )}
-        </>
-      )}
-
       {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
       {!isPortfolioView && (
