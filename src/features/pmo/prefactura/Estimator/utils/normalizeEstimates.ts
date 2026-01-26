@@ -64,12 +64,12 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
     // DB fields (must match server expectations)
     line_item_id: canonical,
     linea_codigo: canonical,
-    descripcion: (item as any).description || tax?.descripcion || tax?.linea_gasto || item.role || "",
-    categoria: (item as any).category || tax?.categoria || "",
+    descripcion: tax?.descripcion || tax?.linea_gasto || (item as any).description || item.role || "",
+    categoria: tax?.categoria || (item as any).category || "",
     rubro_canonical: canonical,
     // Preserve UI fields for compatibility
-    description: (item as any).description || tax?.descripcion || tax?.linea_gasto || item.role || "",
-    category: (item as any).category || tax?.categoria || "",
+    description: tax?.descripcion || tax?.linea_gasto || (item as any).description || item.role || "",
+    category: tax?.categoria || (item as any).category || "",
   };
 }
 
@@ -97,8 +97,8 @@ export function normalizeNonLaborEstimate(item: NonLaborEstimate): NormalizedNon
     ...item,
     // DB fields (must match server expectations)
     line_item_id: canonical,
-    descripcion: item.description || tax?.descripcion || tax?.linea_gasto || "",
-    categoria: item.category || tax?.categoria || "",
+    descripcion: tax?.descripcion || tax?.linea_gasto || item.description || "",
+    categoria: tax?.categoria || item.category || "",
     rubro_canonical: canonical,
   };
 }
