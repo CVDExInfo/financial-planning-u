@@ -12,8 +12,7 @@
  * - rubro_canonical is set for tracking
  */
 
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
-import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { canonicalizeRubroId, findRubroByLineaCodigo } from "@/lib/rubros";
 import type { LaborEstimate, NonLaborEstimate } from "@/types/domain";
 
 /**
@@ -53,10 +52,10 @@ export interface NormalizedNonLaborEstimate extends NonLaborEstimate {
  */
 export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEstimate {
   // Resolve canonical ID from rubroId or role field
-  const canonical = getCanonicalRubroId(item.rubroId || item.role || "") || item.rubroId;
+  const canonical = canonicalizeRubroId(item.rubroId || item.role || "") || item.rubroId;
   
-  // Fetch taxonomy entry for metadata
-  const tax = canonical ? getRubroById(canonical) : null;
+  // Fetch taxonomy entry for metadata using unified rubros helper
+  const tax = canonical ? findRubroByLineaCodigo(canonical) : null;
   
   // Build normalized estimate
   return {
@@ -87,10 +86,10 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
  */
 export function normalizeNonLaborEstimate(item: NonLaborEstimate): NormalizedNonLaborEstimate {
   // Resolve canonical ID from rubroId
-  const canonical = getCanonicalRubroId(item.rubroId || "") || item.rubroId;
+  const canonical = canonicalizeRubroId(item.rubroId || "") || item.rubroId;
   
-  // Fetch taxonomy entry for metadata
-  const tax = canonical ? getRubroById(canonical) : null;
+  // Fetch taxonomy entry for metadata using unified rubros helper
+  const tax = canonical ? findRubroByLineaCodigo(canonical) : null;
   
   // Build normalized estimate
   return {

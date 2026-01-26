@@ -23,8 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Server, CreditCard } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
 import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
-import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
 import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
 interface NonLaborStepProps {
@@ -85,8 +84,8 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
     
     // When rubroId changes, auto-populate category and description from canonical taxonomy
     if (field === "rubroId" && typeof value === "string") {
-      // Canonicalize the value
-      const canonical = getCanonicalRubroId(value) || value;
+      // Canonicalize the value using unified rubros helper
+      const canonical = canonicalizeRubroId(value) || value;
       const lookupId = canonical;
       
       // Try to find in the catalog first
@@ -94,7 +93,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       
       // Fallback to taxonomy if not in catalog
       if (!selectedRubro) {
-        selectedRubro = getRubroById(lookupId);
+        selectedRubro = findRubroByLineaCodigo(lookupId);
       }
       
       if (selectedRubro) {
@@ -103,9 +102,9 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
         updated[index].rubroId = rubroIdToStore;
         
         // ALWAYS overwrite description from taxonomy - do NOT preserve user input
-        updated[index].description = 
-          selectedRubro.descripcion || 
-          selectedRubro.linea_gasto ||
+        // Use unified rubros helper
+        const description = rubroDescriptionFor(rubroIdToStore);
+        updated[index].description = description || 
           selectedRubro.label || 
           "";
         

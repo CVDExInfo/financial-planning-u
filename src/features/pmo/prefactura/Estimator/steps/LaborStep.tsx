@@ -24,8 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
-import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
 import { normalizeLaborEstimates } from "../utils/normalizeEstimates";
 
 // Labor rate presets by country and role
@@ -127,18 +126,22 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     if (field === "role" && typeof value === "string") {
       // Map role to known rubro alias
       const alias = mapModRoleToRubroId(value as MODRole);
-      // Ensure canonical linea_codigo
-      const canonical = getCanonicalRubroId(alias || value) || alias || null;
+      // Ensure canonical linea_codigo using unified rubros helper
+      const canonical = canonicalizeRubroId(alias || value) || alias || null;
       
       if (canonical) {
         updated[index].rubroId = canonical;
         
-        // Auto-populate description/category from taxonomy
-        const tax = getRubroById(canonical);
-        if (tax) {
+        // Auto-populate description from taxonomy using unified helper
+        const description = rubroDescriptionFor(canonical);
+        if (description) {
           // ALWAYS update description from taxonomy - do NOT preserve user input
-          (updated[index] as any).description = tax.descripcion || tax.linea_gasto || value;
-          
+          (updated[index] as any).description = description;
+        }
+        
+        // Auto-populate category from taxonomy
+        const tax = findRubroByLineaCodigo(canonical);
+        if (tax) {
           // Always update category from taxonomy
           (updated[index] as any).category = tax.categoria || "";
           
@@ -210,7 +213,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     
     // Validate canonical rubro IDs before proceeding
     const invalid = laborEstimates.some((item) => {
-      const canonical = getCanonicalRubroId(item.rubroId || "");
+      const canonical = canonicalizeRubroId(item.rubroId || "");
       return !canonical;
     });
     
