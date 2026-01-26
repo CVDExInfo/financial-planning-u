@@ -26,7 +26,24 @@ export type RubroItem = {
   fuente_referencia?: string;
 };
 
-const items: RubroItem[] = (taxonomyData.items || []).map((item: any) => ({
+interface RawTaxonomyData {
+  schema?: string;
+  generated_at?: string;
+  items?: Array<{
+    pk?: string;
+    sk?: string;
+    linea_codigo?: string;
+    linea_gasto?: string;
+    descripcion?: string;
+    categoria_codigo?: string;
+    categoria?: string;
+    tipo_costo?: string;
+    tipo_ejecucion?: string;
+    fuente_referencia?: string;
+  }>;
+}
+
+const items: RubroItem[] = ((taxonomyData as RawTaxonomyData).items || []).map((item) => ({
   linea_codigo: item.linea_codigo,
   linea_gasto: item.linea_gasto,
   descripcion: item.descripcion,
