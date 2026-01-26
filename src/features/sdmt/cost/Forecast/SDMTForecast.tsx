@@ -218,6 +218,14 @@ if (import.meta.env.DEV) {
 // and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
 
 export function SDMTForecast() {
+  // Feature flag check: Mount V2 if enabled
+  if (NEW_FORECAST_LAYOUT_ENABLED) {
+    // Lazy import to avoid loading V2 when not needed
+    const { SDMTForecastV2 } = require('./SDMTForecastV2');
+    return <SDMTForecastV2 />;
+  }
+
+  // V1 (Legacy) Implementation Below
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoadingForecast, setIsLoadingForecast] = useState(true);
