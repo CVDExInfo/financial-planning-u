@@ -10,10 +10,10 @@
 
 import {
   CANONICAL_RUBROS_TAXONOMY,
-  getCanonicalRubroId,
   isValidRubroId as validateRubroId,
   type CanonicalRubroTaxonomy,
 } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 import { MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';
 import type { MODRole } from '@/modules/modRoles';
 
@@ -116,8 +116,8 @@ export function mapModRoleToRubroId(role: MODRole): string | null {
   const alias = MOD_ROLE_TO_LINEA_CODIGO[role];
   if (!alias) return null;
   
-  // Ensure we return canonical ID (double-check via getCanonicalRubroId)
-  const canonical = getCanonicalRubroId(alias);
+  // Ensure we return canonical ID (double-check via canonicalizeRubroId)
+  const canonical = canonicalizeRubroId(alias);
   return canonical || alias;
 }
 
@@ -141,7 +141,7 @@ export function mapRubroIdToModRoles(lineaCodigo: string): MODRole[] {
  */
 export async function getRubroByCode(lineaCodigo: string): Promise<RubroMeta | undefined> {
   // Normalize to canonical ID first
-  const canonicalId = getCanonicalRubroId(lineaCodigo);
+  const canonicalId = canonicalizeRubroId(lineaCodigo);
   const allRubros = await fetchRubrosCatalog();
   return allRubros.find((r) => r.id === canonicalId);
 }

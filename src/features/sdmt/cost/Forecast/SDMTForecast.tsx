@@ -69,7 +69,8 @@ import {
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
 import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
-import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
+import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
@@ -1111,7 +1112,7 @@ export function SDMTForecast() {
     
     for (const li of allLineItemsFlattened) {
       const normalizedId = normalizeRubroId(li.id);
-      const canonical = getCanonicalRubroId(normalizedId) || normalizedId;
+      const canonical = canonicalizeRubroId(normalizedId) || normalizedId;
       const taxonomy = getTaxonomyById(normalizedId);
       
       const existing = canonicalMap.get(canonical);

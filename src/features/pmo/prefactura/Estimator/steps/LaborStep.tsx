@@ -24,7 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
 import { normalizeLaborEstimates } from "../utils/normalizeEstimates";
 
@@ -128,7 +128,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
       // Map role to known rubro alias
       const alias = mapModRoleToRubroId(value as MODRole);
       // Ensure canonical linea_codigo
-      const canonical = getCanonicalRubroId(alias || value) || alias || null;
+      const canonical = canonicalizeRubroId(alias || value) || alias || null;
       
       if (canonical) {
         updated[index].rubroId = canonical;
@@ -210,7 +210,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     
     // Validate canonical rubro IDs before proceeding
     const invalid = laborEstimates.some((item) => {
-      const canonical = getCanonicalRubroId(item.rubroId || "");
+      const canonical = canonicalizeRubroId(item.rubroId || "");
       return !canonical;
     });
     

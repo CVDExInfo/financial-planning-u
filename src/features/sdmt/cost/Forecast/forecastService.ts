@@ -7,7 +7,7 @@ import invoicesDefault from "@/mocks/invoices.json" assert { type: "json" };
 import invoicesFintech from "@/mocks/invoices-fintech.json" assert { type: "json" };
 import invoicesRetail from "@/mocks/invoices-retail.json" assert { type: "json" };
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 
 /**
  * Annotate invoice with canonical rubro ID for improved matching
@@ -23,11 +23,11 @@ function annotateInvoiceWithCanonicalRubro(invoice: InvoiceDoc): InvoiceDoc {
   const rubroId = invoice.rubroId || invoice.rubro_id || normalizedLineItemId;
   
   if (rubroId) {
-    const canonicalRubroId = getCanonicalRubroId(rubroId);
+    const canonicalRubroId = canonicalizeRubroId(rubroId);
     return {
       ...invoice,
       line_item_id: normalizedLineItemId,
-      // Always add canonical ID (getCanonicalRubroId returns input for unknown rubros)
+      // Always add canonical ID (canonicalizeRubroId returns input for unknown rubros)
       rubro_canonical: canonicalRubroId,
     };
   }

@@ -23,7 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Server, CreditCard } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
 import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
 import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
@@ -86,7 +86,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
     // When rubroId changes, auto-populate category and description from canonical taxonomy
     if (field === "rubroId" && typeof value === "string") {
       // Canonicalize the value
-      const canonical = getCanonicalRubroId(value) || value;
+      const canonical = canonicalizeRubroId(value) || value;
       const lookupId = canonical;
       
       // Try to find in the catalog first
@@ -168,7 +168,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
 
   const handleNext = () => {
     // Validate canonical rubro IDs before proceeding
-    const invalid = nonLaborEstimates.some((item) => !getCanonicalRubroId(item.rubroId || ""));
+    const invalid = nonLaborEstimates.some((item) => !canonicalizeRubroId(item.rubroId || ""));
     
     if (invalid) {
       // Show friendly validation
@@ -465,7 +465,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         className="w-full justify-start text-xs"
                         onClick={() => {
                           // Ensure canonical ID is used
-                          const canonical = getCanonicalRubroId(rubro.id) || rubro.id;
+                          const canonical = canonicalizeRubroId(rubro.id) || rubro.id;
                           const newItem: NonLaborEstimate = {
                             rubroId: canonical,
                             category: categoryName,

@@ -10,7 +10,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 import { normalizeLaborEstimate, normalizeNonLaborEstimate } from "../utils/normalizeEstimates";
@@ -61,17 +61,17 @@ describe("PMO Estimator canonical mapping integration", () => {
 
   describe("Legacy ID resolution", () => {
     it("should resolve legacy 'mod-lead-ingeniero-delivery' to MOD-LEAD", () => {
-      const canonical = getCanonicalRubroId("mod-lead-ingeniero-delivery");
+      const canonical = canonicalizeRubroId("mod-lead-ingeniero-delivery");
       assert.equal(canonical, "MOD-LEAD");
     });
 
     it("should resolve legacy 'RUBRO-AWS-INFRA' to INF-CLOUD", () => {
-      const canonical = getCanonicalRubroId("RUBRO-AWS-INFRA");
+      const canonical = canonicalizeRubroId("RUBRO-AWS-INFRA");
       assert.equal(canonical, "INF-CLOUD");
     });
 
     it("should resolve legacy 'project-manager' to MOD-LEAD", () => {
-      const canonical = getCanonicalRubroId("project-manager");
+      const canonical = canonicalizeRubroId("project-manager");
       assert.equal(canonical, "MOD-LEAD");
     });
   });
@@ -124,7 +124,7 @@ describe("PMO Estimator canonical mapping integration", () => {
       const selectedRubroId = "INF-CLOUD";
       
       // Step 2: Canonicalize (already canonical in this case)
-      const canonical = getCanonicalRubroId(selectedRubroId);
+      const canonical = canonicalizeRubroId(selectedRubroId);
       assert.equal(canonical, "INF-CLOUD");
       
       // Step 3: Fetch taxonomy for auto-population
@@ -170,7 +170,7 @@ describe("PMO Estimator canonical mapping integration", () => {
         const rubroId = mapModRoleToRubroId(role);
         assert.ok(rubroId, `${role} should map to a rubroId`);
         
-        const canonical = getCanonicalRubroId(rubroId!);
+        const canonical = canonicalizeRubroId(rubroId!);
         assert.ok(canonical, `${rubroId} should be canonical or resolvable`);
       });
     });
@@ -179,7 +179,7 @@ describe("PMO Estimator canonical mapping integration", () => {
       const rubros = ["INF-CLOUD", "TEC-LIC-MON", "GSV-REU", "TEC-HW-FIELD"];
       
       rubros.forEach(rubro => {
-        const canonical = getCanonicalRubroId(rubro);
+        const canonical = canonicalizeRubroId(rubro);
         assert.ok(canonical, `${rubro} should be canonical`);
         assert.equal(canonical, rubro, `${rubro} should already be canonical`);
       });
