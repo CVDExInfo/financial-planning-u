@@ -245,8 +245,13 @@ export function SDMTForecastV2() {
         setLoading(true);
         setError(null);
         
-        // TODO: Replace with actual API call
-        // For now, generate mock data based on line items
+        // TODO: Replace mock data with real API calls
+        // Integration points:
+        //   - loadPortfolioForecast(months, requestKey) from SDMTForecast.tsx
+        //   - loadSingleProjectForecast(projectId, months) 
+        //   - finanzasClient.getAllInBudgetMonthly(year)
+        //   - bulkUploadPayrollActuals, bulkUpsertForecast for saves
+        // For now, generate mock data for UI development and testing
         const mockData: ForecastRow[] = safeLineItems.map((item) => {
           const row: ForecastRow = {
             line_item_id: item.line_item_id,

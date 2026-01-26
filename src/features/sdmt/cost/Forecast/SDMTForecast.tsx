@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -220,9 +221,15 @@ if (import.meta.env.DEV) {
 export function SDMTForecast() {
   // Feature flag check: Mount V2 if enabled
   if (NEW_FORECAST_LAYOUT_ENABLED) {
-    // Lazy import to avoid loading V2 when not needed
-    const { SDMTForecastV2 } = require('./SDMTForecastV2');
-    return <SDMTForecastV2 />;
+    // Use React.lazy for proper code splitting and modern bundling
+    const SDMTForecastV2 = React.lazy(() => 
+      import('./SDMTForecastV2').then(module => ({ default: module.SDMTForecastV2 }))
+    );
+    return (
+      <React.Suspense fallback={<LoadingSpinner />}>
+        <SDMTForecastV2 />
+      </React.Suspense>
+    );
   }
 
   // V1 (Legacy) Implementation Below
