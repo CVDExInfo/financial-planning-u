@@ -55,7 +55,15 @@ export default tseslint.config(
           }
         ],
         patterns: [
-          'services/finanzas-api/*'
+          {
+            group: ['services/finanzas-api/*'],
+            message: 'Front-end must not import from services/finanzas-api.'
+          },
+          {
+            group: ['**/lib/rubros/canonical-taxonomy'],
+            importNames: ['getCanonicalRubroId'],
+            message: 'Use canonicalizeRubroId from @/lib/rubros instead of getCanonicalRubroId from canonical-taxonomy.'
+          }
         ]
       }]
     },
