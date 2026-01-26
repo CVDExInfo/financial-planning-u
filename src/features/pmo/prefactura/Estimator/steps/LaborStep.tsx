@@ -24,9 +24,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
-import { canonicalizeRubroId } from "@/lib/rubros";
-import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
-import { normalizeLaborEstimates } from "../utils/normalizeEstimates";
+import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
+import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
+
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -133,12 +133,16 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
       if (canonical) {
         updated[index].rubroId = canonical;
         
-        // Auto-populate description/category from taxonomy
-        const tax = getRubroById(canonical);
-        if (tax) {
+        // Auto-populate description from taxonomy using unified helper
+        const description = rubroDescriptionFor(canonical);
+        if (description) {
           // ALWAYS update description from taxonomy - do NOT preserve user input
-          (updated[index] as any).description = tax.descripcion || tax.linea_gasto || value;
-          
+          (updated[index] as any).description = description;
+        }
+        
+        // Auto-populate category from taxonomy
+        const tax = findRubroByLineaCodigo(canonical);
+        if (tax) {
           // Always update category from taxonomy
           (updated[index] as any).category = tax.categoria || "";
           

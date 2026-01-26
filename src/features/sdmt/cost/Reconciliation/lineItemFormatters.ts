@@ -10,8 +10,7 @@
  */
 
 import type { LineItem } from "@/types/domain";
-import { canonicalizeRubroId } from "@/lib/rubros";
-import { getTaxonomyEntry } from "@/lib/rubros";
+import { canonicalizeRubroId, getTaxonomyById } from "@/lib/rubros";
 
 // Helper type for extended line items with Spanish property names
 // This supports both Spanish (categoria, linea_codigo, tipo_costo) and English property names
@@ -73,7 +72,7 @@ export function formatLineItemDisplay(
   
   // Try to get canonical taxonomy definition first
   const canonicalId = canonicalizeRubroId(item.id);
-  const canonical = canonicalId ? getTaxonomyEntry(canonicalId) : null;
+  const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
   
   // Prefer canonical data, fallback to item properties
   const lineaCodigo = canonical?.linea_codigo || extended.linea_codigo?.trim() || item.id;
@@ -143,7 +142,7 @@ export function formatRubroLabel(item?: LineItem, fallbackId?: string): string {
   
   // Try to get canonical taxonomy definition first
   const canonicalId = canonicalizeRubroId(item.id);
-  const canonical = canonicalId ? getTaxonomyEntry(canonicalId) : null;
+  const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
   
   if (canonical) {
     // Use canonical format: ${linea_codigo} — ${linea_gasto}
