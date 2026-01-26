@@ -3813,6 +3813,8 @@ export function SDMTForecast() {
               onOpenChange={handleChartsPanelOpenChange}
             />
           )}
+        </>
+      )}
 
       {/* ========== SINGLE PROJECT VIEW LAYOUT ========== */}
       {/* Budget & Simulation Panel - Collapsible - Single Project Mode Only */}
