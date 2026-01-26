@@ -218,21 +218,14 @@ if (import.meta.env.DEV) {
 // (Flags for ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED, HIDE_EXPANDABLE_PROJECT_LIST,
 // and HIDE_RUNWAY_METRICS are declared and used inside PortfolioSummaryView.tsx)
 
+// Lazy load V2 component for code splitting (moved outside component to avoid hooks issues)
+const SDMTForecastV2 = React.lazy(() => 
+  import('./SDMTForecastV2').then(module => ({ default: module.SDMTForecastV2 }))
+);
+
 export function SDMTForecast() {
   // Feature flag check: Mount V2 if enabled
-  if (NEW_FORECAST_LAYOUT_ENABLED) {
-    // Use React.lazy for proper code splitting and modern bundling
-    const SDMTForecastV2 = React.lazy(() => 
-      import('./SDMTForecastV2').then(module => ({ default: module.SDMTForecastV2 }))
-    );
-    return (
-      <React.Suspense fallback={<LoadingSpinner />}>
-        <SDMTForecastV2 />
-      </React.Suspense>
-    );
-  }
-
-  // V1 (Legacy) Implementation Below
+  // Must check flag AFTER all hooks to comply with Rules of Hooks
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoadingForecast, setIsLoadingForecast] = useState(true);
@@ -5180,6 +5173,15 @@ export function SDMTForecast() {
       <DashboardLayout maxWidth="full">
         {renderContent()}
       </DashboardLayout>
+    );
+  }
+
+  // Feature flag check: Mount V2 if enabled (checked after all hooks)
+  if (NEW_FORECAST_LAYOUT_ENABLED) {
+    return (
+      <React.Suspense fallback={<LoadingSpinner />}>
+        <SDMTForecastV2 />
+      </React.Suspense>
     );
   }
 
