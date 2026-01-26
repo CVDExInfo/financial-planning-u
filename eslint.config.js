@@ -52,6 +52,10 @@ export default tseslint.config(
           {
             name: 'services/finanzas-api',
             message: 'Front-end must not import services/finanzas-api. Use src/api/finanzasClient.ts or shared packages instead.'
+          },
+          {
+            name: '@/lib/rubros/canonical-taxonomy',
+            message: 'Use @/lib/rubros public API instead. Import canonicalizeRubroId, getTaxonomyEntry, allRubros, etc. from @/lib/rubros.'
           }
         ],
         patterns: [
@@ -61,8 +65,7 @@ export default tseslint.config(
           },
           {
             group: ['**/lib/rubros/canonical-taxonomy'],
-            importNames: ['getCanonicalRubroId'],
-            message: 'Use canonicalizeRubroId from @/lib/rubros instead of getCanonicalRubroId from canonical-taxonomy.'
+            message: 'Use @/lib/rubros public API instead of importing canonical-taxonomy directly. See src/lib/rubros/index.ts for available functions.'
           }
         ]
       }]

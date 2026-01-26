@@ -7,7 +7,7 @@
 
 import type { LineItem, ForecastCell } from '@/types/domain';
 import { isLaborByKey } from './lib/taxonomyLookup';
-import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
+import { getTaxonomyEntry } from '@/lib/rubros';
 
 /**
  * ForecastRow extends ForecastCell with optional project metadata and budget data
@@ -63,7 +63,7 @@ export function transformLineItemsToForecast(
     const monthlyAmount = totalCost / activeMonths;
     
     // Try to resolve from canonical taxonomy first, then fallback to taxonomyByRubroId
-    const canonicalTaxonomy = getTaxonomyById(item.id);
+    const canonicalTaxonomy = getTaxonomyEntry(item.id);
     const taxonomyEntry = taxonomyByRubroId?.[item.id];
     
     // Priority chain for description: item.description -> canonical taxonomy -> taxonomyByRubroId -> item.id

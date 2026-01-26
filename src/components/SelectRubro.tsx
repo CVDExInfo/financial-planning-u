@@ -26,12 +26,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  CANONICAL_RUBROS_TAXONOMY,
+  ALL_RUBROS_TAXONOMY,
   isValidRubroId,
   type CanonicalRubroTaxonomy,
   getAllCategories,
   getRubrosByCategory,
-} from '@/lib/rubros/canonical-taxonomy';
+} from '@/lib/rubros';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -127,7 +127,7 @@ export function SelectRubro({
 
   // Validate current value
   const isValid = value ? isValidRubroId(value) : true;
-  const selectedRubro = value ? CANONICAL_RUBROS_TAXONOMY.find(r => r.linea_codigo === value) : null;
+  const selectedRubro = value ? ALL_RUBROS_TAXONOMY.find(r => r.linea_codigo === value) : null;
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>

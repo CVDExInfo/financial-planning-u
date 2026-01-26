@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
-import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros";
 import { canonicalizeRubroId } from "@/lib/rubros";
 import RubroFormModal from "@/components/finanzas/RubroFormModal";
 import { useRBACProjects } from "@/hooks/useRBACProjects";

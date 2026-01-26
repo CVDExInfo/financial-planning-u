@@ -70,7 +70,7 @@ import {
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
 import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { canonicalizeRubroId } from "@/lib/rubros";
-import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { getTaxonomyEntry } from "@/lib/rubros";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
@@ -690,7 +690,7 @@ export function SDMTForecast() {
           : defaultMonthlyAmount;
 
         // Try to resolve category and description from canonical taxonomy
-        const taxonomy = getTaxonomyById(lineItemId) || getTaxonomyById(rubroKey);
+        const taxonomy = getTaxonomyEntry(lineItemId) || getTaxonomyEntry(rubroKey);
         
         const description = 
           resolveString(item.description) ||
@@ -1113,7 +1113,7 @@ export function SDMTForecast() {
     for (const li of allLineItemsFlattened) {
       const normalizedId = normalizeRubroId(li.id);
       const canonical = canonicalizeRubroId(normalizedId) || normalizedId;
-      const taxonomy = getTaxonomyById(normalizedId);
+      const taxonomy = getTaxonomyEntry(normalizedId);
       
       const existing = canonicalMap.get(canonical);
       

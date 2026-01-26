@@ -9,7 +9,7 @@ import {
 import { isLabor } from '@/lib/rubros-category-utils';
 import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
 import { canonicalizeRubroId } from "@/lib/rubros";
-import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { getTaxonomyEntry } from "@/lib/rubros";
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -166,7 +166,7 @@ export function useMonthlySnapshotData({
     lineItems.forEach(li => {
       const normalized = normalizeRubroId(li.id || '');
       const canonical = canonicalizeRubroId(normalized);
-      const taxonomy = getTaxonomyById(normalized);
+      const taxonomy = getTaxonomyEntry(normalized);
       
       // Prefer taxonomy description if available, otherwise use line item description
       const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';

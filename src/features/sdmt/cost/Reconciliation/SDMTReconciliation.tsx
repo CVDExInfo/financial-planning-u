@@ -76,7 +76,7 @@ import {
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { isMODCategory } from "@/lib/cost-utils";
 import { canonicalizeRubroId } from "@/lib/rubros";
-import { getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { getTaxonomyEntry } from "@/lib/rubros";
 
 /** --------- Types & helpers --------- */
 
@@ -956,7 +956,7 @@ export default function SDMTReconciliation() {
 
                     // 1. Try to use canonical taxonomy source of truth first
                     const canonicalId = canonicalizeRubroId(uploadFormData.line_item_id);
-                    const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
+                    const canonical = canonicalId ? getTaxonomyEntry(canonicalId) : null;
                     
                     if (canonical) {
                       // Use canonical format: ${linea_codigo} — ${linea_gasto}
