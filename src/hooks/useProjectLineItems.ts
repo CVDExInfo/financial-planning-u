@@ -4,7 +4,6 @@ import { getProjectRubros, getProjectRubrosWithTaxonomy } from "@/api/finanzas";
 import { getRubrosWithFallback } from "@/lib/api";
 import { ALL_PROJECTS_ID, useProject } from "@/contexts/ProjectContext";
 import type { LineItem } from "@/types/domain";
-import { ensureCategory } from "@/lib/rubros-category-utils";
 
 const lineItemsKey = (projectId?: string, baselineId?: string) =>
   ["lineItems", projectId ?? "none", baselineId ?? "none"] as const;
@@ -37,7 +36,7 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
       if (withTaxonomy) {
         const result = await getProjectRubrosWithTaxonomy(projectId);
         return {
-          lineItems: result.lineItems.map(ensureCategory),
+          lineItems: result.lineItems,
           taxonomyByRubroId: result.taxonomyByRubroId,
         };
       }
@@ -50,9 +49,8 @@ export function useProjectLineItems(options?: { useFallback?: boolean; baselineI
         items = await getProjectRubros(projectId);
       }
       
-      // Ensure proper category assignment for labor roles
       return {
-        lineItems: items.map(ensureCategory),
+        lineItems: items,
       };
     },
     enabled: !!projectId && projectId !== ALL_PROJECTS_ID,

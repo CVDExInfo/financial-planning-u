@@ -20,11 +20,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Server, CreditCard } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, Server, CreditCard, AlertCircle } from "lucide-react";
 import type { NonLaborEstimate, Currency } from "@/types/domain";
 import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
-import { getRubroById } from "@/lib/rubros/taxonomyHelpers";
+import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
 import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
 interface NonLaborStepProps {
@@ -43,6 +43,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   const [nonLaborEstimates, setNonLaborEstimates] = useState<
     NonLaborEstimate[]
   >(data.length > 0 ? data : []);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Group rubros by category for organized display
   // Use categoryName (full name) as primary, fall back to category (code), or use "Other"
@@ -85,8 +86,8 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
     
     // When rubroId changes, auto-populate category and description from canonical taxonomy
     if (field === "rubroId" && typeof value === "string") {
-      // Canonicalize the value
-      const canonical = getCanonicalRubroId(value) || value;
+      // Canonicalize the value using unified rubros helper
+      const canonical = canonicalizeRubroId(value) || value;
       const lookupId = canonical;
       
       // Try to find in the catalog first
@@ -94,7 +95,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
       
       // Fallback to taxonomy if not in catalog
       if (!selectedRubro) {
-        selectedRubro = getRubroById(lookupId);
+        selectedRubro = findRubroByLineaCodigo(lookupId);
       }
       
       if (selectedRubro) {
@@ -102,16 +103,12 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
         const rubroIdToStore = selectedRubro.linea_codigo || selectedRubro.id || canonical;
         updated[index].rubroId = rubroIdToStore;
         
-        // Always populate description from taxonomy (prefer taxonomy over user input for consistency)
-        // But preserve user override if they've manually edited it
-        const currentDescription = updated[index].description;
-        if (!currentDescription || currentDescription === "") {
-          updated[index].description = 
-            selectedRubro.descripcion || 
-            selectedRubro.linea_gasto ||
-            selectedRubro.label || 
-            "";
-        }
+        // ALWAYS overwrite description from taxonomy - do NOT preserve user input
+        // Use unified rubros helper
+        const description = rubroDescriptionFor(rubroIdToStore);
+        updated[index].description = description || 
+          selectedRubro.label || 
+          "";
         
         // Always update category from taxonomy
         updated[index].category = 
@@ -171,12 +168,16 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
   };
 
   const handleNext = () => {
+    // Clear any previous validation errors
+    setValidationError(null);
+    
     // Validate canonical rubro IDs before proceeding
-    const invalid = nonLaborEstimates.some((item) => !getCanonicalRubroId(item.rubroId || ""));
+    // Use canonicalizeRubroId from unified rubros helpers (already imported)
+    const invalid = nonLaborEstimates.some((item) => !canonicalizeRubroId(item.rubroId || ""));
     
     if (invalid) {
-      // Show friendly validation
-      alert("Por favor seleccione un rubro válido para cada elemento no laboral.");
+      // Show friendly validation using app Alert (consistent with LaborStep)
+      setValidationError("Por favor seleccione un rubro válido para cada elemento no laboral.");
       return;
     }
 
@@ -214,6 +215,14 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
           Agrega infraestructura, licencias de software y otros gastos no laborales
         </p>
       </div>
+
+      {/* Validation Error Alert */}
+      {validationError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{validationError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Add Non-Labor Item */}
       <div className="flex justify-between items-center">
@@ -307,15 +316,10 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             id={descriptionId}
                             name={descriptionId}
                             value={item.description}
-                            onChange={(e) =>
-                              updateNonLaborItem(
-                                index,
-                                "description",
-                                e.target.value
-                              )
-                            }
-                            placeholder="ej., Instancias AWS EC2"
-                            className="w-[200px]"
+                            placeholder="Selecciona un rubro"
+                            className="w-[200px] bg-muted text-muted-foreground cursor-not-allowed"
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
@@ -474,7 +478,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                         className="w-full justify-start text-xs"
                         onClick={() => {
                           // Ensure canonical ID is used
-                          const canonical = getCanonicalRubroId(rubro.id) || rubro.id;
+                          const canonical = canonicalizeRubroId(rubro.id) || rubro.id;
                           const newItem: NonLaborEstimate = {
                             rubroId: canonical,
                             category: categoryName,

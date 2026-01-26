@@ -71,9 +71,11 @@ import {
 import {
   formatLineItemDisplay,
   extractFriendlyFilename,
+  formatRubroLabel,
 } from "./lineItemFormatters";
 import { ES_TEXTS } from "@/lib/i18n/es";
 import { isMODCategory } from "@/lib/cost-utils";
+import { canonicalizeRubroId, getTaxonomyById } from "@/lib/rubros";
 
 /** --------- Types & helpers --------- */
 
@@ -107,20 +109,7 @@ const createInitialUploadForm = (): UploadFormState => ({
   invoice_date: "",
 });
 
-// Note: Additional formatting functions (formatMatrixLabel, formatRubroLabel) are available
-// from lineItemFormatters.ts for backward compatibility with other modules.
-const formatRubroLabel = (item?: LineItem, fallbackId?: string) => {
-  if (!item) return fallbackId || "Rubro";
-  const category = (item as any).categoria?.trim() || item.category?.trim();
-  const description = item.description?.trim() || fallbackId || "Rubro";
-  const lineaCodigo = (item as any).linea_codigo?.trim();
-  const tipoCosto = (item as any).tipo_costo?.trim();
-  const categoryLabel = category || "General";
-  const codePart = lineaCodigo || item.id || fallbackId || "";
-  const tipoCostoSuffix = tipoCosto ? ` • ${tipoCosto}` : "";
-  return `${categoryLabel} — ${description}${codePart ? ` [${codePart}]` : ""}${tipoCostoSuffix}`;
-};
-
+// formatMatrixLabel is available from lineItemFormatters.ts, but we keep a local version for convenience
 const formatMatrixLabel = (
   item?: LineItem,
   month?: number,
@@ -209,10 +198,11 @@ export default function SDMTReconciliation() {
 
   const {
     lineItems,
+    taxonomyByRubroId, // Extract this new property
     isLoading: lineItemsLoading,
     error: lineItemsError,
     invalidate: invalidateLineItems,
-  } = useProjectLineItems();
+  } = useProjectLineItems({ withTaxonomy: true }); // Enable taxonomy fetching
 
   // Fetch providers for vendor dropdown
   const {
@@ -957,13 +947,29 @@ export default function SDMTReconciliation() {
                   id="taxonomy-description"
                   name="taxonomy-description"
                   value={(() => {
-                    // Get taxonomy description from selected line item
+                    // Get selected item once to avoid duplicate lookups
                     const selectedItem = safeLineItems.find(
                       (item) => item.id === uploadFormData.line_item_id
                     );
                     if (!selectedItem) return "";
+
+                    // 1. Try to use canonical taxonomy source of truth first
+                    const canonicalId = canonicalizeRubroId(uploadFormData.line_item_id);
+                    const canonical = canonicalId ? getTaxonomyById(canonicalId) : null;
                     
-                    // Build taxonomy description from line item properties
+                    if (canonical) {
+                      // Use canonical format: ${linea_codigo} — ${linea_gasto}
+                      // Plus category and type as metadata
+                      const parts: string[] = [];
+                      parts.push(`${canonical.linea_codigo} — ${canonical.linea_gasto}`);
+                      
+                      if (canonical.categoria) parts.push(`Categoría: ${canonical.categoria}`);
+                      if (canonical.tipo_costo) parts.push(`Tipo: ${canonical.tipo_costo}`);
+                      
+                      return parts.join(" • ");
+                    }
+
+                    // 2. Fallback to existing logic if canonical not found
                     const category = (selectedItem as any).categoria?.trim() || selectedItem.category?.trim();
                     const description = selectedItem.description?.trim();
                     const tipoCosto = (selectedItem as any).tipo_costo?.trim();

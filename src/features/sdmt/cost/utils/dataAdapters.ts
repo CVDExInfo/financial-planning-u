@@ -1,5 +1,5 @@
 import type { ForecastCell, LineItem } from "@/types/domain";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 
 const normalizeRubroId = (id?: string): string => {
   if (!id) return "";
@@ -186,7 +186,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     if (lineItemId) matchingIds.push(lineItemId);
     
     // Add canonical ID for matching (if different from lineItemId)
-    const canonicalId = getCanonicalRubroId(lineItemId);
+    const canonicalId = canonicalizeRubroId(lineItemId);
     if (canonicalId && canonicalId !== lineItemId && !matchingIds.includes(canonicalId)) {
       matchingIds.push(canonicalId);
     }
@@ -199,7 +199,7 @@ export const normalizeForecastCells = (cells: any[], options?: { baselineId?: st
     
     // Add canonical version of rubroId
     if (rubroId) {
-      const canonicalRubroId = getCanonicalRubroId(normalizeRubroId(rubroId));
+      const canonicalRubroId = canonicalizeRubroId(normalizeRubroId(rubroId));
       if (canonicalRubroId && !matchingIds.includes(canonicalRubroId)) {
         matchingIds.push(canonicalRubroId);
       }
