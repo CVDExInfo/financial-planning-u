@@ -103,7 +103,7 @@ export async function fetchNonLaborRubros(): Promise<RubroMeta[]> {
  * Map a MOD role name to its canonical linea_codigo
  * 
  * @param role - MOD role name (e.g., "Ingeniero Delivery")
- * @returns Canonical linea_codigo (e.g., "MOD-LEAD") or undefined if not found
+ * @returns Canonical linea_codigo (e.g., "MOD-LEAD") or null if not found
  */
 /**
  * Default rubro codes for fallback scenarios
@@ -112,8 +112,13 @@ export async function fetchNonLaborRubros(): Promise<RubroMeta[]> {
 export const DEFAULT_LABOR_RUBRO = "MOD-ING";
 export const DEFAULT_NON_LABOR_RUBRO = "GSV-REU";
 
-export function mapModRoleToRubroId(role: MODRole): string | undefined {
-  return MOD_ROLE_TO_LINEA_CODIGO[role];
+export function mapModRoleToRubroId(role: MODRole): string | null {
+  const alias = MOD_ROLE_TO_LINEA_CODIGO[role];
+  if (!alias) return null;
+  
+  // Ensure we return canonical ID (double-check via getCanonicalRubroId)
+  const canonical = getCanonicalRubroId(alias);
+  return canonical || alias;
 }
 
 /**
