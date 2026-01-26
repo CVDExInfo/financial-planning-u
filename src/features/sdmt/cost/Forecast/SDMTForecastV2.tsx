@@ -18,7 +18,7 @@
  * - Responsive design with DashboardLayout wrapper
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -43,8 +43,16 @@ import { ForecastMonthlyGrid } from './components/ForecastMonthlyGrid';
 import { MatrizExecutiveBar } from './components/MatrizExecutiveBar';
 import { ChartsPanelV2 } from './components/ChartsPanelV2';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell, LineItem } from '@/types/domain';
+import type { ForecastCell, LineItem, Allocation } from '@/types/domain';
 import type { BaselineDetail } from '@/api/finanzas';
+import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
+import { getForecastPayload, getProjectInvoices } from './forecastService';
+import finanzasClient from '@/api/finanzasClient';
+import { getAllocations } from '@/api/finanzas';
+import { getProjectRubros } from '@/api/finanzas';
+import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
+import { transformLineItemsToForecast } from './transformLineItemsToForecast';
+import { computeForecastFromAllocations } from './computeForecastFromAllocations';
 
 // Types
 type ForecastRow = ForecastCell & {
@@ -150,6 +158,17 @@ export function SDMTForecastV2() {
     return isPortfolioView && !!user;
   }, [isPortfolioView, user]);
   
+  // ==================== REFS & HELPERS ====================
+  
+  // Request tracking ref to prevent race conditions
+  const latestRequestKeyRef = useRef<string>("");
+  
+  // Helper function to resolve baseline status
+  const resolveBaselineStatus = (project: { baselineStatus?: string; baseline_status?: string } | null): string => {
+    if (!project) return '';
+    return project.baselineStatus || project.baseline_status || '';
+  };
+  
   // ==================== COMPUTED KPIs ====================
   
   /**
@@ -229,6 +248,170 @@ export function SDMTForecastV2() {
     return series;
   }, [forecastData]);
   
+  // ==================== DATA LOADING FUNCTIONS ====================
+  
+  /**
+   * Load forecast data for a single project
+   */
+  const loadSingleProjectForecast = async (
+    projectId: string,
+    months: number,
+    requestKey: string
+  ) => {
+    const payload = await getForecastPayload(projectId, months);
+    
+    // Check if request is still valid
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
+    
+    const debugMode = import.meta.env.DEV;
+    let normalized = normalizeForecastCells(payload.data, {
+      baselineId: currentProject?.baselineId,
+      debugMode,
+    });
+    
+    let usedFallback = false;
+    const baselineStatus = resolveBaselineStatus(currentProject as any);
+    const hasAcceptedBaseline = baselineStatus === 'accepted';
+    
+    // Fallback: If server forecast is empty and we have line items, use them
+    if (
+      (!normalized || normalized.length === 0) &&
+      safeLineItems &&
+      safeLineItems.length > 0 &&
+      hasAcceptedBaseline
+    ) {
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[SDMTForecastV2] Using baseline fallback for ${projectId}, baseline ${currentProject?.baselineId}: ${safeLineItems.length} line items`
+        );
+      }
+      normalized = transformLineItemsToForecast(safeLineItems, months, projectId);
+      usedFallback = true;
+    }
+    
+    // Get matched invoices and sync with actuals
+    const invoices = await getProjectInvoices(projectId);
+    
+    // Check again after async operation
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
+    
+    const matchedInvoices = invoices.filter((inv) => inv.status === 'Matched');
+    
+    const updatedData: ForecastRow[] = normalized.map((cell) => {
+      const matchedInvoice = matchedInvoices.find(
+        (inv) =>
+          inv.line_item_id === cell.line_item_id && inv.month === cell.month
+      );
+      
+      return matchedInvoice
+        ? {
+            ...cell,
+            actual: matchedInvoice.amount || 0,
+            variance: cell.forecast - cell.planned,
+          }
+        : cell;
+    });
+    
+    setForecastData(updatedData);
+  };
+  
+  /**
+   * Load forecast data for portfolio view (all projects)
+   */
+  const loadPortfolioForecast = async (months: number, requestKey: string) => {
+    const candidateProjects = projects.filter(
+      (project) => project.id && project.id !== ALL_PROJECTS_ID
+    );
+    
+    if (candidateProjects.length === 0) {
+      if (import.meta.env.DEV) {
+        console.debug('[SDMTForecastV2] No candidate projects for portfolio view');
+      }
+      setForecastData([]);
+      return;
+    }
+    
+    const portfolioResults = await Promise.all(
+      candidateProjects.map(async (project) => {
+        try {
+          const [payload, invoices, projectLineItems, allocations] = await Promise.all([
+            getForecastPayload(project.id, months),
+            getProjectInvoices(project.id),
+            getProjectRubros(project.id).catch(() => [] as LineItem[]),
+            getAllocations(project.id, project.baselineId).catch(() => [] as Allocation[]),
+          ]);
+          
+          // Check if request is still valid
+          if (latestRequestKeyRef.current !== requestKey) {
+            return null;
+          }
+          
+          const debugMode = import.meta.env.DEV;
+          let normalized = normalizeForecastCells(payload.data, {
+            baselineId: project.baselineId,
+            debugMode,
+          });
+          
+          const baselineStatus = resolveBaselineStatus(project as any);
+          const hasAcceptedBaseline = baselineStatus === 'accepted';
+          let usedFallback = false;
+          
+          // Fallback hierarchy: allocations -> lineItems
+          if (
+            (!normalized || normalized.length === 0) &&
+            allocations &&
+            allocations.length > 0 &&
+            hasAcceptedBaseline
+          ) {
+            normalized = computeForecastFromAllocations(allocations, projectLineItems, months, project.id);
+            usedFallback = true;
+          } else if (
+            (!normalized || normalized.length === 0) &&
+            projectLineItems &&
+            projectLineItems.length > 0 &&
+            hasAcceptedBaseline
+          ) {
+            normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
+            usedFallback = true;
+          }
+          
+          // Sync with invoices
+          const matchedInvoices = invoices.filter((inv) => inv.status === 'Matched');
+          const projectData: ForecastRow[] = normalized.map((cell) => {
+            const matchedInvoice = matchedInvoices.find(
+              (inv) =>
+                inv.line_item_id === cell.line_item_id && inv.month === cell.month
+            );
+            
+            return {
+              ...cell,
+              projectId: project.id,
+              projectName: project.name || project.id,
+              actual: matchedInvoice ? matchedInvoice.amount || 0 : cell.actual || 0,
+            };
+          });
+          
+          return projectData;
+        } catch (error) {
+          console.error(`[SDMTForecastV2] Error loading project ${project.id}:`, error);
+          return [];
+        }
+      })
+    );
+    
+    // Check if request is still valid after all promises
+    if (latestRequestKeyRef.current !== requestKey) {
+      return;
+    }
+    
+    const allData = portfolioResults.flat().filter((row): row is ForecastRow => row !== null);
+    setForecastData(allData);
+  };
+  
   // ==================== EFFECT HOOKS ====================
   
   /**
@@ -241,42 +424,21 @@ export function SDMTForecastV2() {
         return;
       }
       
+      // Generate unique request key to prevent race conditions
+      const requestKey = `${selectedProjectId}-${Date.now()}`;
+      latestRequestKeyRef.current = requestKey;
+      
       try {
         setLoading(true);
         setError(null);
         
-        // TODO: Replace mock data with real API calls
-        // Integration points:
-        //   - loadPortfolioForecast(months, requestKey) from SDMTForecast.tsx
-        //   - loadSingleProjectForecast(projectId, months) 
-        //   - finanzasClient.getAllInBudgetMonthly(year)
-        //   - bulkUploadPayrollActuals, bulkUpsertForecast for saves
-        // For now, generate mock data for UI development and testing
-        const mockData: ForecastRow[] = safeLineItems.map((item) => {
-          const row: ForecastRow = {
-            line_item_id: item.line_item_id,
-            rubroId: item.line_item_id,
-            description: item.description || '',
-            category: item.category || '',
-          };
-          
-          // Generate random forecast values for each month
-          for (let month = 1; month <= monthsToShow; month++) {
-            const baseValue = Math.random() * 100000;
-            row[`month_${month}_planned`] = baseValue;
-            row[`month_${month}_forecast`] = baseValue * (0.9 + Math.random() * 0.2);
-            row[`month_${month}_actual`] = month <= new Date().getMonth() + 1 
-              ? baseValue * (0.8 + Math.random() * 0.3) 
-              : 0;
-          }
-          
-          return row;
-        });
-        
-        setForecastData(mockData);
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        if (isPortfolioView) {
+          // Portfolio view: load all projects
+          await loadPortfolioForecast(monthsToShow, requestKey);
+        } else {
+          // Single project view
+          await loadSingleProjectForecast(selectedProjectId, monthsToShow, requestKey);
+        }
         
       } catch (err) {
         console.error('[SDMTForecastV2] Error loading forecast data:', err);
@@ -288,7 +450,7 @@ export function SDMTForecastV2() {
     };
     
     loadForecastData();
-  }, [selectedProjectId, safeLineItems, monthsToShow]);
+  }, [selectedProjectId, monthsToShow, isPortfolioView, projects]);
   
   /**
    * Persist budget year to sessionStorage
@@ -310,6 +472,68 @@ export function SDMTForecastV2() {
   useEffect(() => {
     sessionStorage.setItem('forecastV2UseMonthlyBudget', String(useMonthlyBudget));
   }, [useMonthlyBudget]);
+  
+  /**
+   * Load monthly budgets when year or portfolio view changes
+   */
+  useEffect(() => {
+    const loadMonthlyBudget = async () => {
+      if (!isPortfolioView) return; // Monthly budgets only in portfolio view
+      
+      try {
+        const monthlyBudget = await finanzasClient.getAllInBudgetMonthly(budgetYear);
+        if (!monthlyBudget) {
+          setMonthlyBudgets(Array(12).fill(0));
+          setUseMonthlyBudget(false);
+          return;
+        }
+        
+        if (monthlyBudget && monthlyBudget.months) {
+          // Convert from API format to internal format
+          const budgets = monthlyBudget.months
+            .map((m) => {
+              const monthMatch = m.month.match(/^\d{4}-(\d{2})$/);
+              const monthNum = monthMatch ? parseInt(monthMatch[1], 10) : 0;
+              return {
+                month: monthNum,
+                budget: m.amount,
+              };
+            })
+            .filter((b) => b.month >= 1 && b.month <= 12);
+          
+          // Create array with 12 months, filling in budgets
+          const monthlyBudgetArray = Array(12).fill(0);
+          budgets.forEach((b) => {
+            if (b.month >= 1 && b.month <= 12) {
+              monthlyBudgetArray[b.month - 1] = b.budget;
+            }
+          });
+          
+          setMonthlyBudgets(monthlyBudgetArray);
+          
+          // Enable monthly budget if we have data
+          if (budgets.length > 0) {
+            setUseMonthlyBudget(true);
+          }
+        } else {
+          setMonthlyBudgets(Array(12).fill(0));
+        }
+      } catch (error: any) {
+        // If 404, no budgets are set for this year - that's okay
+        if (isBudgetNotFoundError(error)) {
+          if (import.meta.env.DEV) {
+            console.warn(`[SDMTForecastV2] Monthly budget not found for ${budgetYear}`);
+          }
+          setMonthlyBudgets(Array(12).fill(0));
+          setUseMonthlyBudget(false);
+        } else {
+          console.error('[SDMTForecastV2] Error loading monthly budget:', error);
+        }
+      }
+    };
+    
+    loadMonthlyBudget();
+  }, [budgetYear, isPortfolioView]);
   
   // ==================== EVENT HANDLERS ====================
   
@@ -334,12 +558,7 @@ export function SDMTForecastV2() {
    */
   const handleYearChange = async (year: number) => {
     setBudgetYear(year);
-    
-    // TODO: Load monthly budgets for new year from API
-    // For now, reset to zeros
-    setMonthlyBudgets(Array(12).fill(0));
-    setUseMonthlyBudget(false);
-    
+    // Monthly budgets will be loaded by the useEffect
     toast.info(`Año cambiado a ${year}`);
   };
   
@@ -355,11 +574,13 @@ export function SDMTForecastV2() {
     try {
       setSavingBudget(true);
       
-      // TODO: Save to API
-      // await finanzasClient.putAllInBudgetMonthly(budgetYear, 'USD', monthlyBudgets);
+      // Convert monthly budgets to API format
+      const months = monthlyBudgets.map((budget, index) => ({
+        month: `${budgetYear}-${String(index + 1).padStart(2, '0')}`,
+        amount: budget,
+      }));
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await finanzasClient.putAllInBudgetMonthly(budgetYear, 'USD', months);
       
       toast.success(`Presupuesto mensual guardado para ${budgetYear}`);
       

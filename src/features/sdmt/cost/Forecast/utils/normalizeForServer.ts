@@ -60,7 +60,7 @@ export function normalizeForecastRowForServer(row: ForecastRowInput): Normalized
   const tax = canonical ? getTaxonomyById(canonical) : null;
   
   // Warn if rubro ID doesn't map to canonical taxonomy (data quality issue)
-  if (rawRubroId && !getCanonicalRubroId(rawRubroId) && import.meta.env.DEV) {
+  if (rawRubroId && !getCanonicalRubroId(rawRubroId) && import.meta?.env?.DEV) {
     console.warn(
       `[normalizeForServer] Unknown rubro ID '${rawRubroId}' not found in canonical taxonomy. ` +
       `This may indicate a data quality issue. The ID will be preserved as-is.`
