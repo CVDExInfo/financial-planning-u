@@ -14,7 +14,6 @@ import {
 } from "@/modules/rubros.taxonomia";
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
-import { ensureCategory } from "@/lib/rubros-category-utils";
 import { normalizeKey } from "@/lib/rubros/normalize-key";
 import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
 
@@ -1399,7 +1398,7 @@ const normalizeLineItem = (dto: LineItemDTO): LineItem => {
     tipo_costo?: string;
   };
 
-  return applyTaxonomy(ensureCategory(base));
+  return applyTaxonomy(base);
 };
 
 const coerceLineItemList = (input: unknown): LineItemDTO[] => {
