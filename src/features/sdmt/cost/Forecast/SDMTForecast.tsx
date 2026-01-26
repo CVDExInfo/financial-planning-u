@@ -258,7 +258,7 @@ export function SDMTForecast() {
   // State for controlling rubros grid collapsible (TODOS view)
   const [isRubrosGridOpen, setIsRubrosGridOpen] = useState(() => {
     const stored = sessionStorage.getItem('forecastRubrosGridOpen');
-    return stored === 'true'; // Default to false if not set
+    return stored === null ? true : stored === 'true'; // Default to true (open) if not set
   });
   
   // Persistent state for Portfolio Summary collapsible
@@ -3521,6 +3521,9 @@ export function SDMTForecast() {
               useMonthlyBudget={useMonthlyBudget}
               formatCurrency={formatCurrency}
               getCurrentMonthIndex={getCurrentMonthIndex}
+              showRangeIcon={false}
+              defaultExpanded={true}
+              maxMonths={60}
               onScrollToDetail={(params) => {
                 // Scroll to the 12-month grid section
                 if (rubrosSectionRef.current) {

@@ -7,8 +7,10 @@
  * Only shown in portfolio view when budget data is available.
  */
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +47,9 @@ export function ForecastSummaryBar({
   monthlyBudgetSum,
   budgetAllIn,
 }: ForecastSummaryBarProps) {
+  // State for summary-only view toggle
+  const [isSummaryOnly, setIsSummaryOnly] = useState(true);
+
   // Check for budget parity issue: if both monthly and annual budgets exist and differ by > 1%
   const hasBudgetParityIssue = useMemo(() => {
     if (monthlyBudgetSum > 0 && budgetAllIn > 0) {
@@ -221,7 +226,72 @@ export function ForecastSummaryBar({
             </div>
           </div>
 
-          {/* KPI Cards Row */}
+          {/* Matriz del Mes - Action Buttons (6 evenly distributed) */}
+          <div className="grid grid-cols-6 gap-3 w-full">
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(false)}
+              >
+                Presupuesto
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(false)}
+              >
+                Pronóstico
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(false)}
+              >
+                Real
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(false)}
+              >
+                % Consumo
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(false)}
+              >
+                Varianza
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "default" : "outline"}
+                size="sm"
+                className="w-full"
+                onClick={() => setIsSummaryOnly(true)}
+              >
+                Resumen
+              </Button>
+            </div>
+          </div>
+
+          {/* KPI Cards Row - Show when in summary-only mode or always visible */}
+          {isSummaryOnly && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {/* Total Budget */}
             <div className="flex flex-col gap-1">
@@ -366,6 +436,7 @@ export function ForecastSummaryBar({
               )}
             </div>
           </div>
+          )}
 
           {/* Last Updated Info */}
           {lastUpdated && (
