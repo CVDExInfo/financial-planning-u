@@ -1,262 +1,167 @@
-# Implementation Summary: File-Level Edits and Improvements
+# Fix Missing Canonical Rubro Aliases - Implementation Summary
 
 ## Overview
-This PR implements the precise file-level edits and improvements specified in the problem statement, focusing on:
-1. Navigation UX improvements (Estimator → Planificador)
-2. Baselines queue enhancements (rubros visibility)
-3. Forecast data flow improvements (fallback to project line items)
-4. API endpoint normalization
-5. Pre-merge CI automation
+Fixed repeated console warnings where canonical lookup reports unknown rubro_ids by adding safe canonical aliases and legacy map entries, throttling warnings, adding comprehensive tests, and producing evidence that warnings are eliminated.
 
-## Changes Implemented
+## Changes Made
 
-### A. Navigation & UX Changes ✅
-**File: `src/components/Navigation.tsx`**
-- Changed label from "Estimator" to "Planificador" for PMO navigation item
-- Route path remains unchanged (`/pmo/prefactura/estimator`)
-- Only user-visible label updated per requirements
+### 1. Canonical Taxonomy Updates (`src/lib/rubros/canonical-taxonomy.ts`)
 
-**Impact:** Users now see "Planificador" instead of "Estimator" in the PMO navigation menu.
+#### Added Aliases to LEGACY_RUBRO_ID_MAP
+- `mod-lead-ingeniero-delivery` → MOD-LEAD
+- `mod-lead-ingeniero` → MOD-LEAD
+- `ingeniero-delivery` → MOD-LEAD
+- `Ingeniero Delivery` → MOD-LEAD
+- `mod-sdm-service-delivery-manager` → MOD-SDM
+- `mod-sdm-sdm` → MOD-SDM
 
----
+#### Extended LABOR_CANONICAL_KEYS
+Added human-readable and allocation token forms:
+- Additional MOD-LEAD aliases: 'mod-lead-ingeniero-delivery', 'ingeniero delivery', 'ingeniero-delivery', 'mod-lead-ingeniero', 'Ingeniero Delivery'
+- Additional MOD-SDM aliases: 'mod-sdm-service-delivery-manager', 'service delivery manager', 'service-delivery-manager', 'mod-sdm-sdm'
 
-### B. Baselines Queue Enhancements ✅
-**Files Modified:**
-1. `src/features/pmo/baselines/PMOBaselinesQueuePage.tsx`
-   - Added `rubros_count` field to `ProjectWithBaseline` interface
-   - Added "Rubros" column to the baselines table
-   - Added "Ver Rubros" button that navigates to `/projects/{id}/cost-structure`
-   - Displays rubros count or "—" if not available
+#### Implemented Warning Throttling
+- Created `_rubrosWarned` Set to track warned keys
+- Implemented `warnUnknownRubro()` function that warns only once per normalized key
+- Uses consistent `normalizeKey()` function for normalization
+- Provides clearer guidance in warning messages
 
-2. `src/lib/api.ts`
-   - Updated `normalizeProject()` to include `rubros_count` mapping
-   - Falls back to `line_items_count` if `rubros_count` is not provided
-   - Defaults to 0 if neither is available
+### 2. Unit Tests (`src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts`)
 
-3. `src/types/domain.d.ts`
-   - Added `rubros_count?: number` to `Project` type definition
+Created comprehensive test suite with 8 test cases:
+1. ✅ MOD-LEAD canonical aliases map to MOD-LEAD
+2. ✅ MOD-SDM canonical aliases map to MOD-SDM
+3. ✅ LEGACY_RUBRO_ID_MAP contains all new aliases
+4. ✅ LABOR_CANONICAL_KEYS_SET includes normalized aliases
+5. ✅ lookupTaxonomyCanonical recognizes new aliases as labor
+6. ✅ Allocation SK patterns with new aliases
+7. ✅ Throttled warnings do not repeat for same normalized key
+8. ✅ Human-readable names map to labor
 
-**Impact:** PMO users can now see how many rubros are associated with each baseline and quickly navigate to the project cost structure page to view/edit them.
+**All tests pass successfully!**
 
----
+### 3. Diagnostic Script (`scripts/find-missing-rubros.ts`)
 
-### C. Forecast Data Flow & Fallback ✅
-**File: `src/features/sdmt/cost/Forecast/SDMTForecast.tsx`**
+Created diagnostic tool to:
+- Validate all canonical aliases
+- List taxonomy coverage statistics
+- Analyze allocation files for missing keys (when provided)
+- Display newly added aliases with validation status
 
-**New Helper Function:**
-```typescript
-transformLineItemsToForecast(lineItems: LineItem[], months: number): ForecastRow[]
+Output:
 ```
-- Converts project line items into forecast cells
-- Calculates monthly amounts based on unit cost, quantity, and duration
-- Creates forecast cells for each month in the project duration
-- Preserves all necessary metadata (rubroId, description, category)
+Total Canonical Rubros: 71
+Legacy Mappings: 88
+Labor Canonical Keys: 37
 
-**Modified Function:**
-```typescript
-loadSingleProjectForecast(projectId: string, months: number, requestKey: string)
-```
-- Checks if server forecast is empty (`normalized.length === 0`)
-- Falls back to `transformLineItemsToForecast(safeLineItems, months)` if empty
-- Logs warning: `[SDMTForecast] Server forecast empty — using project line items as fallback`
-- Sets `dataSource` to 'mock' to indicate fallback was used
-- Logs `usedFallback` flag in debug mode
+MOD-LEAD aliases:
+  mod-lead-ingeniero-delivery → MOD-LEAD (valid: true)
+  mod-lead-ingeniero → MOD-LEAD (valid: true)
+  ingeniero-delivery → MOD-LEAD (valid: true)
+  Ingeniero Delivery → MOD-LEAD (valid: true)
 
-**Impact:** When the backend forecast endpoint returns empty data, the UI now displays forecast rows derived from project line items (rubros), ensuring users always see data even when the forecast materialization is delayed or missing.
+MOD-SDM aliases:
+  mod-sdm-service-delivery-manager → MOD-SDM (valid: true)
+  mod-sdm-sdm → MOD-SDM (valid: true)
 
----
-
-### D. API Endpoint Normalization ✅
-**Files Modified:**
-
-1. `src/config/api.ts`
-   - Added `planForecast: "/plan/forecast"` alias to `API_ENDPOINTS`
-   - Ensures consistent endpoint reference across the codebase
-
-2. `src/lib/api.ts`
-   - Added new `ApiService.getForecast(projectId: string)` method
-   - Normalizes response envelope: handles both `{ data: [...] }` and bare array responses
-   - Returns empty array on error (safe fallback)
-   - Includes proper error logging
-
-**Method signature:**
-```typescript
-static async getForecast(projectId: string): Promise<ForecastCell[]>
+✅ All aliases validated successfully!
 ```
 
-**Impact:** Provides a clean, normalized API for fetching forecast data with automatic envelope handling and error resilience.
+### 4. E2E Smoke Test (`tests/e2e/finanzas/forecast-rubros-warnings.spec.ts`)
 
----
+Created Playwright test suite with 3 test cases:
+1. Forecast page does not log unknown rubros taxonomy warnings
+2. Forecast page loads allocation data without errors
+3. Canonical aliases are recognized in labor classification
 
-### E. Pre-merge CI Script ✅
-**Files Created:**
+Features:
+- Captures all console messages during page load
+- Filters for rubros-taxonomy warnings
+- Validates no taxonomy-related errors
+- Uses reliable network idle detection
 
-1. `scripts/pre_merge_checks.sh`
-   - Installs dependencies (`npm ci`)
-   - Runs lint (`npm run lint`)
-   - Runs typecheck (`npm run typecheck`)
-   - Runs unit tests if they exist
-   - Builds the application (`npm run build`)
-   - Runs QA scripts if they exist
-   - Sets required environment variables (`VITE_API_BASE_URL`, `CI`)
-   - Made executable with `chmod +x`
+### 5. Code Review Feedback Addressed
 
-2. `.github/workflows/pre-merge-check.yml`
-   - Triggers on PR events (opened, synchronize, reopened)
-   - Uses Node 18 with npm caching
-   - Sets required environment variables for build
-   - Runs the pre-merge script
-   - 30-minute timeout for safety
+✅ Use `normalizeKey()` function for consistent throttling
+✅ Update e2e tests to use reliable path navigation
+✅ Reduce hard-coded timeouts, rely on network idle states
 
-3. `package.json`
-   - Added `"typecheck": "tsc --noEmit"` script
+## Root Cause Explanation
 
-**Single-command usage:**
-```bash
-./scripts/pre_merge_checks.sh
+Previously, the canonical taxonomy did **not** contain aliases for some normalized keys emitted by allocations (e.g., `mod-lead-ingeniero-delivery` vs canonical `mod-lead`). Because canonical-first logic is strict, those keys were not found and the tolerant fallback either didn't match them or was not triggered consistently. 
+
+Tests added previously validated tolerant fallback but did not include the specific alias forms coming from allocation SKs. The fix is to add canonical aliases + legacy mappings and tests that assert these normalized tokens map to canonical MOD entries. We also throttled warnings so remaining unknowns are visible but not spammy.
+
+## Test Results
+
+### Unit Tests
+```
+✔ MOD-LEAD canonical aliases map to MOD-LEAD
+✔ MOD-SDM canonical aliases map to MOD-SDM
+✔ LEGACY_RUBRO_ID_MAP contains all new aliases
+✔ LABOR_CANONICAL_KEYS_SET includes normalized aliases
+✔ lookupTaxonomyCanonical recognizes new aliases as labor
+✔ allocation SK patterns with new aliases
+✔ throttled warnings do not repeat for same normalized key
+✔ human-readable names map to labor
+ℹ tests 8
+ℹ pass 8
+ℹ fail 0
 ```
 
-**Impact:** Automated quality checks run on every PR, ensuring code quality, type safety, and successful builds before merging.
-
----
-
-## Testing & Validation
-
-### Lint ✅
-```bash
-npm run lint
-# Result: ✅ No linting errors
+### Existing Tests
+All existing taxonomy lookup tests continue to pass (6 tests):
+```
+✔ labor canonical override
+✔ canonical lookup from map
+✔ cache-all-candidates strategy
+✔ labor keys have priority over map
+✔ returns null for unknown entries
+✔ uses cache on subsequent lookups
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0
 ```
 
-### Build ✅
-```bash
-VITE_API_BASE_URL=https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev npm run build
-# Result: ✅ Built successfully in 15.70s (2726 modules)
-```
+### Security Scan
+CodeQL analysis: **0 security vulnerabilities found**
 
-### Typecheck ⚠️
-- Existing type errors remain (not introduced by this PR)
-- All errors are in unrelated files:
-  - `ProjectContextBar.tsx`
-  - `ServiceTierSelector.tsx`
-  - `ui/chart.tsx`
-  - `ui/resizable.tsx`
-  - `pmo/prefactura/Estimator/steps/DealInputsStep.tsx`
+## Files Changed
 
----
+1. `src/lib/rubros/canonical-taxonomy.ts` - Added aliases and throttling
+2. `src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts` - New unit tests
+3. `scripts/find-missing-rubros.ts` - New diagnostic script
+4. `tests/e2e/finanzas/forecast-rubros-warnings.spec.ts` - New e2e test
 
-## Files Changed Summary
-```
-.github/workflows/pre-merge-check.yml                | 24 +++++++
-package.json                                         |  1 +
-scripts/pre_merge_checks.sh                          | 34 +++++++++
-src/components/Navigation.tsx                        |  2 +-
-src/config/api.ts                                    |  1 +
-src/features/pmo/baselines/PMOBaselinesQueuePage.tsx | 13 ++++
-src/features/sdmt/cost/Forecast/SDMTForecast.tsx     | 55 +++++++++++++
-src/lib/api.ts                                       | 25 +++++++
-src/types/domain.d.ts                                |  1 +
----
-9 files changed, 152 insertions(+), 4 deletions(-)
-```
+## QA & Validation Steps
 
-**Total changes:** 
-- 156 lines added
-- 4 lines removed
-- Net: +152 lines
+### Manual Testing
+1. Run diagnostic script: `npx tsx scripts/find-missing-rubros.ts`
+2. Run unit tests: `npx tsx --test src/features/sdmt/cost/Forecast/__tests__/canonicalAliases.test.ts`
+3. Run existing tests: `npx tsx --test src/features/sdmt/cost/Forecast/__tests__/lookupTaxonomyCanonical.test.ts`
+4. Start dev server and navigate to forecast page
+5. Open browser console and verify no "[rubros-taxonomy] Unknown rubro_id" warnings appear
+6. Run e2e test: `npx playwright test tests/e2e/finanzas/forecast-rubros-warnings.spec.ts`
 
-**Scope:** Surgical and precise changes focused on the specific requirements.
+### Production Validation
+After deployment:
+1. Navigate to SDMT forecast page
+2. Open browser console (F12)
+3. Verify no repeated "[rubros-taxonomy] Unknown rubro_id" warnings
+4. If warnings appear for new keys, add them to taxonomy following this pattern
+5. Monitor CloudWatch logs for any remaining taxonomy warnings
 
----
+## Impact
 
-## What Was NOT Changed
-Following the principle of minimal modifications:
-- ❌ No existing tests were modified or removed
-- ❌ No unrelated bugs were fixed
-- ❌ No documentation was added beyond this summary
-- ❌ No UI component refactoring
-- ❌ No routing changes
-- ❌ No authentication/authorization changes
+✅ **No Breaking Changes** - All existing tests pass
+✅ **Backward Compatible** - Legacy IDs still work via LEGACY_RUBRO_ID_MAP
+✅ **Performance** - O(1) lookups maintained via Set-based checking
+✅ **Maintainability** - Clear pattern for adding new aliases in the future
+✅ **User Experience** - Cleaner console output, no warning spam
 
----
+## Future Improvements
 
-## Next Steps / Follow-up Work
-The following items from the original problem statement were intentionally deferred as they require more extensive changes or backend work:
-
-1. **Data health notification UI** - The fallback logic logs warnings to console, but doesn't show a visible UI notification. This could be added using the existing `DataHealthPanel` component.
-
-2. **SDM monthly MOD updates** - Creating `MonthlyMODEditor.tsx` and integrating payroll actuals. This is a larger feature requiring new components and forms.
-
-3. **Sorting in baselines queue** - Adding sortable columns with `useTableSort` hook. This is a UX enhancement that can be added incrementally.
-
-4. **Baseline snapshot details** - Showing original baseline values in `RubrosBaselineSummary.tsx`. This requires additional API integration.
-
----
-
-## How to Verify Changes Locally
-
-1. **Navigation change:**
-   ```bash
-   npm run dev
-   # Navigate to PMO section
-   # Verify "Planificador" appears instead of "Estimator"
-   ```
-
-2. **Baselines queue:**
-   ```bash
-   npm run dev
-   # Navigate to /pmo/baselines
-   # Verify "Rubros" column appears
-   # Verify "Ver Rubros" button navigates to cost structure
-   ```
-
-3. **Forecast fallback:**
-   ```bash
-   npm run dev
-   # Navigate to a project with rubros but no forecast data
-   # Check console for: "[SDMTForecast] Server forecast empty — using project line items as fallback"
-   # Verify forecast grid shows data derived from line items
-   ```
-
-4. **Pre-merge script:**
-   ```bash
-   ./scripts/pre_merge_checks.sh
-   # Verify all checks pass
-   ```
-
----
-
-## Security Considerations
-- ✅ No new dependencies added
-- ✅ No authentication/authorization changes
-- ✅ No secrets or credentials introduced
-- ✅ Environment variables properly handled in CI
-- ✅ Fallback logic does not expose sensitive data
-
----
-
-## Performance Impact
-- ✅ Minimal: Only adds a fallback check when forecast data is empty
-- ✅ No additional API calls in happy path
-- ✅ Transformation of line items is only triggered when needed
-- ✅ No impact on existing forecast loading performance
-
----
-
-## Backward Compatibility
-- ✅ All changes are additive or cosmetic
-- ✅ Existing API contracts unchanged
-- ✅ No breaking changes to components
-- ✅ Fallback only activates when server returns empty data
-- ✅ Route paths remain the same
-
----
-
-## Conclusion
-This PR successfully implements the file-level edits specified in the problem statement with surgical precision. All changes are minimal, focused, and tested. The implementation follows best practices for:
-- ✅ Minimal code changes
-- ✅ Type safety
-- ✅ Error handling
-- ✅ Logging
-- ✅ CI automation
-- ✅ Backward compatibility
+1. Monitor console warnings in production for any new missing keys
+2. Consider adding automated alerts if unknown rubro_ids exceed threshold
+3. Document the alias addition process in contribution guidelines
+4. Consider creating a validation step in CI/CD to catch missing aliases early
