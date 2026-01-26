@@ -958,29 +958,29 @@ export default function SDMTReconciliation() {
                   id="taxonomy-description"
                   name="taxonomy-description"
                   value={(() => {
-                    // 1. Try to use strict taxonomy source of truth first
-                    if (taxonomyByRubroId && uploadFormData.line_item_id) {
-                      const taxEntry = taxonomyByRubroId[uploadFormData.line_item_id];
-                      if (taxEntry) {
-                         const parts: string[] = [];
-                         if (taxEntry.category) parts.push(taxEntry.category);
-                         if (taxEntry.description) parts.push(taxEntry.description);
-                         
-                         // Keep Tipo Costo from the line item object as it might be specific to the project configuration
-                         const selectedItem = safeLineItems.find(i => i.id === uploadFormData.line_item_id);
-                         const tipoCosto = (selectedItem as any)?.tipo_costo?.trim();
-                         if (tipoCosto) parts.push(`Tipo: ${tipoCosto}`);
-                         
-                         return parts.join(" — ");
-                      }
-                    }
-
-                    // 2. Fallback to existing logic
+                    // Get selected item once to avoid duplicate lookups
                     const selectedItem = safeLineItems.find(
                       (item) => item.id === uploadFormData.line_item_id
                     );
                     if (!selectedItem) return "";
-                    
+
+                    // 1. Try to use strict taxonomy source of truth first
+                    if (taxonomyByRubroId && uploadFormData.line_item_id) {
+                      const taxEntry = taxonomyByRubroId[uploadFormData.line_item_id];
+                      if (taxEntry) {
+                        const parts: string[] = [];
+                        if (taxEntry.category) parts.push(taxEntry.category);
+                        if (taxEntry.description) parts.push(taxEntry.description);
+                        
+                        // Keep Tipo Costo from the line item object as it might be specific to the project configuration
+                        const tipoCosto = (selectedItem as any)?.tipo_costo?.trim();
+                        if (tipoCosto) parts.push(`Tipo: ${tipoCosto}`);
+                        
+                        return parts.join(" — ");
+                      }
+                    }
+
+                    // 2. Fallback to existing logic
                     const category = (selectedItem as any).categoria?.trim() || selectedItem.category?.trim();
                     const description = selectedItem.description?.trim();
                     const tipoCosto = (selectedItem as any).tipo_costo?.trim();
