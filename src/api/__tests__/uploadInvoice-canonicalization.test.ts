@@ -107,8 +107,8 @@ describe('Invoice Upload Canonicalization', () => {
       
       // normalizeKey extracts last segment after #
       assert.equal(normalized, 'mod-pm');
-      // But canonicalizeRubroId needs the full string or extracted segment
-      // In practice, the form should send the clean rubro ID, not the SK
+      // canonicalizeRubroId operates on the full input string; it will not match
+      // allocation SKs directly. In practice, the form should send the clean rubro ID.
     });
   });
 

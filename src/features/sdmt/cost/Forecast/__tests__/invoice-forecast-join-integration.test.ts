@@ -252,7 +252,7 @@ describe('Invoice → Forecast Join Integration', () => {
       // Note: canonicalizeRubroId uses LEGACY_RUBRO_ID_MAP which may not have all textual forms
       // The real matching happens via taxonomy lookup in matchInvoiceToCell
       const canonicalId = canonicalizeRubroId('Service Delivery Manager');
-      // canonicalizeRubroId returns the input if not found in legacy map
+      // canonicalizeRubroId returns undefined if not found in legacy map
       // matchInvoiceToCell handles this via taxonomy lookup
 
       const matched = matchInvoiceToCell(

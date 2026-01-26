@@ -27,7 +27,7 @@ function annotateInvoiceWithCanonicalRubro(invoice: InvoiceDoc): InvoiceDoc {
     return {
       ...invoice,
       line_item_id: normalizedLineItemId,
-      // Always add canonical ID (canonicalizeRubroId returns input for unknown rubros)
+      // Always add canonical ID (canonicalizeRubroId returns undefined for unknown rubros)
       rubro_canonical: canonicalRubroId,
     };
   }
