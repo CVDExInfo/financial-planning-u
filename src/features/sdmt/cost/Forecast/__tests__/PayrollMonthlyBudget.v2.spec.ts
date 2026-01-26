@@ -149,7 +149,7 @@ describe('PayrollMonthlyBudget V2 - Currency Formatting', () => {
 
 describe('PayrollMonthlyBudget V2 - Collapsible State', () => {
   it('should start collapsed by default', () => {
-    let isOpen = false;
+    const isOpen = false;
 
     assert.strictEqual(isOpen, false, 'Should start collapsed (isOpen = false)');
   });
