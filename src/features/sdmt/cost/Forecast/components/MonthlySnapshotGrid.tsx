@@ -124,6 +124,15 @@ interface MonthlySnapshotGridProps {
 
   /** Callback to navigate to cost catalog (Estructura de costos) */
   onNavigateToCostCatalog?: (projectId: string) => void;
+
+  /** Whether to show the month range icon/badge (default: true). Controls M{n} badge visibility in header. */
+  showRangeIcon?: boolean;
+
+  /** Whether to default to expanded state (default: true). Initial state can be overridden by sessionStorage. */
+  defaultExpanded?: boolean;
+
+  /** Maximum number of months to support in the grid (default: 60). Clamps month selection to 1-maxMonths range. */
+  maxMonths?: number;
 }
 
 type MonthOption = "current" | "previous" | number; // 'current', 'previous', or 1-60
@@ -138,6 +147,9 @@ export function MonthlySnapshotGrid({
   onScrollToDetail,
   onNavigateToReconciliation,
   onNavigateToCostCatalog,
+  showRangeIcon = true,
+  defaultExpanded = true,
+  maxMonths = 60,
 }: MonthlySnapshotGridProps) {
   // Get user context for budget request payloads and sessionStorage key
   const { userEmail } = useFinanzasUser();
@@ -154,7 +166,8 @@ export function MonthlySnapshotGrid({
     row?: SnapshotRow;
   }>({ open: false });
   const [budgetRequestNotes, setBudgetRequestNotes] = useState("");
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Initialize collapsed state to opposite of defaultExpanded prop
+  const [isCollapsed, setIsCollapsed] = useState(!defaultExpanded);
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
 
   // Helper to get/set collapsed state from sessionStorage
@@ -461,9 +474,11 @@ export function MonthlySnapshotGrid({
                   <Calendar className="h-5 w-5 text-primary" />
                   Matriz del Mes — Vista Ejecutiva
                 </CardTitle>
-                <Badge variant="outline" className="text-xs">
-                  M{actualMonthIndex}
-                </Badge>
+                {showRangeIcon && (
+                  <Badge variant="outline" className="text-xs">
+                    M{actualMonthIndex}
+                  </Badge>
+                )}
               </div>
 
               {/* Toggle Button (mobile only - desktop in right zone) */}

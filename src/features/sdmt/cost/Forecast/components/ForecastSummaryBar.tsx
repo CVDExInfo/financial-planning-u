@@ -7,8 +7,10 @@
  * Only shown in portfolio view when budget data is available.
  */
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -45,6 +47,15 @@ export function ForecastSummaryBar({
   monthlyBudgetSum,
   budgetAllIn,
 }: ForecastSummaryBarProps) {
+  // State for summary-only view toggle
+  const [isSummaryOnly, setIsSummaryOnly] = useState(true);
+
+  // Handler for metric buttons - shows expanded view
+  const handleMetricClick = () => setIsSummaryOnly(false);
+  
+  // Handler for Resumen button - shows summary-only view
+  const handleResumenClick = () => setIsSummaryOnly(true);
+
   // Check for budget parity issue: if both monthly and annual budgets exist and differ by > 1%
   const hasBudgetParityIssue = useMemo(() => {
     if (monthlyBudgetSum > 0 && budgetAllIn > 0) {
@@ -221,7 +232,78 @@ export function ForecastSummaryBar({
             </div>
           </div>
 
-          {/* KPI Cards Row */}
+          {/* Matriz del Mes - Action Buttons (6 evenly distributed) */}
+          <nav className="grid grid-cols-6 gap-3 w-full" aria-label="Matriz del Mes - Vista Ejecutiva">
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Presupuesto"
+              >
+                Presupuesto
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Pronóstico"
+              >
+                Pronóstico
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Real"
+              >
+                Real
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de % Consumo"
+              >
+                % Consumo
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "outline" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={handleMetricClick}
+                aria-label="Ver detalle de Varianza"
+              >
+                Varianza
+              </Button>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                variant={isSummaryOnly ? "default" : "outline"}
+                size="sm"
+                className="w-full"
+                onClick={handleResumenClick}
+                aria-label="Ver solo resumen ejecutivo"
+              >
+                Resumen
+              </Button>
+            </div>
+          </nav>
+
+          {/* KPI Cards Row - Only shown when in summary-only mode */}
+          {isSummaryOnly && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {/* Total Budget */}
             <div className="flex flex-col gap-1">
@@ -366,6 +448,7 @@ export function ForecastSummaryBar({
               )}
             </div>
           </div>
+          )}
 
           {/* Last Updated Info */}
           {lastUpdated && (
