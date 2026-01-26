@@ -76,7 +76,7 @@ export function formatLineItemDisplay(
   
   // Prefer canonical data, fallback to item properties
   const lineaCodigo = canonical?.linea_codigo || extended.linea_codigo?.trim() || item.id;
-  const lineaGasto = canonical?.linea_gasto || item.description?.trim();
+  const lineaGasto = canonical?.linea_gasto || item.description?.trim() || item.id;
   const categoria = canonical?.categoria || extended.categoria?.trim() || item.category?.trim();
   const tipoCosto = canonical?.tipo_costo || extended.tipo_costo?.trim();
 
@@ -118,7 +118,7 @@ export function formatLineItemDisplay(
       ? ` (Month ${month})`
       : "";
   
-  const tooltip = `${lineaCodigo} — ${lineaGasto || "Line item"}${categoryPart}${tipoCostoSuffix}${periodSuffix}`;
+  const tooltip = `${lineaCodigo} — ${lineaGasto?.trim() || "Line item"}${categoryPart}${tipoCostoSuffix}${periodSuffix}`;
 
   return { primary, secondary, tooltip };
 }
