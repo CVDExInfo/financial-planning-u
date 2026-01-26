@@ -302,7 +302,7 @@ export function ForecastSummaryBar({
             </div>
           </nav>
 
-          {/* KPI Cards Row - Show when in summary-only mode or always visible */}
+          {/* KPI Cards Row - Only shown when in summary-only mode */}
           {isSummaryOnly && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {/* Total Budget */}

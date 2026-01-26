@@ -125,13 +125,13 @@ interface MonthlySnapshotGridProps {
   /** Callback to navigate to cost catalog (Estructura de costos) */
   onNavigateToCostCatalog?: (projectId: string) => void;
 
-  /** Whether to show the month range icon/badge (default: true) */
+  /** Whether to show the month range icon/badge (default: true). Controls M{n} badge visibility in header. */
   showRangeIcon?: boolean;
 
-  /** Whether to default to expanded state (default: true) */
+  /** Whether to default to expanded state (default: true). Initial state can be overridden by sessionStorage. */
   defaultExpanded?: boolean;
 
-  /** Maximum number of months to support in the grid (default: 60) */
+  /** Maximum number of months to support in the grid (default: 60). Clamps month selection to 1-maxMonths range. */
   maxMonths?: number;
 }
 
