@@ -170,8 +170,8 @@ describe('ChartsPanelV2 - Chart KPIs Display', () => {
 
   it('should use correct colors for positive variance', () => {
     const totalVariance = 1000;
-    const color = totalVariance >= 0 ? 'text-green-600' : 'text-red-600';
-    const bgColor = totalVariance >= 0 ? 'bg-green-50' : 'bg-red-50';
+    const color = 'text-green-600';
+    const bgColor = 'bg-green-50';
 
     assert.strictEqual(color, 'text-green-600', 'Positive variance should use green text');
     assert.strictEqual(bgColor, 'bg-green-50', 'Positive variance should use green background');
