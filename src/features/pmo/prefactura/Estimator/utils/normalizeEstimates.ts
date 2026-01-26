@@ -46,7 +46,7 @@ export interface NormalizedNonLaborEstimate extends NonLaborEstimate {
  * 1. Resolves canonical linea_codigo from rubroId or role
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
- * 4. Preserves user-entered description if present
+ * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - Labor estimate from UI
  * @returns Normalized labor estimate ready for server submission
@@ -80,7 +80,7 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
  * 1. Resolves canonical linea_codigo from rubroId
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
- * 4. Preserves user-entered description if present
+ * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - NonLabor estimate from UI
  * @returns Normalized non-labor estimate ready for server submission
