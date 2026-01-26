@@ -102,16 +102,12 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
         const rubroIdToStore = selectedRubro.linea_codigo || selectedRubro.id || canonical;
         updated[index].rubroId = rubroIdToStore;
         
-        // Always populate description from taxonomy (prefer taxonomy over user input for consistency)
-        // But preserve user override if they've manually edited it
-        const currentDescription = updated[index].description;
-        if (!currentDescription || currentDescription === "") {
-          updated[index].description = 
-            selectedRubro.descripcion || 
-            selectedRubro.linea_gasto ||
-            selectedRubro.label || 
-            "";
-        }
+        // ALWAYS overwrite description from taxonomy - do NOT preserve user input
+        updated[index].description = 
+          selectedRubro.descripcion || 
+          selectedRubro.linea_gasto ||
+          selectedRubro.label || 
+          "";
         
         // Always update category from taxonomy
         updated[index].category = 
@@ -307,15 +303,10 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
                             id={descriptionId}
                             name={descriptionId}
                             value={item.description}
-                            onChange={(e) =>
-                              updateNonLaborItem(
-                                index,
-                                "description",
-                                e.target.value
-                              )
-                            }
-                            placeholder="ej., Instancias AWS EC2"
-                            className="w-[200px]"
+                            placeholder="Selecciona un rubro"
+                            className="w-[200px] bg-muted text-muted-foreground cursor-not-allowed"
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>

@@ -46,7 +46,7 @@ export interface NormalizedNonLaborEstimate extends NonLaborEstimate {
  * 1. Resolves canonical linea_codigo from rubroId or role
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
- * 4. Preserves user-entered description if present
+ * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - Labor estimate from UI
  * @returns Normalized labor estimate ready for server submission
@@ -64,12 +64,12 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
     // DB fields (must match server expectations)
     line_item_id: canonical,
     linea_codigo: canonical,
-    descripcion: (item as any).description || tax?.descripcion || tax?.linea_gasto || item.role || "",
-    categoria: (item as any).category || tax?.categoria || "",
+    descripcion: tax?.descripcion || tax?.linea_gasto || (item as any).description || item.role || "",
+    categoria: tax?.categoria || (item as any).category || "",
     rubro_canonical: canonical,
     // Preserve UI fields for compatibility
-    description: (item as any).description || tax?.descripcion || tax?.linea_gasto || item.role || "",
-    category: (item as any).category || tax?.categoria || "",
+    description: tax?.descripcion || tax?.linea_gasto || (item as any).description || item.role || "",
+    category: tax?.categoria || (item as any).category || "",
   };
 }
 
@@ -80,7 +80,7 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
  * 1. Resolves canonical linea_codigo from rubroId
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
- * 4. Preserves user-entered description if present
+ * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - NonLabor estimate from UI
  * @returns Normalized non-labor estimate ready for server submission
@@ -97,8 +97,8 @@ export function normalizeNonLaborEstimate(item: NonLaborEstimate): NormalizedNon
     ...item,
     // DB fields (must match server expectations)
     line_item_id: canonical,
-    descripcion: item.description || tax?.descripcion || tax?.linea_gasto || "",
-    categoria: item.category || tax?.categoria || "",
+    descripcion: tax?.descripcion || tax?.linea_gasto || item.description || "",
+    categoria: tax?.categoria || item.category || "",
     rubro_canonical: canonical,
   };
 }

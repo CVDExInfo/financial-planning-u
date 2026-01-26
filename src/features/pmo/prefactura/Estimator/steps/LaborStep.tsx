@@ -136,10 +136,9 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
         // Auto-populate description/category from taxonomy
         const tax = getRubroById(canonical);
         if (tax) {
-          // Auto-fill description if empty (allow user override)
-          if (!(updated[index] as any).description) {
-            (updated[index] as any).description = tax.descripcion || tax.linea_gasto || value;
-          }
+          // ALWAYS update description from taxonomy - do NOT preserve user input
+          (updated[index] as any).description = tax.descripcion || tax.linea_gasto || value;
+          
           // Always update category from taxonomy
           (updated[index] as any).category = tax.categoria || "";
           
