@@ -273,6 +273,7 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'MOD-OT': 'MOD-IN3',   // Old "Other" → Ingeniero Soporte N3
   'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
   'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
+  'MOD-ENGINEER': 'MOD-ING', // Legacy "Engineer" variant → Ingeniero Soporte N1
 };
 
 /**
