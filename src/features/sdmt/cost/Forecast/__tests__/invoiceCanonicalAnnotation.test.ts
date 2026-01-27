@@ -4,20 +4,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getCanonicalRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 
 describe('Invoice Canonical Rubro Annotation', () => {
-  describe('getCanonicalRubroId', () => {
+  describe('canonicalizeRubroId', () => {
     it('should return canonical ID for known rubro', () => {
       // MOD-ING is a canonical taxonomy entry
-      const result = getCanonicalRubroId('MOD-ING');
+      const result = canonicalizeRubroId('MOD-ING');
       expect(result).toBe('MOD-ING');
     });
 
     it('should handle rubro ID with variations', () => {
       // Test with different casing and whitespace
-      const result1 = getCanonicalRubroId('mod-ing');
-      const result2 = getCanonicalRubroId(' MOD-ING ');
+      const result1 = canonicalizeRubroId('mod-ing');
+      const result2 = canonicalizeRubroId(' MOD-ING ');
       
       // Function returns input as-is or mapped canonical ID
       expect(result1).toBeTruthy();
@@ -26,14 +26,14 @@ describe('Invoice Canonical Rubro Annotation', () => {
 
     it('should return input for unknown rubro (not null)', () => {
       // The function returns input as-is for unknown rubros
-      const result = getCanonicalRubroId('UNKNOWN-RUBRO-XYZ');
+      const result = canonicalizeRubroId('UNKNOWN-RUBRO-XYZ');
       expect(result).toBe('UNKNOWN-RUBRO-XYZ');
     });
 
     it('should handle empty string input', () => {
       // Empty string is returned as-is
-      const result = getCanonicalRubroId('');
-      expect(result).toBe('');
+      const result = canonicalizeRubroId('');
+      expect(result).toBeUndefined();
     });
   });
 
@@ -51,7 +51,7 @@ describe('Invoice Canonical Rubro Annotation', () => {
 
       // Simulate the annotation logic from forecastService.ts
       const rubroId = mockInvoice.rubroId || mockInvoice.line_item_id;
-      const canonicalRubroId = getCanonicalRubroId(rubroId);
+      const canonicalRubroId = canonicalizeRubroId(rubroId);
 
       const annotatedInvoice = {
         ...mockInvoice,
@@ -72,14 +72,14 @@ describe('Invoice Canonical Rubro Annotation', () => {
       };
 
       const rubroId = mockInvoice.rubroId || mockInvoice.line_item_id;
-      const canonicalRubroId = getCanonicalRubroId(rubroId);
+      const canonicalRubroId = canonicalizeRubroId(rubroId);
 
       const annotatedInvoice = {
         ...mockInvoice,
         rubro_canonical: canonicalRubroId,
       };
 
-      // getCanonicalRubroId returns the input for unknown rubros
+      // canonicalizeRubroId returns the input for unknown rubros
       expect(annotatedInvoice.rubro_canonical).toBe('UNKNOWN-RUBRO');
     });
 
@@ -94,7 +94,7 @@ describe('Invoice Canonical Rubro Annotation', () => {
 
       // This simulates the fallback logic: rubroId || line_item_id
       const rubroId = (mockInvoice as any).rubroId || mockInvoice.line_item_id;
-      const canonicalRubroId = getCanonicalRubroId(rubroId);
+      const canonicalRubroId = canonicalizeRubroId(rubroId);
 
       const annotatedInvoice = {
         ...mockInvoice,
@@ -114,7 +114,7 @@ describe('Invoice Canonical Rubro Annotation', () => {
 
       const annotatedInvoices = mockInvoices.map((invoice) => {
         const rubroId = (invoice as any).rubroId || invoice.line_item_id;
-        const canonicalRubroId = getCanonicalRubroId(rubroId);
+        const canonicalRubroId = canonicalizeRubroId(rubroId);
 
         return {
           ...invoice,

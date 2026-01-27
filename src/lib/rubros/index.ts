@@ -110,8 +110,9 @@ export function getTaxonomyEntry(raw?: string): CanonicalRubroTaxonomy | null {
   const tax = _getTaxonomyById(canonical);
   if (tax) return tax;
 
-  // Fallback to taxonomyHelpers if needed (older shape)
-  return (_getRubroById(canonical) as CanonicalRubroTaxonomy | undefined) ?? null;
+  // Fallback to taxonomyHelpers if needed (older shape) - convert through unknown
+  const fallback = _getRubroById(canonical);
+  return (fallback as unknown as CanonicalRubroTaxonomy | undefined) ?? null;
 }
 
 /**
@@ -134,7 +135,9 @@ export function findRubroByLineaCodigo(lineaCodigo?: string): CanonicalRubroTaxo
   const tax = _getTaxonomyById(canonical);
   if (tax) return tax;
 
-  return _getRubroById(canonical) as CanonicalRubroTaxonomy | undefined;
+  // Fallback - convert through unknown to avoid type errors
+  const fallback = _getRubroById(canonical);
+  return fallback as unknown as CanonicalRubroTaxonomy | undefined;
 }
 
 /**
@@ -153,6 +156,13 @@ export function isValidRubroId(raw?: string): boolean {
   const canonical = canonicalizeRubroId(raw);
   if (!canonical) return false;
   return _isValidRubroId(canonical);
+}
+
+/**
+ * Alias for isValidRubroId - validates a rubro ID
+ */
+export function isValidRubro(raw?: string): boolean {
+  return isValidRubroId(raw);
 }
 
 /* ===========================================================================

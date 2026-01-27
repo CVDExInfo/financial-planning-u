@@ -17,10 +17,12 @@ export default tseslint.config(
       'docs-pdf',
     ] 
   },
-  // TypeScript/React files configuration
+  // TypeScript/React files configuration (frontend code only)
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
+    // Exclude test files and the rubros module itself from import restrictions
+    ignores: ['**/__tests__/**', 'src/lib/rubros/**'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -52,12 +54,43 @@ export default tseslint.config(
           {
             name: 'services/finanzas-api',
             message: 'Front-end must not import services/finanzas-api. Use src/api/finanzasClient.ts or shared packages instead.'
+          },
+          {
+            name: '@/lib/rubros/canonical-taxonomy',
+            message: 'Use @/lib/rubros public API instead. Import canonicalizeRubroId, getTaxonomyEntry, allRubros, etc. from @/lib/rubros.'
           }
         ],
         patterns: [
-          'services/finanzas-api/*'
+          {
+            group: ['services/finanzas-api/*'],
+            message: 'Front-end must not import from services/finanzas-api.'
+          },
+          {
+            group: ['**/lib/rubros/canonical-taxonomy'],
+            message: 'Use @/lib/rubros public API instead of importing canonical-taxonomy directly. See src/lib/rubros/index.ts for available functions.'
+          }
         ]
       }]
+    },
+  },
+  // TypeScript files in other locations (scripts, tests, etc.) - less restrictive
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['src/**'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      // Scripts and tests can import from canonical-taxonomy
+      'no-console': 'off',
     },
   },
   // Node.js/script files configuration

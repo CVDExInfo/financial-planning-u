@@ -6,7 +6,7 @@
  */
 
 import type { ForecastCell, LineItem } from '@/types/domain';
-import { getTaxonomyById } from '@/lib/rubros/canonical-taxonomy';
+import { getTaxonomyEntry } from '@/lib/rubros';
 import { normalizeForecastCells } from '../utils/dataAdapters';
 
 export interface CategoryMonthTotals {
@@ -63,7 +63,7 @@ export function buildCategoryTotals(
     // Try to resolve category from canonical taxonomy if not present on cell
     let category = (cell as any).category;
     if (!category) {
-      const taxonomy = getTaxonomyById(rubroId);
+      const taxonomy = getTaxonomyEntry(rubroId);
       if (taxonomy) {
         category = taxonomy.categoria;
       }
@@ -145,7 +145,7 @@ export function buildCategoryRubros(
     const month = cell.month;
     
     // Try to resolve category and description from canonical taxonomy first
-    const taxonomy = getTaxonomyById(rubroId);
+    const taxonomy = getTaxonomyEntry(rubroId);
     
     // Priority chain for category: cell.category -> taxonomy.categoria -> lineItem.category -> 'Sin categoría'
     let category = (cell as any).category;

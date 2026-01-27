@@ -5,7 +5,7 @@
  * Utilities for formatting line item labels in reconciliation and forecast views.
  * Separates primary hierarchical information from secondary metadata for better UX.
  * 
- * UPDATED: Now uses canonical taxonomy from @/lib/rubros/canonical-taxonomy
+ * UPDATED: Now uses canonical taxonomy from @/lib/rubros
  * to ensure consistent display of rubros across all forms.
  */
 
@@ -36,7 +36,7 @@ export interface FormattedLineItemLabel {
 /**
  * Format line item display with structured primary and secondary information.
  * 
- * Uses canonical taxonomy from @/lib/rubros/canonical-taxonomy to ensure
+ * Uses canonical taxonomy from @/lib/rubros to ensure
  * consistent display format: ${linea_codigo} — ${linea_gasto}
  * 
  * Primary: Code and canonical description from taxonomy

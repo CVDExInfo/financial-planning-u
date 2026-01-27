@@ -7,18 +7,18 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getCanonicalRubroId, isValidRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId, isValidRubroId } from '@/lib/rubros';
 import { matchInvoiceToCell } from '../useSDMTForecastData';
 
 describe('MOD-PM Canonicalization', () => {
   describe('Client-side canonical mapping', () => {
     it('should map MOD-PM to MOD-LEAD', () => {
-      const canonical = getCanonicalRubroId('MOD-PM');
+      const canonical = canonicalizeRubroId('MOD-PM');
       assert.equal(canonical, 'MOD-LEAD', 'MOD-PM should map to MOD-LEAD');
     });
 
     it('should map MOD-PMO to MOD-LEAD', () => {
-      const canonical = getCanonicalRubroId('MOD-PMO');
+      const canonical = canonicalizeRubroId('MOD-PMO');
       assert.equal(canonical, 'MOD-LEAD', 'MOD-PMO should map to MOD-LEAD');
     });
 
@@ -31,7 +31,7 @@ describe('MOD-PM Canonicalization', () => {
     });
 
     it('should preserve MOD-LEAD as canonical', () => {
-      const canonical = getCanonicalRubroId('MOD-LEAD');
+      const canonical = canonicalizeRubroId('MOD-LEAD');
       assert.equal(canonical, 'MOD-LEAD', 'MOD-LEAD should remain MOD-LEAD');
     });
   });

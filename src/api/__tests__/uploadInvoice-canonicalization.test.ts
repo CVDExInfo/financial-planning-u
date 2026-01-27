@@ -4,14 +4,14 @@
  * Ensures that uploadInvoice correctly:
  * 1. Validates projectId and line_item_id
  * 2. Normalizes line_item_id using normalizeKey
- * 3. Computes rubro_canonical using getCanonicalRubroId
+ * 3. Computes rubro_canonical using canonicalizeRubroId
  * 4. Includes both fields in the POST body
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { normalizeKey } from '@/lib/rubros/normalize-key';
-import { getCanonicalRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 
 describe('Invoice Upload Canonicalization', () => {
   describe('normalizeKey behavior', () => {
@@ -36,30 +36,30 @@ describe('Invoice Upload Canonicalization', () => {
     });
   });
 
-  describe('getCanonicalRubroId for invoice upload', () => {
+  describe('canonicalizeRubroId for invoice upload', () => {
     it('should canonicalize MOD-PM to MOD-LEAD', () => {
-      assert.equal(getCanonicalRubroId('MOD-PM'), 'MOD-LEAD');
+      assert.equal(canonicalizeRubroId('MOD-PM'), 'MOD-LEAD');
     });
 
     it('should canonicalize MOD-PMO to MOD-LEAD', () => {
-      assert.equal(getCanonicalRubroId('MOD-PMO'), 'MOD-LEAD');
+      assert.equal(canonicalizeRubroId('MOD-PMO'), 'MOD-LEAD');
     });
 
     it('should preserve canonical MOD-LEAD', () => {
-      assert.equal(getCanonicalRubroId('MOD-LEAD'), 'MOD-LEAD');
+      assert.equal(canonicalizeRubroId('MOD-LEAD'), 'MOD-LEAD');
     });
 
     it('should canonicalize legacy RUBRO-001 to MOD-ING', () => {
-      assert.equal(getCanonicalRubroId('RUBRO-001'), 'MOD-ING');
+      assert.equal(canonicalizeRubroId('RUBRO-001'), 'MOD-ING');
     });
 
     it('should canonicalize RB0002 to MOD-LEAD', () => {
-      assert.equal(getCanonicalRubroId('RB0002'), 'MOD-LEAD');
+      assert.equal(canonicalizeRubroId('RB0002'), 'MOD-LEAD');
     });
 
     it('should handle human-readable variants', () => {
-      assert.equal(getCanonicalRubroId('mod-lead-ingeniero-delivery'), 'MOD-LEAD');
-      assert.equal(getCanonicalRubroId('Service Delivery Manager'), 'MOD-SDM');
+      assert.equal(canonicalizeRubroId('mod-lead-ingeniero-delivery'), 'MOD-LEAD');
+      assert.equal(canonicalizeRubroId('Service Delivery Manager'), 'MOD-SDM');
     });
   });
 
@@ -69,7 +69,7 @@ describe('Invoice Upload Canonicalization', () => {
       
       // Expected transformations in uploadInvoice:
       const normalized = normalizeKey(input_line_item_id);
-      const canonical = getCanonicalRubroId(input_line_item_id);
+      const canonical = canonicalizeRubroId(input_line_item_id);
       
       assert.equal(normalized, 'mod-pm', 'Should normalize to lowercase with hyphen');
       assert.equal(canonical, 'MOD-LEAD', 'Should canonicalize to MOD-LEAD');
@@ -83,7 +83,7 @@ describe('Invoice Upload Canonicalization', () => {
       const input_line_item_id = 'mod-lead-ingeniero-delivery';
       
       const normalized = normalizeKey(input_line_item_id);
-      const canonical = getCanonicalRubroId(input_line_item_id);
+      const canonical = canonicalizeRubroId(input_line_item_id);
       
       assert.equal(normalized, 'mod-lead-ingeniero-delivery');
       assert.equal(canonical, 'MOD-LEAD', 'Should canonicalize to MOD-LEAD');
@@ -93,7 +93,7 @@ describe('Invoice Upload Canonicalization', () => {
       const input_line_item_id = 'RUBRO-001';
       
       const normalized = normalizeKey(input_line_item_id);
-      const canonical = getCanonicalRubroId(input_line_item_id);
+      const canonical = canonicalizeRubroId(input_line_item_id);
       
       assert.equal(normalized, 'rubro-001');
       assert.equal(canonical, 'MOD-ING', 'Should canonicalize to MOD-ING');
@@ -103,12 +103,12 @@ describe('Invoice Upload Canonicalization', () => {
       const input_line_item_id = 'ALLOCATION#base_abc#2026-01#MOD-PM';
       
       const normalized = normalizeKey(input_line_item_id);
-      const canonical = getCanonicalRubroId(input_line_item_id);
+      const canonical = canonicalizeRubroId(input_line_item_id);
       
       // normalizeKey extracts last segment after #
       assert.equal(normalized, 'mod-pm');
-      // But getCanonicalRubroId needs the full string or extracted segment
-      // In practice, the form should send the clean rubro ID, not the SK
+      // canonicalizeRubroId operates on the full input string; it will not match
+      // allocation SKs directly. In practice, the form should send the clean rubro ID.
     });
   });
 

@@ -10,14 +10,14 @@
  * 3. Tolerant fallback (substring/fuzzy matching)
  */
 
-import { LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET, CANONICAL_ALIASES } from '@/lib/rubros/canonical-taxonomy';
+import { LABOR_RUBROS, LABOR_RUBROS_SET, RUBRO_ALIASES } from '@/lib/rubros';
 import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 /**
- * Re-export normalizeKey, LABOR_CANONICAL_KEYS and LABOR_CANONICAL_KEYS_SET
+ * Re-export normalizeKey, LABOR_RUBROS and LABOR_RUBROS_SET
  * from shared locations for backward compatibility with existing code
  */
-export { normalizeKey, LABOR_CANONICAL_KEYS, LABOR_CANONICAL_KEYS_SET };
+export { normalizeKey, LABOR_RUBROS, LABOR_RUBROS_SET };
 
 /**
  * Throttled warning helper to avoid console spam
@@ -42,7 +42,7 @@ export function isLaborByKey(key?: string): boolean {
   const normalized = normalizeKey(key);
   if (!normalized) return false;
   
-  return LABOR_CANONICAL_KEYS_SET.has(normalized);
+  return LABOR_RUBROS_SET.has(normalized);
 }
 
 /**
@@ -182,7 +182,7 @@ export function lookupTaxonomy(
   // Step 2.5: Check canonical alias map
   // This provides explicit resolution for common textual forms like "Service Delivery Manager"
   for (const candidateKey of candidates) {
-    const aliasId = CANONICAL_ALIASES[candidateKey];
+    const aliasId = RUBRO_ALIASES[candidateKey];
     if (aliasId) {
       // Look up the canonical taxonomy by alias
       const canonicalTax = taxonomyMap.get(normalizeKey(aliasId));
@@ -351,7 +351,7 @@ export function buildTaxonomyMap(
   
   if (modCandidate) {
     // Iterate Set directly - ES2020 supports this
-    for (const laborKey of LABOR_CANONICAL_KEYS) {
+    for (const laborKey of LABOR_RUBROS) {
       if (!map.has(laborKey)) {
         // Create a variant of the MOD entry with isLabor flag
         map.set(laborKey, {
@@ -363,7 +363,7 @@ export function buildTaxonomyMap(
   }
   
   // Seed canonical aliases to resolve common role strings and legacy values
-  for (const [alias, rubroId] of Object.entries(CANONICAL_ALIASES)) {
+  for (const [alias, rubroId] of Object.entries(RUBRO_ALIASES)) {
     const normalizedAlias = normalizeKey(alias);
     if (!normalizedAlias) continue;
     

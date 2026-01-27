@@ -24,11 +24,11 @@ import {
 } from "./computeForecastFromAllocations";
 import type { LineItem } from "@/types/domain";
 import finanzasClient from "@/api/finanzasClient";
-import { 
-  CANONICAL_RUBROS_TAXONOMY, 
+import {
+  CANONICAL_RUBROS_TAXONOMY,
   type CanonicalRubroTaxonomy,
-} from "@/lib/rubros/canonical-taxonomy";
-import { canonicalizeRubroId } from "@/lib/rubros";
+  canonicalizeRubroId,
+} from "@/lib/rubros";
 import { buildTaxonomyMap, type TaxonomyEntry as TaxLookupEntry } from "./lib/taxonomyLookup";
 import { normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
 import { lookupTaxonomyCanonical } from "./lib/lookupTaxonomyCanonical";

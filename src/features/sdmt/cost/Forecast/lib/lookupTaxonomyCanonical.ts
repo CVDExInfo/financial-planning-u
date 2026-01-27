@@ -5,7 +5,7 @@
  * and cache-all-candidates strategy for performance.
  */
 
-import { normalizeKey, LABOR_CANONICAL_KEYS_SET, tolerantRubroLookup } from './taxonomyLookup';
+import { normalizeKey, LABOR_RUBROS_SET, tolerantRubroLookup } from './taxonomyLookup';
 import type { TaxonomyEntry, RubroRow } from './taxonomyLookup';
 
 /**
@@ -55,7 +55,7 @@ export function lookupTaxonomyCanonical(
 
   // 2) labor canonical override: if any candidate matches the canonical labor keys (O(1) Set lookup)
   for (const k of candidates) {
-    if (LABOR_CANONICAL_KEYS_SET.has(k)) {
+    if (LABOR_RUBROS_SET.has(k)) {
       const synthetic: TaxonomyEntry = { 
         rubroId: 'MOD', 
         category: 'Mano de Obra (MOD)', 

@@ -9,11 +9,11 @@
  */
 
 import {
-  CANONICAL_RUBROS_TAXONOMY,
+  ALL_RUBROS_TAXONOMY,
   type CanonicalRubroTaxonomy,
   type TipoEjecucion,
   type TipoCosto,
-} from '@/lib/rubros/canonical-taxonomy';
+} from '@/lib/rubros';
 
 export interface CostCategory {
   codigo: string;
@@ -85,7 +85,7 @@ function buildCostCategories(
  * This ensures UI and backend use the same source of truth
  */
 export const COST_CATEGORIES: CostCategory[] =
-  buildCostCategories(CANONICAL_RUBROS_TAXONOMY);
+  buildCostCategories(ALL_RUBROS_TAXONOMY);
 
 /**
  * Helper functions - backward compatible with existing Catalog imports

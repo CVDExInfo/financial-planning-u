@@ -13,8 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, RefreshCcw } from "lucide-react";
 import DataContainer from "@/components/DataContainer";
 import PageHeader from "@/components/PageHeader";
-import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros/canonical-taxonomy";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { TAXONOMY_BY_ID as taxonomyById } from "@/lib/rubros";
+import { canonicalizeRubroId } from "@/lib/rubros";
 import RubroFormModal from "@/components/finanzas/RubroFormModal";
 import { useRBACProjects } from "@/hooks/useRBACProjects";
 import type { RubroFormData } from "@/types/rubros";
@@ -72,8 +72,8 @@ export default function RubrosCatalog() {
       const enrichedRows = normalizedRubros.map((rubro) => {
         const rubroWithTaxonomy = rubro as RubroWithTaxonomy;
         // Normalize to canonical ID if legacy
-        const canonicalId = getCanonicalRubroId(rubroWithTaxonomy.rubro_id);
-        const taxonomy = taxonomyById.get(canonicalId);
+        const canonicalId = canonicalizeRubroId(rubroWithTaxonomy.rubro_id);
+        const taxonomy = taxonomyById.get(canonicalId || rubroWithTaxonomy.rubro_id);
         
         // Prefer taxonomy data, fallback to API response
         const nombre =
@@ -84,11 +84,11 @@ export default function RubrosCatalog() {
 
         return {
           ...rubroWithTaxonomy,
-          rubro_id: canonicalId, // Use canonical ID
+          rubro_id: canonicalId || rubroWithTaxonomy.rubro_id, // Use canonical ID
           nombre,
           categoria: rubroWithTaxonomy.categoria ?? taxonomy?.categoria ?? null,
           categoria_codigo: rubroWithTaxonomy.categoria_codigo ?? taxonomy?.categoria_codigo ?? null,
-          linea_codigo: rubroWithTaxonomy.linea_codigo ?? taxonomy?.linea_codigo ?? canonicalId,
+          linea_codigo: rubroWithTaxonomy.linea_codigo ?? taxonomy?.linea_codigo ?? (canonicalId || rubroWithTaxonomy.rubro_id),
           linea_gasto: rubroWithTaxonomy.linea_gasto ?? taxonomy?.linea_gasto ?? nombre,
           tipo_costo: rubroWithTaxonomy.tipo_costo ?? taxonomy?.tipo_costo ?? null,
           tipo_ejecucion: rubroWithTaxonomy.tipo_ejecucion ?? taxonomy?.tipo_ejecucion ?? null,
