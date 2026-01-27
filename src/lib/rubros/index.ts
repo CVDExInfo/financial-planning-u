@@ -4,23 +4,34 @@
  * Public frontend helpers for Rubros (canonical taxonomy).
  *
  * IMPORTANT:
- * - Use the functions exported from this module in frontend code.
- * - Do NOT import implementation internals from ./canonical-taxonomy directly
- *   in UI/feature code. The canonical-taxonomy module is an internal
- *   implementation detail and may change.
+ * - Use exports from THIS module in frontend code.
+ * - Do NOT import from ./canonical-taxonomy directly in UI/feature modules.
+ *   That file is an internal implementation detail and may change.
  */
 
 import {
+  // core helpers
   getCanonicalRubroId as _getCanonicalRubroId,
-  getTaxonomyById,
+  getCanonicalRubroById as _getCanonicalRubroById,
+  getTaxonomyById as _getTaxonomyById,
+  isValidRubroId as _isValidRubroId,
+
+  // catalog helpers
   getAllCategories,
   getRubrosByCategory,
+  getActiveRubros,
+
+  // constants
   CANONICAL_RUBROS_TAXONOMY,
+  TAXONOMY_BY_ID,
   LABOR_CANONICAL_KEYS,
   LABOR_CANONICAL_KEYS_SET,
   CANONICAL_ALIASES,
-  getActiveRubros,
-  // (other low-level functions/constants may exist - do not re-export them unless required)
+
+  // types
+  type CanonicalRubroTaxonomy,
+  type TipoCosto,
+  type TipoEjecucion,
 } from "./canonical-taxonomy";
 
 import { getRubroById as _getRubroById } from "./taxonomyHelpers";
@@ -42,139 +53,140 @@ export type { CanonicalRubroTaxonomy, TipoCosto, TipoEjecucion } from "./canonic
  */
 export function canonicalizeRubroId(raw?: string): string | undefined {
   if (!raw) return undefined;
+
   try {
-    // Delegate to low-level implementation and normalize case
-    const canonical = _getCanonicalRubroId(raw);
+    const canonical = _getCanonicalRubroId(String(raw));
     if (!canonical) return undefined;
-    return String(canonical).toUpperCase();
+    return String(canonical).trim().toUpperCase();
   } catch (err) {
     // Defensive: do not throw in UI; log and return undefined
     if ((import.meta as any)?.env?.DEV) {
-      console.warn("[canonicalizeRubroId] failed to canonicalize:", raw, err);
+      console.warn("[canonicalizeRubroId] failed:", raw, err);
     }
     return undefined;
   }
 }
 
 /**
- * Return the user-facing description for a rubro (prefer taxonomy.descripcion,
- * fall back to linea_gasto).
+ * Back-compat / convenience: canonical-taxonomy naming
+ * (kept because parts of the codebase already use this name).
  *
- * Accepts either canonical id or legacy alias - canonicalization happens inside.
+ * Returns `null` when no mapping found.
+ */
+export function getCanonicalRubroId(raw?: string): string | null {
+  return canonicalizeRubroId(raw) ?? null;
+}
+
+/**
+ * Back-compat / convenience: canonical-taxonomy naming
+ * (lookup taxonomy entry by canonical id, but accepts raw too).
+ */
+export function getCanonicalRubroById(rawOrId?: string): CanonicalRubroTaxonomy | null {
+  const canonical = canonicalizeRubroId(rawOrId);
+  if (!canonical) return null;
+  return _getCanonicalRubroById(canonical);
+}
+
+/**
+ * Get taxonomy entry by canonical ID (or return null if missing).
+ *
+ * Use this when you ALREADY have a canonical ID (e.g., after canonicalizeRubroId()).
+ */
+export function getTaxonomyById(id?: string): CanonicalRubroTaxonomy | null {
+  if (!id) return null;
+  const key = String(id).trim().toUpperCase();
+  return _getTaxonomyById(key);
+}
+
+/**
+ * Get a taxonomy entry from any raw input.
+ * Canonicalizes first, then returns the taxonomy entry or null.
+ *
+ * Preferred when the input can be legacy/unknown/raw.
+ */
+export function getTaxonomyEntry(raw?: string): CanonicalRubroTaxonomy | null {
+  const canonical = canonicalizeRubroId(raw);
+  if (!canonical) return null;
+
+  const tax = _getTaxonomyById(canonical);
+  if (tax) return tax;
+
+  // Fallback to taxonomyHelpers if needed (older shape)
+  return (_getRubroById(canonical) as CanonicalRubroTaxonomy | undefined) ?? null;
+}
+
+/**
+ * Return the user-facing description for a rubro
+ * (prefer taxonomy.descripcion, fall back to linea_gasto).
  */
 export function rubroDescriptionFor(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const canonical = canonicalizeRubroId(raw);
-  if (!canonical) return undefined;
-
-  // Try taxonomy helper first
-  const tax = getTaxonomyById(canonical);
-  if (tax) {
-    return tax.descripcion ?? tax.linea_gasto ?? undefined;
-  }
-
-  // Fallback to taxonomy helper from taxonomyHelpers if available
-  const byId = _getRubroById(canonical);
-  if (byId) {
-    return byId.descripcion ?? byId.linea_gasto ?? undefined;
-  }
-
-  return undefined;
+  const tax = getTaxonomyEntry(raw);
+  return tax?.descripcion ?? tax?.linea_gasto ?? undefined;
 }
 
 /**
  * Find a rubro taxonomy item by linea_codigo (canonical id).
- *
  * Accepts canonical or legacy id; returns the taxonomy object (or undefined).
  */
-export function findRubroByLineaCodigo(lineaCodigo?: string) {
-  if (!lineaCodigo) return undefined;
+export function findRubroByLineaCodigo(lineaCodigo?: string): CanonicalRubroTaxonomy | undefined {
   const canonical = canonicalizeRubroId(lineaCodigo);
   if (!canonical) return undefined;
 
-  // Prefer canonical taxonomy lookup
-  const tax = getTaxonomyById(canonical);
+  const tax = _getTaxonomyById(canonical);
   if (tax) return tax;
 
-  // Fallback to taxonomyHelpers
-  return _getRubroById(canonical);
-}
-
-/**
- * Get a taxonomy entry by id (public alias).
- *
- * NOTE: It is recommended to canonicalize inputs first via canonicalizeRubroId(raw)
- * before calling this helper when dealing with legacy IDs or slugs.
- */
-export function getTaxonomyEntry(raw?: string) {
-  if (!raw) return null;
-  const canonical = canonicalizeRubroId(raw);
-  if (!canonical) return null;
-  return getTaxonomyById(canonical);
+  return _getRubroById(canonical) as CanonicalRubroTaxonomy | undefined;
 }
 
 /**
  * Return all rubros (canonical taxonomy array).
- * Use sparingly in UI (prefetching/pagination preferred for very large taxonomies).
+ * Use sparingly in UI.
  */
-export function allRubros() {
+export function allRubros(): CanonicalRubroTaxonomy[] {
   return CANONICAL_RUBROS_TAXONOMY;
 }
 
+/**
+ * Validate a rubro ID (canonical or raw).
+ * If raw is passed, it will be canonicalized first.
+ */
+export function isValidRubroId(raw?: string): boolean {
+  const canonical = canonicalizeRubroId(raw);
+  if (!canonical) return false;
+  return _isValidRubroId(canonical);
+}
+
 /* ===========================================================================
- * Re-exports and constants for frontend use
- *
- * These are provided for convenience. Prefer the helpers above for behavior.
+ * Convenience exports (safe for UI use)
  * ======================================================================== */
 
-/**
- * Export canonical taxonomy (use sparingly).
- */
 export const ALL_RUBROS_TAXONOMY = CANONICAL_RUBROS_TAXONOMY;
 
-/**
- * Labor rubros constants and sets
- */
 export const LABOR_RUBROS = LABOR_CANONICAL_KEYS;
 export const LABOR_RUBROS_SET = LABOR_CANONICAL_KEYS_SET;
 
-/**
- * Human readable alias map for quick mapping (use for suggestion lists, etc.)
- */
 export const RUBRO_ALIASES = CANONICAL_ALIASES;
 
-/**
- * Re-export convenience category functions
- * (these are safe and UI-focused helpers)
- */
 export const getAllRubrosCategories = getAllCategories;
 export const getRubrosForCategory = getRubrosByCategory;
 
 /**
- * Active rubros (if the canonical module supports it)
+ * Prefer calling `getActiveRubros()` (function) so behavior stays consistent
+ * if the implementation becomes dynamic.
  */
-export const ACTIVE_RUBROS = getActiveRubros;
+export { getActiveRubros };
 
 /* ===========================================================================
- * Backwards-compatible aliases & exports
- * (Keep these small and mark deprecated if you want)
+ * Backwards-compatible re-exports (minimize breakage while refactoring)
  * ======================================================================== */
 
-/**
- * isValidRubro - check if a rubro id is valid (delegates to canonical-taxonomy)
- * NOTE: if you need to call the low-level function directly, prefer canonicalizeRubroId
- */
-export { isValidRubroId as isValidRubroId } from "./canonical-taxonomy";
-
-/* ===========================================================================
- * Types
- * ======================================================================== */
-
-export type { CanonicalRubroTaxonomy } from "./canonical-taxonomy";
-
-/* ===========================================================================
- * Internal note:
- * - Do not import `./canonical-taxonomy` directly from UI code.
- * - If a frontend module absolutely needs low-level constants, add a small,
- *   deliberate re-export above and document the intent.
- * ======================================================================== */
+// Some modules still expect these names:
+export {
+  CANONICAL_RUBROS_TAXONOMY,
+  TAXONOMY_BY_ID,
+  LABOR_CANONICAL_KEYS,
+  LABOR_CANONICAL_KEYS_SET,
+  CANONICAL_ALIASES,
+  getAllCategories,
+  getRubrosByCategory,
+};
