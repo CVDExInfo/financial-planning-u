@@ -274,6 +274,12 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'MOD-CONT': 'MOD-IN2', // Old "Contractor" → Ingeniero Soporte N2 externo
   'MOD-EXT': 'MOD-IN2',  // Old "External" → Ingeniero Soporte N2 externo
   'MOD-ENGINEER': 'MOD-ING', // Legacy "Engineer" variant → Ingeniero Soporte N1
+  'MOD-DEV': 'MOD-ING', // Legacy "Developer" variant → Ingeniero Soporte N1
+  'MOD-TEST': 'MOD-ING', // Legacy "Test" variant → Ingeniero Soporte N1
+  
+  // Legacy GSV (Gestión del Servicio) mappings
+  'GSV-TOOL': 'GSV-RPT', // Legacy "Tool" → Informes mensuales
+  'GSV-CLOUD': 'INF-CLOUD', // Legacy "GSV-CLOUD" → Servicios Cloud / hosting
 };
 
 /**
