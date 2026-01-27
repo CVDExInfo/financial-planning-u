@@ -229,26 +229,6 @@ jobs:
                 ref: context.ref,
               });
               console.log(`✅ ${serviceName} deployment triggered`);
-
-              // Optional: Verify workflow run was created
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              const runs = await github.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: workflowFile,
-                per_page: 5,
-              });
-
-              const recentRun = runs.data.workflow_runs.find(run => {
-                const runAge = Date.now() - new Date(run.created_at).getTime();
-                return runAge < 30000; // Within last 30 seconds
-              });
-
-              if (!recentRun) {
-                throw new Error(`No recent workflow run found for ${workflowFile}`);
-              }
-              console.log(`✅ Verified workflow run #${recentRun.run_number} started`);
-
             } catch (error) {
               const errMsg =
                 `⚠️ Failed to trigger ${serviceName} deployment`;
@@ -259,9 +239,37 @@ jobs:
                 throw error;
               }
               
-              const note =
-                `This is non-fatal on non-main branches. Deploy ${serviceName} manually.`;
-              console.log(`   ${note}`);
+              console.log(`   Deploy ${serviceName} manually if needed.`);
+            }
+
+            // Verify workflow run was created
+            try {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowFile,
+                per_page: 5,
+              });
+
+              const recentRun = runs.data.workflow_runs.find(run => {
+                const runAge = Date.now() - new Date(run.created_at).getTime();
+                return runAge < 60000; // Within last 60 seconds
+              });
+
+              if (!recentRun) {
+                throw new Error(`No recent workflow run found for ${workflowFile}`);
+              }
+              console.log(`✅ Verified workflow run #${recentRun.run_number} started`);
+            } catch (error) {
+              console.error(`⚠️ Failed to verify ${serviceName} deployment:`, error.message);
+              
+              // Fail loud on main branch
+              if (context.ref === 'refs/heads/main') {
+                throw error;
+              }
+              
+              console.log(`   Check workflow runs manually for ${workflowFile}.`);
             }
 
   notify:
