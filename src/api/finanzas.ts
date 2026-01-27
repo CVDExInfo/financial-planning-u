@@ -15,7 +15,7 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { normalizeKey } from "@/lib/rubros/normalize-key";
-import { canonicalizeRubroId, requireCanonicalRubro } from "@/lib/rubros";
+import { requireCanonicalRubro } from "@/lib/rubros";
 
 // ---------- Environment ----------
 const envSource =

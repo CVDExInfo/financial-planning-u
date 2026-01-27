@@ -1115,8 +1115,27 @@ export const materializeAllocationsForBaseline = async (
   if (rubros.length > 0) {
     // PRIMARY PATH: Generate allocations from seeded rubros
     for (const rubro of rubros) {
-      // Use validated canonical ID to ensure consistency with fallback path
-      const canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
+      let canonicalRubroId: string;
+      
+      try {
+        // Use validated canonical ID to ensure consistency with fallback path
+        canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
+      } catch (err) {
+        console.warn(
+          "[materializers] skipping rubro: cannot resolve canonical rubro id",
+          {
+            context: "primary-path",
+            error: err instanceof Error ? err.message : String(err),
+            rubroPreview: {
+              rubroId: rubro.rubroId || rubro.sk,
+              linea_codigo: rubro?.linea_codigo,
+              nombre: rubro?.nombre,
+            },
+          }
+        );
+        // skip this rubro safely
+        continue;
+      }
 
       // Extract unit_cost (monthly cost)
       let unitCost = coerceNumber(rubro.unit_cost);
@@ -1219,8 +1238,30 @@ export const materializeAllocationsForBaseline = async (
 
     allocations.push(
       ...lineItems.flatMap((item) => {
-        // Use validated canonical ID to ensure consistency with primary path
-        const canonical = getValidatedCanonicalRubroId(item, "fallback-path");
+        let canonical: string;
+
+        try {
+          // Use validated canonical ID to ensure consistency with primary path
+          canonical = getValidatedCanonicalRubroId(item, "fallback-path");
+        } catch (err) {
+          console.warn(
+            "[materializers] skipping item: cannot resolve canonical rubro id",
+            {
+              context: "fallback-path",
+              error: err instanceof Error ? err.message : String(err),
+              itemPreview: {
+                linea_codigo: item?.linea_codigo,
+                rubro_id: item?.rubro_id ?? item?.rubroId ?? item?.id,
+                sk: item?.sk,
+                role: item?.role,
+                category: item?.category,
+              },
+            }
+          );
+          // skip this item safely
+          return [];
+        }
+
         const lineItemId =
           item.id ||
           item.line_item_id ||
