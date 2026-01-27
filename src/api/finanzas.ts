@@ -15,7 +15,7 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { normalizeKey } from "@/lib/rubros/normalize-key";
-import { canonicalizeRubroId } from "@/lib/rubros";
+import { canonicalizeRubroId, requireCanonicalRubro } from "@/lib/rubros";
 
 // ---------- Environment ----------
 const envSource =
@@ -756,9 +756,9 @@ export async function uploadInvoice(
     throw new FinanzasApiError("line_item_id is required and must be a non-empty string");
   }
 
-  // Normalize and canonicalize the line_item_id
-  const normalizedLineItemId = normalizeKey(payload.line_item_id);
-  const canonicalRubroId = canonicalizeRubroId(payload.line_item_id);
+  // CRITICAL: Enforce canonical rubro ID - throws if not in taxonomy
+  const canonicalRubroId = requireCanonicalRubro(payload.line_item_id);
+  const normalizedLineItemId = normalizeKey(canonicalRubroId);
 
   const parsedInvoiceDate = payload.invoice_date
     ? Date.parse(payload.invoice_date)

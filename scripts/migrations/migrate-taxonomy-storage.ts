@@ -23,8 +23,8 @@ import {
   UpdateCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
-// Use backend canonicalizer (node-safe, S3 fallback)
-import { getCanonicalRubroId } from "../../services/finanzas-api/src/lib/canonical-taxonomy.ts";
+// Use backend canonicalizer (node-safe, S3 fallback) with strict enforcement
+import { requireCanonicalRubro } from "../../services/finanzas-api/src/lib/requireCanonical.ts";
 // Write artifacts
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
@@ -77,16 +77,18 @@ const stats: MigrationStats = {
 };
 
 /**
- * Normalize a rubro ID to its canonical form
+ * Normalize a rubro ID to its canonical form using strict enforcement
  * Returns null if the ID cannot be canonicalized
  */
 function normalizeRubroId(rubroId: string | undefined | null): string | null {
   if (!rubroId) return null;
   try {
-    const canonical = getCanonicalRubroId(rubroId);
-    return canonical || null;
-  } catch (error) {
-    console.warn(`⚠️  Failed to canonicalize rubro ID: ${rubroId}`, error);
+    // Use strict enforcement - throws if not canonical
+    const canonical = requireCanonicalRubro(rubroId);
+    return canonical;
+  } catch (error: any) {
+    // Log warning but continue with migration (for reporting purposes)
+    console.warn(`⚠️  Failed to canonicalize rubro ID: ${rubroId} - ${error.message}`);
     return null;
   }
 }
