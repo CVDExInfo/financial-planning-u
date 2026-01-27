@@ -141,6 +141,9 @@ export type InvoiceDoc = {
   deletion_requested_at?: string; // When deletion was requested
   rubroId?: string; // Rubro identifier (alternative field name)
   rubro_id?: string; // Rubro identifier (snake_case variant)
+  description?: string; // Invoice description
+  descripcion?: string; // Invoice description (Spanish)
+  rubro_canonical?: string; // Canonical rubro ID
 };
 
 // Scenario modeling

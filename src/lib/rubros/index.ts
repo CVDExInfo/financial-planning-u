@@ -12,7 +12,6 @@
 import {
   // core helpers
   getCanonicalRubroId as _getCanonicalRubroId,
-  getCanonicalRubroById as _getCanonicalRubroById,
   getTaxonomyById as _getTaxonomyById,
   isValidRubroId as _isValidRubroId,
 
@@ -84,7 +83,7 @@ export function getCanonicalRubroId(raw?: string): string | null {
 export function getCanonicalRubroById(rawOrId?: string): CanonicalRubroTaxonomy | null {
   const canonical = canonicalizeRubroId(rawOrId);
   if (!canonical) return null;
-  return _getCanonicalRubroById(canonical);
+  return _getTaxonomyById(canonical);
 }
 
 /**
