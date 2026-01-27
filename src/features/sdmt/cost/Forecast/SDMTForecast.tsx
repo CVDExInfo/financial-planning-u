@@ -70,7 +70,7 @@ import {
 } from "@/lib/pdf-export";
 import { computeTotals, computeVariance } from "@/lib/forecast/analytics";
 import { normalizeForecastCells, normalizeRubroId } from "@/features/sdmt/cost/utils/dataAdapters";
-import { canonicalizeRubroId, getTaxonomyEntry } from "@/lib/rubros";
+import { canonicalizeRubroId, getTaxonomyEntry, getTaxonomyById } from "@/lib/rubros";
 import { useProjectLineItems } from "@/hooks/useProjectLineItems";
 import {
   bulkUploadPayrollActuals,
