@@ -8,7 +8,7 @@
  * NO EXCEPTIONS - fail loudly if the rubro cannot be canonicalized.
  */
 
-import { canonicalizeRubroId } from "@/lib/rubros";
+import { canonicalizeRubroId, getTaxonomyById } from "@/lib/rubros";
 
 /**
  * Return canonical linea_codigo (UPPERCASE), or throw if not found.
@@ -16,9 +16,13 @@ import { canonicalizeRubroId } from "@/lib/rubros";
  * 
  * This is the REQUIRED function for all DynamoDB writes involving rubros.
  * 
+ * Validates both:
+ * 1. Raw input can be canonicalized (legacy ID, alias, or canonical ID)
+ * 2. Taxonomy entry exists for the canonical ID
+ * 
  * @param raw - Raw rubro identifier (can be legacy ID, alias, human-readable label, etc.)
  * @returns Canonical linea_codigo in UPPERCASE (e.g., "MOD-SDM", "MOD-LEAD")
- * @throws Error if the rubro cannot be mapped to a canonical ID
+ * @throws Error if input is missing, cannot be canonicalized, or taxonomy entry is missing
  * 
  * @example
  * ```ts
@@ -30,15 +34,25 @@ import { canonicalizeRubroId } from "@/lib/rubros";
  * 
  * // Invalid/unknown ID
  * requireCanonicalRubro("INVALID-RUBRO") // Throws Error
+ * 
+ * // Missing input
+ * requireCanonicalRubro() // Throws Error
  * ```
  */
 export function requireCanonicalRubro(raw?: string): string {
-  const canonical = canonicalizeRubroId(raw);
-  if (!canonical) {
-    throw new Error(
-      `[rubro] Unknown or non-canonical rubro id: "${String(raw)}" — operation blocked. ` +
-      `All rubros must exist in data/rubros.taxonomy.json`
-    );
+  if (!raw) {
+    throw new Error('[rubro] missing input');
   }
-  return canonical;
+  
+  const canonical = canonicalizeRubroId(raw) || null;
+  if (!canonical) {
+    throw new Error(`[rubro] Unknown rubro (no canonical mapping): "${raw}"`);
+  }
+  
+  const tax = getTaxonomyById(canonical);
+  if (!tax || !tax.linea_codigo) {
+    throw new Error(`[rubro] Taxonomy missing for canonical id: "${canonical}"`);
+  }
+  
+  return String(tax.linea_codigo).trim().toUpperCase();
 }

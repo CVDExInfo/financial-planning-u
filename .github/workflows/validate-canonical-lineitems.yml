@@ -1,0 +1,68 @@
+name: Validate Canonical Line Items
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-canonical-lineitems:
+    name: Validate Canonical Line Items
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Configure AWS credentials (for staging validation)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        continue-on-error: true # Allow to continue if AWS credentials are not configured
+      
+      - name: Run canonical line items validation
+        id: validate
+        run: |
+          # Run validation script with fail-on-mismatch flag
+          TABLE_PREFIX=${{ secrets.TABLE_PREFIX || 'finz_' }} \
+          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }} \
+          npx tsx scripts/migrations/validate-canonical-lineitems.ts --fail-on-mismatch
+        continue-on-error: true
+      
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-canonical-report
+          path: scripts/migrations/validate-canonical-report.json
+          if-no-files-found: warn
+      
+      - name: Check validation result
+        if: steps.validate.outcome == 'failure'
+        run: |
+          echo "::error::Canonical line items validation failed!"
+          echo "Non-canonical line_item_id values were found in the allocations table."
+          echo "Please run the migration script to fix them:"
+          echo "  TABLE_PREFIX=finz_ AWS_REGION=us-east-1 node scripts/migrations/migrate-finz-allocations-canonical.js --apply"
+          exit 1
+      
+      - name: Validation passed
+        if: steps.validate.outcome == 'success'
+        run: |
+          echo "✅ All line_item_id values are canonical!"

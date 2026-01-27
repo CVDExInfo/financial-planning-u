@@ -7,6 +7,29 @@ import assert from 'node:assert/strict';
 import { requireCanonicalRubro } from '../requireCanonical';
 
 describe('requireCanonicalRubro', () => {
+  describe('missing input', () => {
+    it('should throw on undefined input', () => {
+      assert.throws(
+        () => requireCanonicalRubro(undefined),
+        /\[rubro\] missing input/
+      );
+    });
+
+    it('should throw on empty string', () => {
+      assert.throws(
+        () => requireCanonicalRubro(''),
+        /\[rubro\] missing input/
+      );
+    });
+
+    it('should throw on null input', () => {
+      assert.throws(
+        () => requireCanonicalRubro(null as any),
+        /\[rubro\] missing input/
+      );
+    });
+  });
+
   describe('valid canonical IDs', () => {
     it('should return canonical ID for valid canonical input', () => {
       assert.equal(requireCanonicalRubro('MOD-SDM'), 'MOD-SDM');
@@ -44,28 +67,14 @@ describe('requireCanonicalRubro', () => {
     it('should throw for unknown rubro ID', () => {
       assert.throws(
         () => requireCanonicalRubro('INVALID-RUBRO'),
-        /Unknown or non-canonical rubro id.*INVALID-RUBRO.*operation blocked/
+        /Unknown rubro \(no canonical mapping\).*INVALID-RUBRO/
       );
     });
 
-    it('should throw for undefined input', () => {
+    it('should throw for invalid legacy format', () => {
       assert.throws(
-        () => requireCanonicalRubro(undefined),
-        /Unknown or non-canonical rubro id.*undefined.*operation blocked/
-      );
-    });
-
-    it('should throw for empty string', () => {
-      assert.throws(
-        () => requireCanonicalRubro(''),
-        /Unknown or non-canonical rubro id.*operation blocked/
-      );
-    });
-
-    it('should throw for null input', () => {
-      assert.throws(
-        () => requireCanonicalRubro(null as any),
-        /Unknown or non-canonical rubro id.*null.*operation blocked/
+        () => requireCanonicalRubro('RUBRO-999'),
+        /Unknown rubro \(no canonical mapping\).*RUBRO-999/
       );
     });
   });
@@ -74,12 +83,13 @@ describe('requireCanonicalRubro', () => {
     it('should handle whitespace in canonical IDs', () => {
       assert.equal(requireCanonicalRubro('  MOD-SDM  '), 'MOD-SDM');
     });
+  });
 
-    it('should throw for invalid legacy format', () => {
-      assert.throws(
-        () => requireCanonicalRubro('RUBRO-999'),
-        /Unknown or non-canonical rubro id.*RUBRO-999.*operation blocked/
-      );
+  describe('taxonomy validation', () => {
+    it('should validate that taxonomy entry exists', () => {
+      // Valid canonical IDs should have taxonomy entries
+      const canonical = requireCanonicalRubro('MOD-SDM');
+      assert.equal(canonical, 'MOD-SDM');
     });
   });
 });
