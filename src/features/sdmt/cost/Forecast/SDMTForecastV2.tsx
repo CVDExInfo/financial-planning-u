@@ -271,7 +271,6 @@ export function SDMTForecastV2() {
       debugMode,
     });
     
-    let usedFallback = false;
     const baselineStatus = resolveBaselineStatus(currentProject as any);
     const hasAcceptedBaseline = baselineStatus === 'accepted';
     
@@ -288,7 +287,6 @@ export function SDMTForecastV2() {
         );
       }
       normalized = transformLineItemsToForecast(safeLineItems, months, projectId);
-      usedFallback = true;
     }
     
     // Get matched invoices and sync with actuals
@@ -358,7 +356,6 @@ export function SDMTForecastV2() {
           
           const baselineStatus = resolveBaselineStatus(project as any);
           const hasAcceptedBaseline = baselineStatus === 'accepted';
-          let usedFallback = false;
           
           // Fallback hierarchy: allocations -> lineItems
           if (
@@ -368,7 +365,6 @@ export function SDMTForecastV2() {
             hasAcceptedBaseline
           ) {
             normalized = computeForecastFromAllocations(allocations, projectLineItems, months, project.id);
-            usedFallback = true;
           } else if (
             (!normalized || normalized.length === 0) &&
             projectLineItems &&
@@ -376,7 +372,6 @@ export function SDMTForecastV2() {
             hasAcceptedBaseline
           ) {
             normalized = transformLineItemsToForecast(projectLineItems, months, project.id);
-            usedFallback = true;
           }
           
           // Sync with invoices
