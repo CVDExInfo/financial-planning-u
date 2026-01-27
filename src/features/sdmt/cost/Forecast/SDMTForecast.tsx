@@ -5180,21 +5180,23 @@ export function SDMTForecast() {
     </div>
   );
 
-  // Conditional rendering based on design system flag
+  // Conditional rendering - MUTUALLY EXCLUSIVE layout paths
+  // Only one of these will execute for any given flag configuration
+  if (NEW_FORECAST_LAYOUT_ENABLED) {
+    // Mount V2 via Suspense / lazy
+    return (
+      <React.Suspense fallback={<LoadingSpinner size="lg" />}>
+        <SDMTForecastV2 />
+      </React.Suspense>
+    );
+  }
+
+  // else -> old layout (single exclusive block)
   if (NEW_DESIGN_SYSTEM) {
     return (
       <DashboardLayout maxWidth="full">
         {renderContent()}
       </DashboardLayout>
-    );
-  }
-
-  // Feature flag check: Mount V2 if enabled (checked after all hooks)
-  if (NEW_FORECAST_LAYOUT_ENABLED) {
-    return (
-      <React.Suspense fallback={<LoadingSpinner />}>
-        <SDMTForecastV2 />
-      </React.Suspense>
     );
   }
 

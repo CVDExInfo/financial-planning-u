@@ -73,6 +73,39 @@ jobs:
           VITE_API_BASE_URL: http://localhost
         run: pnpm -s test:unit || echo "⚠️ Some unit tests failed (check logs)"
 
+      - name: Build Finanzas (verify dist artifacts)
+        env:
+          VITE_API_BASE_URL: https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+          VITE_CLOUDFRONT_URL: https://d7t9x3j66yd8k.cloudfront.net
+        run: |
+          BUILD_TARGET=finanzas pnpm run build:finanzas
+          # Ensure artifacts were created
+          if ! ls dist-finanzas/assets/*.css >/dev/null 2>&1; then
+            echo "ERROR: dist-finanzas assets not found"
+            ls -la dist-finanzas || true
+            exit 1
+          fi
+          # Print a short list of hashed assets for debugging
+          sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
+
+      - name: Quick forecast smoke test (serve + curl)
+        run: |
+          # serve the build on local port and check main page and forecast route
+          pnpm exec serve -s dist-finanzas -l 4173 &> serve.log &
+          SERVER_PID=$!
+          # wait for server up
+          for i in {1..20}; do
+            curl -sSf http://127.0.0.1:4173/finanzas/ && break || sleep 1
+          done
+          # check forecast route returns 200 and contains the forecast page marker
+          if ! curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast | grep -q "Cuadrícula de Pronóstico"; then
+            echo "Forecast page didn't render expected content"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          fi
+          kill $SERVER_PID || true
+
       - name: Test summary
         if: always()
         run: |
