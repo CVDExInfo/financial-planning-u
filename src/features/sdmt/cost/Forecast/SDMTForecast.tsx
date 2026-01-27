@@ -185,7 +185,19 @@ const PORTFOLIO_PROJECTS_WAIT_MS = Number(import.meta.env.VITE_FINZ_PORTFOLIO_WA
 // Feature flags for new forecast layout
 const NEW_FORECAST_LAYOUT_ENABLED = import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
 const NEW_DESIGN_SYSTEM = import.meta.env.VITE_FINZ_NEW_DESIGN_SYSTEM === 'true';
-const SHOW_KEY_TRENDS = import.meta.env.VITE_FINZ_SHOW_KEYTRENDS === 'true';
+// Prefer V2-specific env var; fall back to legacy var if V2 var not provided.
+// This avoids duplicate-define issues while preserving backwards compatibility.
+const rawEnv = (import.meta.env as Record<string, any>);
+const SHOW_KEY_TRENDS = (() => {
+  // New V2-specific variable
+  const v2 = rawEnv.VITE_FINZ_V2_SHOW_KEYTRENDS;
+  if (typeof v2 !== "undefined" && v2 !== null) {
+    return String(v2).toLowerCase() === "true";
+  }
+  // Fallback to legacy variable for non-V2 deployments
+  const legacy = rawEnv.VITE_FINZ_SHOW_KEYTRENDS;
+  return typeof legacy !== "undefined" && String(legacy).toLowerCase() === "true";
+})();
 
 // Backward compatibility: HIDE_KEY_TRENDS is deprecated, use SHOW_KEY_TRENDS instead
 
