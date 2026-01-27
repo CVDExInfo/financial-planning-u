@@ -158,6 +158,13 @@ export function isValidRubroId(raw?: string): boolean {
   return _isValidRubroId(canonical);
 }
 
+/**
+ * Alias for isValidRubroId - validates a rubro ID
+ */
+export function isValidRubro(raw?: string): boolean {
+  return isValidRubroId(raw);
+}
+
 /* ===========================================================================
  * Convenience exports (safe for UI use)
  * ======================================================================== */
