@@ -31,6 +31,7 @@ import ScenariosDashboard from "@/modules/finanzas/ScenariosDashboard";
 import HubDesempeno from "@/modules/finanzas/HubDesempeno";
 import PayrollPage from "@/modules/finanzas/payroll/PayrollPage";
 import SDMTForecast from "@/features/sdmt/cost/Forecast/SDMTForecast";
+import SDMTForecastV2 from "@/features/sdmt/cost/Forecast/SDMTForecastV2";
 import SDMTReconciliation from "@/features/sdmt/cost/Reconciliation/SDMTReconciliation";
 import SDMTCashflow from "@/features/sdmt/cost/Cashflow/SDMTCashflow";
 import SDMTScenarios from "@/features/sdmt/cost/Scenarios/SDMTScenarios";
@@ -43,6 +44,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 
 import { queryClient } from "./lib/queryClient";
 import { useIdleLogout } from "./hooks/useIdleLogout";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 // Hook to determine current module
 // NOTE: Module context detection reserved for future enhancements
@@ -208,6 +210,9 @@ function AppContent() {
               <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
               <Route path="/projects/:projectId/cost-structure" element={<SDMTCatalog />} />
               <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
+              {isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT") && (
+                <Route path="/sdmt/cost/forecast-v2" element={<SDMTForecastV2 />} />
+              )}
               <Route
                 path="/sdmt/cost/reconciliation"
                 element={<SDMTReconciliation />}
