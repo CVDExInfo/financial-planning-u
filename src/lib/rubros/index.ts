@@ -37,6 +37,9 @@ import { getRubroById as _getRubroById } from "./taxonomyHelpers";
 
 export type { CanonicalRubroTaxonomy, TipoCosto, TipoEjecucion } from "./canonical-taxonomy";
 
+// Export strict enforcement helper
+export { requireCanonicalRubro } from "./requireCanonical";
+
 /* ===========================================================================
  * Public frontend helper functions
  * ===========================================================================

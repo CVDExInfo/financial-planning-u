@@ -1,6 +1,7 @@
 import { PutCommand, QueryCommand } from "../lib/dynamo";
 import { DEFAULT_LABOR_RUBRO, DEFAULT_NON_LABOR_RUBRO } from "./rubros-taxonomy";
 import { logError } from "../utils/logging";
+import { requireCanonicalRubro } from "./requireCanonical";
 
 type BaselineDealInputs = {
   project_name?: string;
@@ -94,14 +95,17 @@ export const buildSeedLineItems = (
     const months = endMonth - startMonth + 1;
     const totalCost = monthlyCost * months;
 
-    const canonicalRubroId = estimate.rubroId || DEFAULT_LABOR_RUBRO;
+    // CRITICAL: Enforce canonical rubro ID from taxonomy - no exceptions
+    const rawRubro = estimate.rubroId || DEFAULT_LABOR_RUBRO;
+    const canonicalRubro = requireCanonicalRubro(rawRubro);
+    
     const rubroSK = baselineId
-      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
-      : `${canonicalRubroId}#baseline#${index + 1}`;
+      ? `${canonicalRubro}#${baselineId}#${index + 1}`
+      : `${canonicalRubro}#baseline#${index + 1}`;
 
     items.push({
       rubroId: rubroSK,
-      nombre: estimate.role || canonicalRubroId,
+      nombre: estimate.role || canonicalRubro,
       descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
       category: "Labor",
       qty: 1,
@@ -117,7 +121,7 @@ export const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         role: estimate.role,
-        linea_codigo: canonicalRubroId,
+        linea_codigo: canonicalRubro,
       },
     });
   });
@@ -132,14 +136,17 @@ export const buildSeedLineItems = (
     const months = recurring ? endMonth - startMonth + 1 : 1;
     const totalCost = recurring ? amount * months : amount;
 
-    const canonicalRubroId = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
+    // CRITICAL: Enforce canonical rubro ID from taxonomy - no exceptions
+    const rawRubro = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
+    const canonicalRubro = requireCanonicalRubro(rawRubro);
+    
     const rubroSK = baselineId
-      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
-      : `${canonicalRubroId}#baseline#${index + 1}`;
+      ? `${canonicalRubro}#${baselineId}#${index + 1}`
+      : `${canonicalRubro}#baseline#${index + 1}`;
 
     items.push({
       rubroId: rubroSK,
-      nombre: estimate.description || estimate.category || canonicalRubroId,
+      nombre: estimate.description || estimate.category || canonicalRubro,
       descripcion: estimate.description,
       category: estimate.category || "Non-labor",
       qty: 1,
@@ -155,7 +162,7 @@ export const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         vendor: estimate.vendor,
-        linea_codigo: canonicalRubroId,
+        linea_codigo: canonicalRubro,
       },
     });
   });

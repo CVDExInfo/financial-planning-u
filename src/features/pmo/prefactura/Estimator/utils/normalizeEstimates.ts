@@ -12,7 +12,7 @@
  * - rubro_canonical is set for tracking
  */
 
-import { canonicalizeRubroId, findRubroByLineaCodigo } from "@/lib/rubros";
+import { canonicalizeRubroId, findRubroByLineaCodigo, requireCanonicalRubro } from "@/lib/rubros";
 import type { LaborEstimate, NonLaborEstimate } from "@/types/domain";
 
 
@@ -43,20 +43,21 @@ export interface NormalizedNonLaborEstimate extends NonLaborEstimate {
  * Normalize a Labor estimate to canonical DB shape
  * 
  * This function:
- * 1. Resolves canonical linea_codigo from rubroId or role
+ * 1. STRICTLY resolves canonical linea_codigo from rubroId or role (throws if invalid)
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
  * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - Labor estimate from UI
  * @returns Normalized labor estimate ready for server submission
+ * @throws Error if rubroId/role cannot be mapped to canonical taxonomy
  */
 export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEstimate {
-  // Resolve canonical ID from rubroId or role field
-  const canonical = canonicalizeRubroId(item.rubroId || item.role || "") || item.rubroId;
+  // CRITICAL: Strictly require canonical ID - no fallbacks, fail loudly
+  const canonical = requireCanonicalRubro(item.rubroId || item.role || "");
   
   // Fetch taxonomy entry for metadata using unified rubros helper
-  const tax = canonical ? findRubroByLineaCodigo(canonical) : null;
+  const tax = findRubroByLineaCodigo(canonical);
   
   // Build normalized estimate
   return {
@@ -77,20 +78,21 @@ export function normalizeLaborEstimate(item: LaborEstimate): NormalizedLaborEsti
  * Normalize a NonLabor estimate to canonical DB shape
  * 
  * This function:
- * 1. Resolves canonical linea_codigo from rubroId
+ * 1. STRICTLY resolves canonical linea_codigo from rubroId (throws if invalid)
  * 2. Fetches taxonomy metadata for the canonical ID
  * 3. Populates line_item_id, descripcion, categoria, and rubro_canonical
  * 4. Prioritizes taxonomy descripcion over user-entered description
  * 
  * @param item - NonLabor estimate from UI
  * @returns Normalized non-labor estimate ready for server submission
+ * @throws Error if rubroId cannot be mapped to canonical taxonomy
  */
 export function normalizeNonLaborEstimate(item: NonLaborEstimate): NormalizedNonLaborEstimate {
-  // Resolve canonical ID from rubroId
-  const canonical = canonicalizeRubroId(item.rubroId || "") || item.rubroId;
+  // CRITICAL: Strictly require canonical ID - no fallbacks, fail loudly
+  const canonical = requireCanonicalRubro(item.rubroId || "");
   
   // Fetch taxonomy entry for metadata using unified rubros helper
-  const tax = canonical ? findRubroByLineaCodigo(canonical) : null;
+  const tax = findRubroByLineaCodigo(canonical);
   
   // Build normalized estimate
   return {

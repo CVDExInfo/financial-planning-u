@@ -12,6 +12,7 @@ import {
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
+import { requireCanonicalRubro } from "./requireCanonical";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -97,6 +98,24 @@ const getCanonicalRubroPrefix = (rubroIdOrSk: string | undefined): string => {
  * @returns Canonical rubro ID
  * @throws Error if canonical ID cannot be determined
  */
+/**
+ * Get validated canonical rubro ID from a rubro object or raw ID string.
+ * 
+ * This function ensures consistent canonical ID resolution across all code paths
+ * to prevent duplicate allocations from being created.
+ * 
+ * CRITICAL: Uses strict enforcement - throws if canonical ID cannot be resolved.
+ * 
+ * Priority order:
+ * 1. linea_codigo (most reliable for canonical IDs like "MOD-ING")
+ * 2. rubro_id or id (may be legacy RB#### format)
+ * 3. Extract from SK if present (e.g., "RUBRO#MOD-ING")
+ * 
+ * @param rubroOrId - Rubro object or raw ID string
+ * @param context - Context string for logging (e.g., "primary-path", "fallback-path")
+ * @returns Canonical rubro ID
+ * @throws Error if canonical ID cannot be determined
+ */
 const getValidatedCanonicalRubroId = (
   rubroOrId: any,
   context: string
@@ -104,15 +123,7 @@ const getValidatedCanonicalRubroId = (
   // Handle string input
   if (typeof rubroOrId === "string") {
     const prefix = getCanonicalRubroPrefix(rubroOrId);
-    const canonical = getCanonicalRubroId(prefix) || prefix;
-    
-    if (!canonical || canonical === "") {
-      throw new Error(
-        `[materializers/${context}] Cannot determine canonical ID from string: ${rubroOrId}`
-      );
-    }
-    
-    return canonical;
+    return requireCanonicalRubro(prefix);
   }
   
   // Handle object input - try multiple fields in priority order
@@ -122,36 +133,19 @@ const getValidatedCanonicalRubroId = (
   
   // Priority 1: linea_codigo (most reliable)
   if (linea_codigo) {
-    const canonical = getCanonicalRubroId(linea_codigo);
-    if (canonical) {
-      return canonical;
-    }
+    return requireCanonicalRubro(linea_codigo);
   }
   
   // Priority 2: rubro_id/id
   if (rubroId) {
     const prefix = getCanonicalRubroPrefix(rubroId);
-    const canonical = getCanonicalRubroId(prefix);
-    if (canonical) {
-      return canonical;
-    }
-    
-    // If getCanonicalRubroId returned undefined, use prefix as fallback
-    if (prefix) {
-      console.warn(
-        `[materializers/${context}] Using unvalidated prefix as canonical ID: ${prefix}`
-      );
-      return prefix;
-    }
+    return requireCanonicalRubro(prefix);
   }
   
   // Priority 3: Extract from SK
   if (sk) {
     const prefix = getCanonicalRubroPrefix(sk);
-    const canonical = getCanonicalRubroId(prefix);
-    if (canonical) {
-      return canonical;
-    }
+    return requireCanonicalRubro(prefix);
   }
   
   // Failed to resolve
