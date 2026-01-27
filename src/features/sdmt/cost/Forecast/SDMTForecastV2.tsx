@@ -774,3 +774,5 @@ export function SDMTForecastV2() {
     </DashboardLayout>
   );
 }
+
+export default SDMTForecastV2;

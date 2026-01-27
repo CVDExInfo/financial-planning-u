@@ -76,3 +76,6 @@ screenshots/
 scripts/migrations/migration-*.log
 scripts/migrations/migration-report-*.json
 scripts/migrations/migration-log-*.log
+scripts/migrations/backups/
+scripts/migrations/taxonomy-upload-result.json
+scripts/migrations/validate-taxonomy-report.json

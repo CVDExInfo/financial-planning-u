@@ -885,3 +885,95 @@ jobs:
           export SUMMARY_DOMAIN="$DOMAIN"
           export SUMMARY_API="${VITE_API_BASE_URL:-N/A}"
           bash scripts/append-finanzas-summary.sh
+
+  post_deploy_validation:
+    name: Validate Taxonomy Sync
+    needs: build-and-deploy-all
+    runs-on: ubuntu-latest
+    # Only run on main branch deployments
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
+          output-env-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install
+          fi
+
+      - name: Run taxonomy validation
+        id: validate
+        continue-on-error: true
+        env:
+          AWS_REGION: us-east-2
+          TABLE_PREFIX: finz_
+        run: |
+          echo "🔍 Running taxonomy validation..."
+          pnpm exec tsx scripts/migrations/validate-taxonomy-sync.ts --fail-on-mismatch
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxonomy-validation-report
+          path: scripts/migrations/validate-taxonomy-report.json
+          retention-days: 30
+
+      - name: Create PR on validation failure
+        if: steps.validate.outcome == 'failure'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Fix taxonomy validation issues"
+          title: "🔴 Taxonomy Validation Failed - Action Required"
+          body: |
+            ## ⚠️ Taxonomy Validation Failed
+            
+            The post-deployment taxonomy validation detected issues that require attention.
+            
+            **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            **Validation Report**: Download the `taxonomy-validation-report` artifact from the workflow run for details.
+            
+            ### Common Issues:
+            - Allocations referencing missing taxonomy entries
+            - Taxonomy items missing from DynamoDB
+            - Extra items in DynamoDB not in source taxonomy
+            
+            ### Action Required:
+            1. Download and review the validation report artifact
+            2. Fix the identified issues
+            3. Re-run the taxonomy sync workflow if needed
+            
+            This PR was automatically created by the post-deployment validation workflow.
+          branch: taxonomy-validation-failure-${{ github.run_number }}
+          labels: |
+            taxonomy
+            validation
+            automated
+          assignees: valencia94
