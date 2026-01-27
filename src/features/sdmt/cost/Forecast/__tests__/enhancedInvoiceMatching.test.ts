@@ -10,7 +10,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { getCanonicalRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 
 // Mock invoice matching function with enhanced field support
 function matchInvoiceToCell(
@@ -38,8 +38,8 @@ function matchInvoiceToCell(
   const cellRubroId = cell.rubroId || cell.line_item_id;
   
   if (invRubroId && cellRubroId) {
-    const invCanonical = getCanonicalRubroId(invRubroId);
-    const cellCanonical = getCanonicalRubroId(cellRubroId);
+    const invCanonical = canonicalizeRubroId(invRubroId);
+    const cellCanonical = canonicalizeRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
       return true;
     }

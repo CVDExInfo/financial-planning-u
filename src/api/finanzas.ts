@@ -15,7 +15,7 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { normalizeKey } from "@/lib/rubros/normalize-key";
-import { getCanonicalRubroId } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId } from "@/lib/rubros";
 
 // ---------- Environment ----------
 const envSource =
@@ -758,7 +758,7 @@ export async function uploadInvoice(
 
   // Normalize and canonicalize the line_item_id
   const normalizedLineItemId = normalizeKey(payload.line_item_id);
-  const canonicalRubroId = getCanonicalRubroId(payload.line_item_id);
+  const canonicalRubroId = canonicalizeRubroId(payload.line_item_id);
 
   const parsedInvoiceDate = payload.invoice_date
     ? Date.parse(payload.invoice_date)

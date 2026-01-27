@@ -5,12 +5,12 @@
 
 import { useMemo } from 'react';
 import {
-  CANONICAL_RUBROS_TAXONOMY,
+  ALL_RUBROS_TAXONOMY,
   TAXONOMY_BY_ID,
-  getTaxonomyById,
-  getActiveRubros,
+  getTaxonomyEntry,
+  allRubros,
   type CanonicalRubroTaxonomy,
-} from '@/lib/rubros/canonical-taxonomy';
+} from '@/lib/rubros';
 
 export interface CategoryOption {
   codigo: string;
@@ -22,7 +22,7 @@ export function useRubrosTaxonomy() {
   const categories = useMemo<CategoryOption[]>(() => {
     const uniqueCategories = new Map<string, string>();
     
-    CANONICAL_RUBROS_TAXONOMY.forEach(rubro => {
+    ALL_RUBROS_TAXONOMY.forEach(rubro => {
       if (rubro.isActive) {
         uniqueCategories.set(rubro.categoria_codigo, rubro.categoria);
       }
@@ -32,28 +32,28 @@ export function useRubrosTaxonomy() {
       .map(([codigo, nombre]) => ({ codigo, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, []);
-  
+
   // Get rubros by category
   const getRubrosByCategory = useMemo(() => {
     return (categoryCodigo: string): CanonicalRubroTaxonomy[] => {
-      return getActiveRubros().filter(
+      return allRubros().filter(
         rubro => rubro.categoria_codigo === categoryCodigo
       );
     };
   }, []);
-  
+
   // Get taxonomy entry by ID
   const getRubroById = useMemo(() => {
     return (rubroId: string): CanonicalRubroTaxonomy | undefined => {
-      return getTaxonomyById(rubroId);
+      return getTaxonomyEntry(rubroId);
     };
   }, []);
-  
+
   return {
     categories,
     getRubrosByCategory,
     getRubroById,
-    allRubros: getActiveRubros(),
+    allRubros: allRubros(),
   };
 }
 

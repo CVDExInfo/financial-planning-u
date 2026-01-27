@@ -27,6 +27,7 @@ import { useNonLaborCatalog } from "@/hooks/useRubrosCatalog";
 import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
 import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
+
 interface NonLaborStepProps {
   data: NonLaborEstimate[];
   setData: (data: NonLaborEstimate[]) => void;
@@ -86,7 +87,7 @@ export function NonLaborStep({ data, setData, onNext }: NonLaborStepProps) {
     
     // When rubroId changes, auto-populate category and description from canonical taxonomy
     if (field === "rubroId" && typeof value === "string") {
-      // Canonicalize the value using unified rubros helper
+      // Canonicalize the value
       const canonical = canonicalizeRubroId(value) || value;
       const lookupId = canonical;
       

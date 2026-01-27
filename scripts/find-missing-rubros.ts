@@ -19,9 +19,9 @@ import {
   LEGACY_RUBRO_ID_MAP,
   LABOR_CANONICAL_KEYS,
   normalizeKey,
-  getCanonicalRubroId,
   isValidRubroId,
 } from '../src/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '../src/lib/rubros/index';
 
 console.log('=== Rubros Taxonomy Diagnostic ===\n');
 
@@ -54,7 +54,7 @@ if (!allocationsPath) {
   console.log('\nMOD-LEAD aliases:');
   newAliases.filter(a => a.toLowerCase().includes('lead') || a.toLowerCase().includes('ingeniero') || a.toLowerCase().includes('pm'))
     .forEach(alias => {
-      const canonical = getCanonicalRubroId(alias);
+      const canonical = canonicalizeRubroId(alias);
       const valid = isValidRubroId(alias);
       console.log(`  ${alias} → ${canonical} (valid: ${valid})`);
     });
@@ -62,7 +62,7 @@ if (!allocationsPath) {
   console.log('\nMOD-SDM aliases:');
   newAliases.filter(a => a.toLowerCase().includes('sdm') || a.toLowerCase().includes('service'))
     .forEach(alias => {
-      const canonical = getCanonicalRubroId(alias);
+      const canonical = canonicalizeRubroId(alias);
       const valid = isValidRubroId(alias);
       console.log(`  ${alias} → ${canonical} (valid: ${valid})`);
     });

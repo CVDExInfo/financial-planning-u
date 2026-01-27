@@ -12,7 +12,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { getCanonicalRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 
 // Define ForecastRow type locally to avoid importing from React hook
 interface ForecastRow {
@@ -100,13 +100,13 @@ function matchInvoiceToCell(inv: any, cell: ForecastRow): boolean {
     }
   }
 
-  // 3) canonical rubroId: use getCanonicalRubroId
+  // 3) canonical rubroId: use canonicalizeRubroId
   const invRubroId = inv.rubroId || inv.rubro_id;
   const cellRubroId = cell.rubroId || cell.line_item_id;
   
   if (invRubroId && cellRubroId) {
-    const invCanonical = getCanonicalRubroId(invRubroId);
-    const cellCanonical = getCanonicalRubroId(cellRubroId);
+    const invCanonical = canonicalizeRubroId(invRubroId);
+    const cellCanonical = canonicalizeRubroId(cellRubroId);
     if (invCanonical && cellCanonical && invCanonical === cellCanonical) {
       return true;
     }
@@ -288,8 +288,8 @@ describe('Invoice Matching Integration Tests', () => {
       };
 
       // Both should resolve to same canonical ID
-      const forecastCanonical = getCanonicalRubroId('MOD-PM-PROJECT-MANAGER');
-      const invoiceCanonical = getCanonicalRubroId('MOD-LEAD');
+      const forecastCanonical = canonicalizeRubroId('MOD-PM-PROJECT-MANAGER');
+      const invoiceCanonical = canonicalizeRubroId('MOD-LEAD');
       
       // NOTE: This test reveals taxonomy gaps - if aliases don't map to same canonical ID,
       // it indicates the legacy map needs updating

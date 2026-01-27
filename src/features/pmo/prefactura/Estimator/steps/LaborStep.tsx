@@ -25,7 +25,7 @@ import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
-import { normalizeLaborEstimates } from "../utils/normalizeEstimates";
+
 
 // Labor rate presets by country and role
 const LABOR_PRESETS = {
@@ -126,7 +126,7 @@ export function LaborStep({ data, setData, onNext }: LaborStepProps) {
     if (field === "role" && typeof value === "string") {
       // Map role to known rubro alias
       const alias = mapModRoleToRubroId(value as MODRole);
-      // Ensure canonical linea_codigo using unified rubros helper
+      // Ensure canonical linea_codigo
       const canonical = canonicalizeRubroId(alias || value) || alias || null;
       
       if (canonical) {

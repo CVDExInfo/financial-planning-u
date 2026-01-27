@@ -163,10 +163,21 @@ export function useMonthlySnapshotData({
   const lineItemMetaMap = useMemo(() => {
     const m = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
     lineItems.forEach(li => {
-      const normalized = normalizeRubroId(li.id || '');
+      const normalized = normalizeKey(rawId);
+
+      // canonicalize first
       const canonical = canonicalizeRubroId(normalized);
-      const taxonomy = getTaxonomyById(normalized);
-      
+
+      if (canonical) {
+        const taxonomy = getTaxonomyById(canonical);
+        const existing = canonicalMap.get(canonical);
+        // merge/populate
+      } else {
+        // fallback handling
+        console.warn("Unknown rubro id:", normalized);
+        // optionally: use normalized uppercased key as fallback or skip
+      }
+
       // Prefer taxonomy description if available, otherwise use line item description
       const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
       const category = taxonomy?.categoria || li.category || '';

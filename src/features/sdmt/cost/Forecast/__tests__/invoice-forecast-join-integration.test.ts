@@ -14,7 +14,7 @@ import {
 } from '../useSDMTForecastData';
 import type { ForecastRow } from '../transformLineItemsToForecast';
 import { buildTaxonomyMap, type TaxonomyEntry } from '../lib/taxonomyLookup';
-import { getCanonicalRubroId } from '@/lib/rubros/canonical-taxonomy';
+import { canonicalizeRubroId } from '@/lib/rubros';
 
 describe('Invoice → Forecast Join Integration', () => {
   describe('normalizeInvoiceMonth for multi-year periods', () => {
@@ -248,11 +248,11 @@ describe('Invoice → Forecast Join Integration', () => {
         projectId: 'PROJ-001',
       };
 
-      // Verify getCanonicalRubroId works for this case
-      // Note: getCanonicalRubroId uses LEGACY_RUBRO_ID_MAP which may not have all textual forms
+      // Verify canonicalizeRubroId works for this case
+      // Note: canonicalizeRubroId uses LEGACY_RUBRO_ID_MAP which may not have all textual forms
       // The real matching happens via taxonomy lookup in matchInvoiceToCell
-      const canonicalId = getCanonicalRubroId('Service Delivery Manager');
-      // getCanonicalRubroId returns the input if not found in legacy map
+      const canonicalId = canonicalizeRubroId('Service Delivery Manager');
+      // canonicalizeRubroId returns undefined if not found in legacy map
       // matchInvoiceToCell handles this via taxonomy lookup
 
       const matched = matchInvoiceToCell(

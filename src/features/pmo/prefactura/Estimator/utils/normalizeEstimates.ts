@@ -15,6 +15,7 @@
 import { canonicalizeRubroId, findRubroByLineaCodigo } from "@/lib/rubros";
 import type { LaborEstimate, NonLaborEstimate } from "@/types/domain";
 
+
 /**
  * Extended LaborEstimate with DB fields for server submission
  */

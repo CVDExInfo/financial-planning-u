@@ -5,15 +5,15 @@
  * used across PMO Estimator and SDMT modules. It ensures consistent
  * data lineage from Estimator → Baseline → Rubros → Forecast.
  * 
- * UPDATED: Now uses canonical taxonomy from @/lib/rubros/canonical-taxonomy
+ * UPDATED: Now uses public rubros API from @/lib/rubros
  */
 
 import {
-  CANONICAL_RUBROS_TAXONOMY,
-  getCanonicalRubroId,
-  isValidRubroId as validateRubroId,
+  ALL_RUBROS_TAXONOMY,
+  isValidRubro,
+  canonicalizeRubroId,
   type CanonicalRubroTaxonomy,
-} from '@/lib/rubros/canonical-taxonomy';
+} from '@/lib/rubros';
 import { MOD_ROLE_MAPPING, MOD_ROLES, type RubroTaxonomia } from '@/modules/rubros.taxonomia';
 import type { MODRole } from '@/modules/modRoles';
 
@@ -66,7 +66,7 @@ const MOD_ROLE_TO_LINEA_CODIGO: Record<MODRole, string> = {
 export async function fetchRubrosCatalog(): Promise<RubroMeta[]> {
   // Use canonical taxonomy as single source of truth
   return Promise.resolve(
-    CANONICAL_RUBROS_TAXONOMY.map((taxonomy) => ({
+    ALL_RUBROS_TAXONOMY.map((taxonomy) => ({
       id: taxonomy.id, // Canonical ID (linea_codigo)
       label: taxonomy.linea_gasto,
       type: taxonomy.categoria_codigo === 'MOD' ? 'labor' : 'non-labor',
@@ -116,8 +116,8 @@ export function mapModRoleToRubroId(role: MODRole): string | null {
   const alias = MOD_ROLE_TO_LINEA_CODIGO[role];
   if (!alias) return null;
   
-  // Ensure we return canonical ID (double-check via getCanonicalRubroId)
-  const canonical = getCanonicalRubroId(alias);
+  // Ensure we return canonical ID (double-check via canonicalizeRubroId)
+  const canonical = canonicalizeRubroId(alias);
   return canonical || alias;
 }
 
@@ -141,7 +141,7 @@ export function mapRubroIdToModRoles(lineaCodigo: string): MODRole[] {
  */
 export async function getRubroByCode(lineaCodigo: string): Promise<RubroMeta | undefined> {
   // Normalize to canonical ID first
-  const canonicalId = getCanonicalRubroId(lineaCodigo);
+  const canonicalId = canonicalizeRubroId(lineaCodigo);
   const allRubros = await fetchRubrosCatalog();
   return allRubros.find((r) => r.id === canonicalId);
 }
@@ -172,7 +172,7 @@ export async function getRubrosByCategory(): Promise<Map<string, RubroMeta[]>> {
  * @returns true if valid, false otherwise
  */
 export function isValidRubroId(rubroId: string): boolean {
-  return validateRubroId(rubroId);
+  return isValidRubro(rubroId);
 }
 
 /**

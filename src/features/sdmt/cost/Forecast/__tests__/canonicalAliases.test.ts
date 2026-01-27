@@ -10,8 +10,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
+import { canonicalizeRubroId } from '@/lib/rubros';
 import { 
-  getCanonicalRubroId, 
   LEGACY_RUBRO_ID_MAP,
   LABOR_CANONICAL_KEYS_SET,
   normalizeKey,
@@ -31,7 +31,7 @@ test('MOD-LEAD canonical aliases map to MOD-LEAD', () => {
   ];
   
   for (const alias of aliases) {
-    const canonical = getCanonicalRubroId(alias);
+    const canonical = canonicalizeRubroId(alias);
     assert.strictEqual(
       canonical, 
       'MOD-LEAD', 
@@ -49,7 +49,7 @@ test('MOD-SDM canonical aliases map to MOD-SDM', () => {
   ];
   
   for (const alias of aliases) {
-    const canonical = getCanonicalRubroId(alias);
+    const canonical = canonicalizeRubroId(alias);
     assert.strictEqual(
       canonical, 
       'MOD-SDM', 
@@ -65,7 +65,7 @@ test('MOD-ING canonical aliases map to MOD-ING', () => {
   ];
   
   for (const alias of aliases) {
-    const canonical = getCanonicalRubroId(alias);
+    const canonical = canonicalizeRubroId(alias);
     assert.strictEqual(
       canonical, 
       'MOD-ING', 
@@ -178,23 +178,23 @@ test('allocation SK patterns with new aliases', () => {
 });
 
 test('throttled warnings do not repeat for same normalized key', () => {
-  // Test that getCanonicalRubroId throttles warnings
+  // Test that canonicalizeRubroId throttles warnings
   // We can't easily test console.warn calls without mocking, but we can
-  // verify that repeated calls to getCanonicalRubroId with unknown keys
+  // verify that repeated calls to canonicalizeRubroId with unknown keys
   // return consistently
   
   const unknownKey = 'COMPLETELY-UNKNOWN-RUBRO-XYZ';
   
   // First call
-  const result1 = getCanonicalRubroId(unknownKey);
+  const result1 = canonicalizeRubroId(unknownKey);
   assert.strictEqual(result1, unknownKey, 'Should return input for unknown key');
   
   // Second call - should not warn again (but we can't test that without mocking)
-  const result2 = getCanonicalRubroId(unknownKey);
+  const result2 = canonicalizeRubroId(unknownKey);
   assert.strictEqual(result2, unknownKey, 'Should consistently return input');
   
   // Different case should be treated as same normalized key
-  const result3 = getCanonicalRubroId('COMPLETELY-UNKNOWN-RUBRO-XYZ');
+  const result3 = canonicalizeRubroId('COMPLETELY-UNKNOWN-RUBRO-XYZ');
   assert.strictEqual(result3, 'COMPLETELY-UNKNOWN-RUBRO-XYZ', 'Should handle case consistently');
 });
 
