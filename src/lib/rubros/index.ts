@@ -12,7 +12,6 @@
 import {
   // core helpers
   getCanonicalRubroId as _getCanonicalRubroId,
-  getCanonicalRubroById as _getCanonicalRubroById,
   getTaxonomyById as _getTaxonomyById,
   isValidRubroId as _isValidRubroId,
 

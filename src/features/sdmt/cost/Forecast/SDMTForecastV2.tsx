@@ -43,7 +43,7 @@ import { ForecastMonthlyGrid } from './components/ForecastMonthlyGrid';
 import { MatrizExecutiveBar } from './components/MatrizExecutiveBar';
 import { ChartsPanelV2 } from './components/ChartsPanelV2';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { ForecastCell, LineItem, Allocation } from '@/types/domain';
+import type { ForecastCell, LineItem } from '@/types/domain';
 import type { BaselineDetail } from '@/api/finanzas';
 import { normalizeForecastCells } from '@/features/sdmt/cost/utils/dataAdapters';
 import { getForecastPayload, getProjectInvoices } from './forecastService';
@@ -52,7 +52,7 @@ import { getAllocations } from '@/api/finanzas';
 import { getProjectRubros } from '@/api/finanzas';
 import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
 import { transformLineItemsToForecast } from './transformLineItemsToForecast';
-import { computeForecastFromAllocations } from './computeForecastFromAllocations';
+import { computeForecastFromAllocations, type Allocation } from './computeForecastFromAllocations';
 
 // Types
 type ForecastRow = ForecastCell & {

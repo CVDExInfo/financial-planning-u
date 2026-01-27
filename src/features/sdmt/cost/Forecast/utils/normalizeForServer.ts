@@ -54,13 +54,13 @@ export function normalizeForecastRowForServer(row: ForecastRowInput): Normalized
   const rawRubroId = row.rubroId || row.line_item_id || row.linea_codigo || '';
   
   // Get the canonical ID
-  const canonical = getCanonicalRubroId(rawRubroId) || rawRubroId;
+  const canonical = canonicalizeRubroId(rawRubroId) || rawRubroId;
   
   // Get taxonomy entry for metadata
-  const tax = canonical ? getTaxonomyById(canonical) : null;
+  const tax = canonical ? getTaxonomyEntry(canonical) : null;
   
   // Warn if rubro ID doesn't map to canonical taxonomy (data quality issue)
-  if (rawRubroId && !getCanonicalRubroId(rawRubroId) && import.meta?.env?.DEV) {
+  if (rawRubroId && !canonicalizeRubroId(rawRubroId) && import.meta?.env?.DEV) {
     console.warn(
       `[normalizeForServer] Unknown rubro ID '${rawRubroId}' not found in canonical taxonomy. ` +
       `This may indicate a data quality issue. The ID will be preserved as-is.`
