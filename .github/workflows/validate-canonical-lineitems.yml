@@ -27,7 +27,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -84,16 +84,11 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-      
-      - name: Install dependencies
+      - name: Install dependencies for validation script
         run: |
           cd /tmp
-          pnpm init -y
-          pnpm add @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/util-dynamodb
+          npm init -y
+          npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/util-dynamodb
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
