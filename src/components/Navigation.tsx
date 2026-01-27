@@ -70,6 +70,7 @@ type FinanzasNavItem = {
   id:
     | "hubDesempeno"
     | "forecast"
+    | "forecastV2"
     | "reconciliation"
     | "changes"
     | "projects"
@@ -137,6 +138,13 @@ export function Navigation() {
       id: "forecast",
       label: ES_TEXTS.nav.forecast,
       path: "/sdmt/cost/forecast",
+      icon: TrendingUp,
+      visibleFor: ["SDMT", "EXEC_RO"],
+    },
+    {
+      id: "forecastV2",
+      label: ES_TEXTS.nav.forecastV2,
+      path: "/sdmt/cost/forecast-v2",
       icon: TrendingUp,
       visibleFor: ["SDMT", "EXEC_RO"],
     },
@@ -302,6 +310,13 @@ export function Navigation() {
           icon: TrendingUp,
           stack: "sdmt",
           startGroup: true,
+          allowedRoles: ["SDMT", "EXEC_RO"],
+        },
+        {
+          path: "/sdmt/cost/forecast-v2",
+          label: ES_TEXTS.nav.forecastV2,
+          icon: TrendingUp,
+          stack: "sdmt",
           allowedRoles: ["SDMT", "EXEC_RO"],
         },
         {
