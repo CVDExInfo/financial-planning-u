@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
 import { ES_TEXTS } from "@/lib/i18n/es";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 // Navigation visibility summary:
 // - PMO section: only visible when the active role is PMO or when browsing a /finanzas/pmo/* route.
@@ -380,6 +381,12 @@ export function Navigation() {
     if (item.stack === "pmo" && !isPmoContext) return false;
     if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
     if (!allowedByRole) return false;
+    
+    // Filter forecastV2 based on feature flag
+    if (item.path === "/sdmt/cost/forecast-v2" && !isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT")) {
+      return false;
+    }
+    
     return roleCanAccessRoute(normalizedItemPath);
   };
 
@@ -389,6 +396,11 @@ export function Navigation() {
     if (!finanzasNavRole) return false;
     if (!item.visibleFor.includes(finanzasNavRole)) return false;
     if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
+    
+    // Filter forecastV2 based on feature flag
+    if (item.id === "forecastV2" && !isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT")) {
+      return false;
+    }
 
     const normalizedItemPath = normalizeAppPath(item.path);
     return roleCanAccessRoute(normalizedItemPath);

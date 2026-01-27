@@ -44,6 +44,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 
 import { queryClient } from "./lib/queryClient";
 import { useIdleLogout } from "./hooks/useIdleLogout";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 // Hook to determine current module
 // NOTE: Module context detection reserved for future enhancements
@@ -209,7 +210,9 @@ function AppContent() {
               <Route path="/sdmt/cost/catalog" element={<SDMTCatalog />} />
               <Route path="/projects/:projectId/cost-structure" element={<SDMTCatalog />} />
               <Route path="/sdmt/cost/forecast" element={<SDMTForecast />} />
-              <Route path="/sdmt/cost/forecast-v2" element={<SDMTForecastV2 />} />
+              {isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT") && (
+                <Route path="/sdmt/cost/forecast-v2" element={<SDMTForecastV2 />} />
+              )}
               <Route
                 path="/sdmt/cost/reconciliation"
                 element={<SDMTReconciliation />}
