@@ -12,7 +12,6 @@
 import {
   // core helpers
   getCanonicalRubroId as _getCanonicalRubroId,
-  getCanonicalRubroById as _getCanonicalRubroById,
   getTaxonomyById as _getTaxonomyById,
   isValidRubroId as _isValidRubroId,
 
@@ -84,7 +83,7 @@ export function getCanonicalRubroId(raw?: string): string | null {
 export function getCanonicalRubroById(rawOrId?: string): CanonicalRubroTaxonomy | null {
   const canonical = canonicalizeRubroId(rawOrId);
   if (!canonical) return null;
-  return _getCanonicalRubroById(canonical);
+  return _getTaxonomyById(canonical);
 }
 
 /**
@@ -111,8 +110,9 @@ export function getTaxonomyEntry(raw?: string): CanonicalRubroTaxonomy | null {
   const tax = _getTaxonomyById(canonical);
   if (tax) return tax;
 
-  // Fallback to taxonomyHelpers if needed (older shape)
-  return (_getRubroById(canonical) as CanonicalRubroTaxonomy | undefined) ?? null;
+  // Fallback to taxonomyHelpers if needed (older shape) - convert through unknown
+  const fallback = _getRubroById(canonical);
+  return (fallback as unknown as CanonicalRubroTaxonomy | undefined) ?? null;
 }
 
 /**
@@ -135,7 +135,9 @@ export function findRubroByLineaCodigo(lineaCodigo?: string): CanonicalRubroTaxo
   const tax = _getTaxonomyById(canonical);
   if (tax) return tax;
 
-  return _getRubroById(canonical) as CanonicalRubroTaxonomy | undefined;
+  // Fallback - convert through unknown to avoid type errors
+  const fallback = _getRubroById(canonical);
+  return fallback as unknown as CanonicalRubroTaxonomy | undefined;
 }
 
 /**
