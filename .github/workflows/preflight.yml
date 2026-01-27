@@ -97,9 +97,17 @@ jobs:
           for i in {1..20}; do
             curl -sSf http://127.0.0.1:4173/finanzas/ && break || sleep 1
           done
-          # check forecast route returns 200 and contains the forecast page marker
-          if ! curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast | grep -q "Cuadrícula de Pronóstico"; then
-            echo "Forecast page didn't render expected content"
+          # check forecast route returns valid HTML (basic smoke - doesn't check React-rendered content)
+          RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast)
+          if ! echo "$RESPONSE" | grep -q "<div id=\"root\">"; then
+            echo "Forecast page didn't return valid HTML structure (missing root div)"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          fi
+          # check that assets are loaded properly
+          if ! echo "$RESPONSE" | grep -q -E "(\.js|\.css)"; then
+            echo "Forecast page didn't include JS/CSS assets"
             tail -n 200 serve.log || true
             kill $SERVER_PID || true
             exit 1

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Quick forecast smoke check
-# Serves the built finanzas app and verifies the forecast page renders correctly
+# Serves the built finanzas app and verifies the forecast page loads correctly
 
 set -euo pipefail
 
@@ -33,10 +33,19 @@ for i in {1..20}; do
   fi
 done
 
-# Check forecast route
+# Check forecast route returns valid HTML (basic smoke - doesn't check React-rendered content)
 echo "🎯 Checking forecast route..."
-if ! curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast | grep -q "Cuadrícula de Pronóstico"; then
-  echo "❌ Forecast page didn't render expected content"
+RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast)
+if ! echo "$RESPONSE" | grep -q "<div id=\"root\">"; then
+  echo "❌ Forecast page didn't return valid HTML structure (missing root div)"
+  echo "📄 Server log:"
+  tail -n 200 serve.log || true
+  exit 1
+fi
+
+# Check that assets are loaded properly
+if ! echo "$RESPONSE" | grep -q -E "(\.js|\.css)"; then
+  echo "❌ Forecast page didn't include JS/CSS assets"
   echo "📄 Server log:"
   tail -n 200 serve.log || true
   exit 1
@@ -45,4 +54,5 @@ fi
 echo "✅ Forecast smoke test passed!"
 echo "   - Server started successfully"
 echo "   - Forecast route returns 200"
-echo "   - Page contains 'Cuadrícula de Pronóstico'"
+echo "   - Page contains valid HTML structure"
+echo "   - JS/CSS assets are referenced"
