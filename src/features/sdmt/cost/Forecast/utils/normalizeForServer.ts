@@ -8,7 +8,7 @@
  * transformation complexity.
  */
 
-import { getCanonicalRubroId, getTaxonomyById } from "@/lib/rubros/canonical-taxonomy";
+import { canonicalizeRubroId, getTaxonomyEntry } from "@/lib/rubros";
 
 /**
  * Interface representing a generic forecast row that can be normalized
