@@ -25,7 +25,6 @@ import type { LaborEstimate } from "@/types/domain";
 import { useModRoles } from "@/hooks/useModRoles";
 import { mapModRoleToRubroId, type MODRole } from "@/api/helpers/rubros";
 import { canonicalizeRubroId, rubroDescriptionFor, findRubroByLineaCodigo } from "@/lib/rubros";
-import { normalizeNonLaborEstimates } from "../utils/normalizeEstimates";
 
 
 // Labor rate presets by country and role
