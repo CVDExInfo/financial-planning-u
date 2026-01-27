@@ -19,6 +19,7 @@
  *   TABLE_PREFIX - DynamoDB table prefix (default: finz_)
  *   S3_BUCKET - S3 bucket for taxonomy (default: ukusi-ui-finanzas-prod)
  *   S3_KEY - S3 key for taxonomy (default: taxonomy/rubros.taxonomy.latest.json)
+ *   BACKUP_S3_BUCKET - S3 bucket for backups (optional, falls back to local files)
  */
 
 import { DynamoDBClient, DescribeTableCommand } from "@aws-sdk/client-dynamodb";
@@ -28,7 +29,7 @@ import {
   UpdateCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 // Use backend canonicalizer (node-safe, S3 fallback)
 import { getCanonicalRubroId } from "../../services/finanzas-api/src/lib/canonical-taxonomy.ts";
 // Write artifacts
@@ -244,6 +245,16 @@ async function uploadTaxonomyToDynamoDB(): Promise<void> {
   for (const item of items) {
     const itemId = item.linea_codigo || item.pk || 'unknown';
     
+    // Defensive check: require pk or linea_codigo
+    if (!item.pk && !item.linea_codigo) {
+      console.error(
+        `[migration] ❌ Item missing both pk and linea_codigo - skipping: ${JSON.stringify(item).substring(0, 100)}...`
+      );
+      stats.taxonomy.failed++;
+      results.push({ id: itemId, ok: false });
+      continue;
+    }
+    
     console.log(
       `  ${mode === "DRY RUN" ? "Would write" : "Writing"}: ${itemId} (${item.linea_gasto || 'no description'})`
     );
@@ -294,24 +305,58 @@ async function uploadTaxonomyToDynamoDB(): Promise<void> {
 
 /**
  * Create a backup of an item before migration
+ * Tries S3 first (if BACKUP_S3_BUCKET is set), then falls back to local files.
+ * If both fail and --apply is set, throws to abort the migration.
  */
 async function backupItem(
   tableName: string,
   item: Record<string, any>
 ): Promise<void> {
   if (isDryRun) return;
-
-  const backupTableName = `${tableName}_backup_${Date.now()}`;
+  
+  const ts = Date.now();
+  const pk = (item.pk || "nopk").toString().replace(/[^a-zA-Z0-9-_]/g, "_");
+  const sk = (item.sk || "nosk").toString().replace(/[^a-zA-Z0-9-_]/g, "_");
+  
+  // Try S3 backup first
+  const backupBucket = process.env.BACKUP_S3_BUCKET;
+  if (backupBucket) {
+    try {
+      const key = `taxonomy-backups/${tableName}/${pk}__${sk}__${ts}.json`;
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: backupBucket,
+          Key: key,
+          Body: JSON.stringify(item, null, 2),
+          ContentType: "application/json",
+        })
+      );
+      console.log(`[migration] Backed up item to s3://${backupBucket}/${key}`);
+      return;
+    } catch (err) {
+      console.error(`[migration] Failed to backup item to S3:`, err);
+      if (isApply) {
+        throw new Error(
+          "Backup to S3 failed — aborting apply to avoid destructive migration without backup"
+        );
+      }
+    }
+  }
+  
+  // Fallback to local file backup
   try {
-    await ddb.send(
-      new PutCommand({
-        TableName: backupTableName,
-        Item: { ...item, backupTimestamp: new Date().toISOString() },
-      })
-    );
-  } catch (error) {
-    console.warn(`⚠️  Failed to backup item to ${backupTableName}:`, error);
-    // Continue anyway - backup is best-effort
+    const outDir = join(process.cwd(), "scripts", "migrations", "backups", tableName);
+    await mkdir(outDir, { recursive: true });
+    const filePath = join(outDir, `${pk}__${sk}__${ts}.json`);
+    await writeFile(filePath, JSON.stringify(item, null, 2), "utf8");
+    console.log(`[migration] Backed up item to local disk: ${filePath}`);
+  } catch (err) {
+    console.error(`[migration] Failed to write local backup:`, err);
+    if (isApply) {
+      throw new Error(
+        "Failed to create backup file — aborting apply to avoid destructive migration without backup"
+      );
+    }
   }
 }
 
