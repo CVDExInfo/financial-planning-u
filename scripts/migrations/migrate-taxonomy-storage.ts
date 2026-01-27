@@ -122,9 +122,15 @@ function needsMigration(rubroId: string | undefined | null): boolean {
 async function streamToString(stream: any): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    stream.on('data', (chunk: Buffer | string) => 
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-    );
+    stream.on('data', (chunk: Buffer | Uint8Array | string) => {
+      if (Buffer.isBuffer(chunk)) {
+        chunks.push(chunk);
+      } else if (chunk instanceof Uint8Array) {
+        chunks.push(Buffer.from(chunk));
+      } else {
+        chunks.push(Buffer.from(chunk));
+      }
+    });
     stream.on('error', (err: Error) => reject(err));
     stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
   });
@@ -171,17 +177,19 @@ async function writeItemWithRetries(
       return true;
     } catch (err) {
       lastErr = err;
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.warn(
         `[migration] Attempt ${i} writing ${item.pk || item.linea_codigo} failed:`,
-        (err as Error).message || err
+        errorMessage
       );
       // Exponential backoff
       await new Promise((res) => setTimeout(res, 200 * Math.pow(2, i)));
     }
   }
+  const errorMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
   console.error(
     `[migration] Failed after ${attempts} attempts for ${item.pk || item.linea_codigo}:`,
-    lastErr
+    errorMessage
   );
   return false;
 }
