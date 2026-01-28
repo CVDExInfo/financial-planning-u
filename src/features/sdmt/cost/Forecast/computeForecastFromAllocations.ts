@@ -166,7 +166,10 @@ export function computeForecastFromAllocations(
     if (!Number.isFinite(monthNum) || monthNum < 0) monthNum = 0;
 
     if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
-      const rubroId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
+      // Canonicalize rubro ID to linea_codigo (single source of truth)
+      const rawId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
+      const rubroId = lookupTaxonomyCanonical(taxonomyMap, { rubroId: rawId, line_item_id: rawId }, localCache)?.rubroId || rawId;
+      
       const key = `${rubroId}-${monthNum}`;
       
       if (!allocationMap.has(key)) {
