@@ -184,41 +184,19 @@ export const seedLineItemsFromBaseline = async (
     const { labor_estimates = [], non_labor_estimates = [] } = baseline;
     const hasEstimates = labor_estimates.length > 0 || non_labor_estimates.length > 0;
     
-    // If no estimates, seed minimal rubros from taxonomy (MOD rubros at minimum)
+    // If no estimates, return early - do NOT seed synthetic rubros
     if (!hasEstimates) {
-      console.info("[seedLineItems] No estimates found; seeding minimal rubros from taxonomy", {
+      console.warn("[seedLineItems] No estimates found in baseline; skipping seed operation", {
         projectId,
         baselineId,
+        reason: "no_estimates",
       });
       
-      // Import taxonomy to get canonical MOD rubros
-      const { CANONICAL_RUBROS_TAXONOMY } = require("./canonical-taxonomy");
-      const { ensureTaxonomyLoaded } = require("./canonical-taxonomy");
-      
-      // Ensure taxonomy is loaded
-      await ensureTaxonomyLoaded();
-      
-      // Get key MOD rubros (labor) to seed - these are required for basic project setup
-      const modRubros = CANONICAL_RUBROS_TAXONOMY.filter((r: any) => 
-        r.categoria_codigo === 'MOD' || r.linea_codigo?.startsWith('MOD-')
-      );
-      
-      // Create minimal baseline with default MOD rubros
-      const minimalBaseline: BaselinePayload = {
-        ...baseline,
-        labor_estimates: modRubros.slice(0, 3).map((r: any, index: number) => ({
-          rubroId: r.linea_codigo,
-          role: r.linea_gasto || r.descripcion || r.linea_codigo,
-          hours_per_month: 0, // Zero cost - just structure
-          fte_count: 0,
-          hourly_rate: 0,
-          start_month: 1,
-          end_month: baseline.duration_months || 12,
-        })),
+      return {
+        seeded: 0,
+        skipped: true,
+        reason: "no_estimates",
       };
-      
-      // Continue with minimal baseline
-      baseline = minimalBaseline;
     }
 
     // Check if this baseline has already been seeded
