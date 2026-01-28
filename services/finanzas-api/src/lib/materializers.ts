@@ -14,6 +14,7 @@ import {
 } from "./rubros-taxonomy";
 import { requireCanonicalRubro } from "./requireCanonical";
 import { stableIdFromParts } from "./stableLineItemId";
+import { extractBaselineEstimates } from "./extractBaselineEstimates";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -393,8 +394,9 @@ const normalizeBaseline = (baseline: BaselineLike) => {
   const payloadNonLabor = asArray(
     (payload as { non_labor_estimates?: any[] }).non_labor_estimates
   );
-  const labor = asArray(baseline.labor_estimates);
-  const nonLabor = asArray(baseline.non_labor_estimates);
+  
+  // Use extractBaselineEstimates helper for consistent baseline reading
+  const { labor, nonLabor } = extractBaselineEstimates(baseline);
 
   return {
     baselineId:

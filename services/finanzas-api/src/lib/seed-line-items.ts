@@ -2,6 +2,7 @@ import { PutCommand, QueryCommand } from "../lib/dynamo";
 import { DEFAULT_LABOR_RUBRO, DEFAULT_NON_LABOR_RUBRO } from "./rubros-taxonomy";
 import { logError } from "../utils/logging";
 import { requireCanonicalRubro } from "./requireCanonical";
+import { extractBaselineEstimates, hasEstimates } from "./extractBaselineEstimates";
 
 type BaselineDealInputs = {
   project_name?: string;
@@ -82,7 +83,10 @@ export const buildSeedLineItems = (
   const items: SeededLineItem[] = [];
   const currency = baseline.currency || "USD";
 
-  (baseline.labor_estimates || []).forEach((estimate, index) => {
+  // Extract estimates using helper (supports multiple baseline shapes)
+  const { labor, nonLabor } = extractBaselineEstimates(baseline);
+
+  labor.forEach((estimate, index) => {
     const hoursPerMonth = Number(estimate.hours_per_month || 0);
     const fteCount = Number(estimate.fte_count || 0);
     const hourlyRate = Number(estimate.hourly_rate || estimate.rate || 0);
@@ -126,7 +130,7 @@ export const buildSeedLineItems = (
     });
   });
 
-  (baseline.non_labor_estimates || []).forEach((estimate, index) => {
+  nonLabor.forEach((estimate, index) => {
     const amount = Number(estimate.amount || 0);
     const recurring = !estimate.one_time;
     const startMonth = Math.max(Number(estimate.start_month || 1), 1);
@@ -180,12 +184,8 @@ export const seedLineItemsFromBaseline = async (
   }
 ) => {
   try {
-    // VALIDATION: Check if baseline has any estimates
-    const { labor_estimates = [], non_labor_estimates = [] } = baseline;
-    const hasEstimates = labor_estimates.length > 0 || non_labor_estimates.length > 0;
-    
-    // If no estimates, return early - do NOT seed synthetic rubros
-    if (!hasEstimates) {
+    // VALIDATION: Check if baseline has any estimates using helper
+    if (!hasEstimates(baseline)) {
       console.warn("[seedLineItems] No estimates found in baseline; skipping seed operation", {
         projectId,
         baselineId,
@@ -246,11 +246,12 @@ export const seedLineItemsFromBaseline = async (
     const seedItems = buildSeedLineItems(baseline, projectId, baselineId);
 
     if (!seedItems.length) {
+      const { labor, nonLabor } = extractBaselineEstimates(baseline);
       console.warn("[seedLineItems] No line items generated from baseline", {
         projectId,
         baselineId,
-        laborEstimatesCount: (baseline.labor_estimates || []).length,
-        nonLaborEstimatesCount: (baseline.non_labor_estimates || []).length,
+        laborEstimatesCount: labor.length,
+        nonLaborEstimatesCount: nonLabor.length,
       });
       return { seeded: 0, skipped: true };
     }
