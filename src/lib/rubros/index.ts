@@ -43,8 +43,11 @@ export { stableLineItemId, stableIdFromParts } from '../stableLineItemId';
 
 export type { CanonicalRubroTaxonomy, TipoCosto, TipoEjecucion } from "./canonical-taxonomy";
 
-// Export strict enforcement helper
+// Export strict enforcement helper (for writes)
 export { requireCanonicalRubro } from "./requireCanonical";
+
+// Export tolerant helper (for UI/fallbacks)
+export { getCanonicalRubroOrNull } from "./requireCanonical";
 
 /* ===========================================================================
  * Public frontend helper functions

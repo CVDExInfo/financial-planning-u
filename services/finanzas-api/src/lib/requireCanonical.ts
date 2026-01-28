@@ -39,6 +39,48 @@ import { getCanonicalRubroId, getTaxonomyById } from './canonical-taxonomy';
  * requireCanonicalRubro() // Throws Error
  * ```
  */
+/**
+ * Get canonical linea_codigo or null if not found (tolerant version).
+ * Use this for UI/test/fallback code where you want graceful degradation.
+ * 
+ * For DynamoDB writes, use requireCanonicalRubro() instead (strict).
+ * 
+ * @param raw - Raw rubro identifier (can be legacy ID, alias, human-readable label, etc.)
+ * @returns Canonical linea_codigo in UPPERCASE (e.g., "MOD-SDM") or null if not found
+ * 
+ * @example
+ * ```ts
+ * // Valid canonical ID
+ * getCanonicalRubroOrNull("MOD-SDM") // Returns "MOD-SDM"
+ * 
+ * // Valid alias
+ * getCanonicalRubroOrNull("mod-lead-ingeniero-delivery") // Returns "MOD-LEAD"
+ * 
+ * // Invalid/unknown ID
+ * getCanonicalRubroOrNull("INVALID-RUBRO") // Returns null
+ * 
+ * // Missing input
+ * getCanonicalRubroOrNull() // Returns null
+ * ```
+ */
+export function getCanonicalRubroOrNull(raw?: string): string | null {
+  if (!raw) {
+    return null;
+  }
+  
+  const canonical = getCanonicalRubroId(raw);
+  if (!canonical) {
+    return null;
+  }
+  
+  const tax = getTaxonomyById(canonical);
+  if (!tax || !tax.linea_codigo) {
+    return null;
+  }
+  
+  return String(tax.linea_codigo).trim().toUpperCase();
+}
+
 export function requireCanonicalRubro(raw?: string): string {
   if (!raw) {
     throw new Error('[rubro] missing input');
