@@ -98,11 +98,13 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies for validation script
-        run: |
-          cd /tmp
-          npm init -y
-          npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb @aws-sdk/util-dynamodb
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       
       - name: Configure AWS credentials via OIDC
         id: aws-config
@@ -118,7 +120,7 @@ jobs:
         run: |
           DYNAMODB_TABLE=${{ secrets.TABLE_PREFIX || 'finz_' }}allocations \
           AWS_REGION=us-east-2 \
-          node .github/scripts/validate-taxonomy-dynamo.js
+          pnpm exec node .github/scripts/validate-taxonomy-dynamo.js
         continue-on-error: true
       
       - name: Skip validation (no AWS credentials)
