@@ -71,7 +71,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       labor_estimates: [
         {
           id: "labor-prefixed",
-          rubroId: "MOD-PREFIX",
+          rubroId: "MOD-ING",
           total_cost: 120000,
         },
       ],
@@ -174,7 +174,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       labor_estimates: [
         {
           id: "labor-2",
-          rubroId: "MOD-DEV",
+          rubroId: "MOD-ING",
           role: "Developer",
           periodic: "recurring",
           total_cost: 180000,
@@ -209,7 +209,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
       existingAllocations.push({
         pk: "PROJECT#P-67890",
-        sk: `ALLOCATION#base_idempotent#${calendarMonth}#MOD-DEV`,
+        sk: `ALLOCATION#base_idempotent#${calendarMonth}#MOD-ING`,
       });
     }
 
@@ -242,7 +242,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       labor_estimates: [
         {
           id: "labor-3",
-          rubroId: "MOD-ARCH",
+          rubroId: "MOD-LEAD",
           role: "Architect",
           periodic: "recurring",
           total_cost: 120000,
@@ -284,7 +284,7 @@ describe("Allocations Materializer (M1..M60)", () => {
     expect(uniqueSKs.size).toBe(12); // 12 months
 
     // Verify SK format: ALLOCATION#{baselineId}#{month}#{rubroId}
-    const skPattern = /^ALLOCATION#base_deterministic#\d{4}-\d{2}#MOD-ARCH$/;
+    const skPattern = /^ALLOCATION#base_deterministic#\d{4}-\d{2}#MOD-LEAD$/;
     allSKs.forEach((sk: string) => {
       expect(sk).toMatch(skPattern);
     });
@@ -335,7 +335,7 @@ describe("Allocations Materializer (M1..M60)", () => {
       labor_estimates: [
         {
           id: "labor-5",
-          rubroId: "MOD-LONG",
+          rubroId: "MOD-ING",
           role: "Long-term",
           periodic: "recurring",
           total_cost: 600000,
@@ -374,7 +374,7 @@ describe("Allocations Materializer (M1..M60)", () => {
           labor_estimates: [
             {
               id: "labor-nested-1",
-              rubroId: "MOD-NEST",
+              rubroId: "MOD-ING",
               role: "EngineerNested",
               periodic: "recurring",
               total_cost: 360000,
@@ -461,7 +461,7 @@ describe("Allocations Materializer (M1..M60)", () => {
         labor_estimates: [
           {
             id: "labor-spanish-1",
-            rubroId: "MOD-ENG",
+            rubroId: "MOD-ING",
             role: "Engineer",
             tarifa_hora: 75, // $75/hour (Spanish field name)
             hrs_mes: 160, // 160 hours/month (Spanish field name)
@@ -499,7 +499,7 @@ describe("Allocations Materializer (M1..M60)", () => {
         labor_estimates: [
           {
             id: "labor-total-1",
-            rubroId: "MOD-ARCH",
+            rubroId: "MOD-LEAD",
             role: "Architect",
             total_cost: 180000, // $180,000 total for 12 months
             // Expected: 180000 / 12 = $15,000/month
@@ -610,7 +610,7 @@ describe("Allocations Materializer (M1..M60)", () => {
         labor_estimates: [
           {
             id: "labor-rewrite-1",
-            rubroId: "MOD-DEV",
+            rubroId: "MOD-ING",
             role: "Developer",
             hourly_rate: 50,
             hoursPerMonth: 160,
@@ -632,7 +632,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
         existingAllocations.push({
           pk: "PROJECT#P-FORCE-REWRITE",
-          sk: `ALLOCATION#base_force_rewrite#${calendarMonth}#MOD-DEV`,
+          sk: `ALLOCATION#base_force_rewrite#${calendarMonth}#MOD-ING`,
           amount: 0, // Zero amount that should be overwritten
           planned: 0,
           forecast: 0,
@@ -687,7 +687,7 @@ describe("Allocations Materializer (M1..M60)", () => {
         labor_estimates: [
           {
             id: "labor-no-overwrite-1",
-            rubroId: "MOD-DEV",
+            rubroId: "MOD-ING",
             role: "Developer",
             hourly_rate: 50,
             hoursPerMonth: 160,
@@ -708,7 +708,7 @@ describe("Allocations Materializer (M1..M60)", () => {
 
         existingAllocations.push({
           pk: "PROJECT#P-NO-OVERWRITE",
-          sk: `ALLOCATION#base_no_overwrite_positive#${calendarMonth}#MOD-DEV`,
+          sk: `ALLOCATION#base_no_overwrite_positive#${calendarMonth}#MOD-ING`,
           amount: 5000, // Existing positive amount
           planned: 5000,
           forecast: 5000,

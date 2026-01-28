@@ -276,7 +276,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_planeado: 50000,
             },
@@ -314,7 +314,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },
@@ -336,10 +336,10 @@ describe("allocations handler", () => {
     it("updates existing allocation with forecast value", async () => {
       const existingAllocation = {
         pk: "PROJECT#P-123",
-        sk: "ALLOCATION#base_001#2025-01#rubro_test123",
+        sk: "ALLOCATION#base_001#2025-01#MOD-ING",
         projectId: "P-123",
         baselineId: "base_001",
-        rubroId: "rubro_test123",
+        rubroId: "MOD-ING",
         month: "2025-01",
         mes: "2025-01",
         monto_planeado: 50000,
@@ -364,7 +364,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },
@@ -390,7 +390,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_planeado: 50000,
             },
@@ -441,7 +441,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },

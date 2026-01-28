@@ -209,9 +209,9 @@ describe("Allocations Materializer - Rubros-based (Option A)", () => {
             Items: [
               {
                 pk: "PROJECT#P-NONLABOR-001",
-                sk: "RUBRO#SOI-AWS#base_nonlabor#1",
-                rubroId: "SOI-AWS#base_nonlabor#1",
-                linea_codigo: "SOI-AWS",
+                sk: "RUBRO#INF-CLOUD#base_nonlabor#1",
+                rubroId: "INF-CLOUD#base_nonlabor#1",
+                linea_codigo: "INF-CLOUD",
                 nombre: "AWS Services",
                 category: "Non-labor",
                 unit_cost: 500,
@@ -242,7 +242,7 @@ describe("Allocations Materializer - Rubros-based (Option A)", () => {
       allocations.forEach((entry: any) => {
         const item = entry.PutRequest.Item;
         expect(item.amount).toBe(500);
-        expect(item.rubroId).toBe("SOI-AWS");
+        expect(item.rubroId).toBe("INF-CLOUD");
       });
     });
   });
