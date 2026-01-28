@@ -1001,16 +1001,31 @@ export function SDMTForecast() {
               }
               // Convert allocations to forecast cells format
               // Allocations have: month, planned, forecast, actual, rubroId/rubro_id
-              normalized = allocations.map((alloc: any) => ({
-                line_item_id: alloc.rubroId || alloc.rubro_id || alloc.line_item_id,
-                month: alloc.month,
-                planned: alloc.planned || 0,
-                forecast: alloc.forecast || alloc.planned || 0,
-                actual: alloc.actual || 0,
-                variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
-                last_updated: alloc.last_updated || new Date().toISOString(),
-                updated_by: alloc.updated_by || 'system',
-              }));
+              // IMPORTANT: Canonicalize rubro IDs to ensure proper join with line items
+              normalized = allocations.map((alloc: any) => {
+                // Extract raw ID from allocation
+                const rawId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || '';
+                
+                // Canonicalize to linea_codigo (single source of truth)
+                const canonical = canonicalizeRubroId(rawId) || rawId;
+                
+                // Get taxonomy entry for labels
+                const taxonomy = getTaxonomyEntry(canonical);
+                
+                return {
+                  line_item_id: canonical,
+                  rubroId: canonical, // Keep consistent
+                  description: taxonomy?.linea_gasto || taxonomy?.descripcion || alloc.description || canonical,
+                  category: taxonomy?.categoria || alloc.category || '',
+                  month: alloc.month,
+                  planned: alloc.planned || 0,
+                  forecast: alloc.forecast || alloc.planned || 0,
+                  actual: alloc.actual || 0,
+                  variance: (alloc.forecast || alloc.planned || 0) - (alloc.planned || 0),
+                  last_updated: alloc.last_updated || new Date().toISOString(),
+                  updated_by: alloc.updated_by || 'system',
+                };
+              });
               usedFallback = true;
             } else if (projectLineItems.length > 0) {
               // Fall back to baseline rubros if no allocations

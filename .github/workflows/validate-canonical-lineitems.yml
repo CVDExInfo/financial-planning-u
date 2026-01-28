@@ -1,0 +1,151 @@
+name: Validate Canonical Line Items
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-canonical-lineitems:
+    name: Validate Canonical Line Items
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Configure AWS credentials via OIDC
+        id: aws-config
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
+        continue-on-error: true # Allow to continue if AWS credentials are not configured
+      
+      - name: Run canonical line items validation
+        id: validate
+        if: steps.aws-config.outcome == 'success'
+        run: |
+          # Run validation script with fail-on-mismatch flag
+          TABLE_PREFIX=${{ secrets.TABLE_PREFIX || 'finz_' }} \
+          AWS_REGION=us-east-2 \
+          npx tsx scripts/migrations/validate-canonical-lineitems.ts --fail-on-mismatch
+        continue-on-error: true
+      
+      - name: Skip validation (no AWS credentials)
+        if: steps.aws-config.outcome != 'success'
+        run: |
+          echo "⚠️  Skipping canonical validation - AWS credentials not available"
+          echo "This is expected for PRs from forks"
+          echo "Validation will run when merged to main/develop"
+      
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-canonical-report
+          path: scripts/migrations/validate-canonical-report.json
+          if-no-files-found: warn
+      
+      - name: Check validation result
+        if: steps.aws-config.outcome == 'success' && steps.validate.outcome == 'failure'
+        run: |
+          echo "::error::Canonical line items validation failed!"
+          echo "Non-canonical line_item_id values were found in the allocations table."
+          echo "Please run the migration script to fix them:"
+          echo "  TABLE_PREFIX=finz_ AWS_REGION=us-east-2 node scripts/migrations/migrate-finz-allocations-canonical.js --apply"
+          exit 1
+      
+      - name: Validation passed
+        if: steps.aws-config.outcome == 'success' && steps.validate.outcome == 'success'
+        run: |
+          echo "✅ All line_item_id values are canonical!"
+
+  validate-taxonomy-dynamo:
+    name: Validate Taxonomy → DynamoDB
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Configure AWS credentials via OIDC
+        id: aws-config
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_AWS_ROLE_ARN }}
+          aws-region: us-east-2
+        continue-on-error: true
+      
+      - name: Run taxonomy → DynamoDB validation
+        id: validate-dynamo
+        if: steps.aws-config.outcome == 'success'
+        run: |
+          DYNAMODB_TABLE=${{ secrets.TABLE_PREFIX || 'finz_' }}allocations \
+          AWS_REGION=us-east-2 \
+          pnpm exec node .github/scripts/validate-taxonomy-dynamo.js
+        continue-on-error: true
+      
+      - name: Skip validation (no AWS credentials)
+        if: steps.aws-config.outcome != 'success'
+        run: |
+          echo "⚠️  Skipping taxonomy validation - AWS credentials not available"
+          echo "This is expected for PRs from forks"
+          echo "Validation will run when merged to main/develop"
+      
+      - name: Upload taxonomy validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxonomy-validation-report
+          path: taxonomy-validation-report.json
+          if-no-files-found: warn
+      
+      - name: Check taxonomy validation result
+        if: steps.aws-config.outcome == 'success' && steps.validate-dynamo.outcome == 'failure'
+        run: |
+          echo "::error::Taxonomy → DynamoDB validation failed!"
+          echo "Unknown canonical rubros found in DynamoDB."
+          exit 1
+      
+      - name: Taxonomy validation passed
+        if: steps.aws-config.outcome == 'success' && steps.validate-dynamo.outcome == 'success'
+        run: |
+          echo "✅ Taxonomy → DynamoDB validation OK"

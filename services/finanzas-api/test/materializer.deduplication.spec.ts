@@ -287,7 +287,7 @@ describe("Materializer Canonical ID Consistency", () => {
       });
     });
 
-    it("should throw error for invalid rubro without canonical ID", async () => {
+    it("should gracefully skip items with invalid canonical IDs", async () => {
       const baseline = {
         id: "base-test-004",
         baselineId: "base-test-004",
@@ -300,6 +300,12 @@ describe("Materializer Canonical ID Consistency", () => {
             id: "INVALID-ID-NO-CANONICAL",
             role: "Unknown Role",
             monthly_rate: 1000,
+          },
+          {
+            id: "MOD-SDM",
+            linea_codigo: "MOD-SDM",
+            role: "Valid Role",
+            monthly_rate: 5000,
           },
         ],
       };
@@ -323,11 +329,33 @@ describe("Materializer Canonical ID Consistency", () => {
         return Promise.resolve({});
       });
 
-      // Should handle gracefully (either throw or use fallback)
-      // Depending on implementation, adjust assertion
-      await expect(
-        materializeAllocationsForBaseline(baseline, { dryRun: false })
-      ).resolves.toBeDefined();
+      // Should complete without throwing
+      const result = await materializeAllocationsForBaseline(baseline, { dryRun: false });
+      expect(result).toBeDefined();
+
+      // Extract allocations
+      const batchWriteCalls = mockDdbSend.mock.calls.filter(
+        (call) => call[0].constructor.name === "BatchWriteCommand"
+      );
+
+      const allSKs: string[] = [];
+      batchWriteCalls.forEach((call) => {
+        const items = call[0].input?.RequestItems?.test_allocations || [];
+        items.forEach((req: any) => {
+          if (req.PutRequest?.Item?.sk) {
+            allSKs.push(req.PutRequest.Item.sk);
+          }
+        });
+      });
+
+      // Should only have allocations for the valid rubro (12 months)
+      expect(allSKs.length).toBe(12);
+
+      // All should be for MOD-SDM (the valid one)
+      allSKs.forEach((sk) => {
+        expect(sk).toContain("MOD-SDM");
+        expect(sk).not.toContain("INVALID");
+      });
     });
   });
 

@@ -240,12 +240,13 @@ describe("Handoff → Rubros Integration", () => {
     expect(writtenRubros.length).toBe(3); // 2 labor + 1 non-labor
 
     // Verify labor rubros structure
+    // Note: MOD-PM is mapped to MOD-LEAD in canonical taxonomy
     const projectManagerRubro = writtenRubros.find((r) =>
-      r.rubroId?.includes("MOD-PM")
+      r.rubroId?.includes("MOD-LEAD") && r.metadata?.role === "Project Manager"
     );
     expect(projectManagerRubro).toBeDefined();
     expect(projectManagerRubro.pk).toBe(`PROJECT#${projectId}`);
-    expect(projectManagerRubro.sk).toContain(`RUBRO#MOD-PM#${baselineId}`);
+    expect(projectManagerRubro.sk).toContain(`RUBRO#MOD-LEAD#${baselineId}`);
     expect(projectManagerRubro.nombre).toBe("Project Manager");
     expect(projectManagerRubro.category).toBe("Labor");
     expect(projectManagerRubro.recurring).toBe(true);
@@ -254,11 +255,11 @@ describe("Handoff → Rubros Integration", () => {
     expect(projectManagerRubro.metadata.source).toBe("baseline");
     expect(projectManagerRubro.metadata.baseline_id).toBe(baselineId);
     expect(projectManagerRubro.metadata.project_id).toBe(projectId);
-    expect(projectManagerRubro.metadata.linea_codigo).toBe("MOD-PM");
+    expect(projectManagerRubro.metadata.linea_codigo).toBe("MOD-LEAD"); // Canonical mapping
     expect(projectManagerRubro.metadata.role).toBe("Project Manager");
 
     const deliveryEngineerRubro = writtenRubros.find((r) =>
-      r.rubroId?.includes("MOD-LEAD")
+      r.rubroId?.includes("MOD-LEAD") && r.metadata?.role === "Ingeniero Delivery"
     );
     expect(deliveryEngineerRubro).toBeDefined();
     expect(deliveryEngineerRubro.metadata.linea_codigo).toBe("MOD-LEAD");

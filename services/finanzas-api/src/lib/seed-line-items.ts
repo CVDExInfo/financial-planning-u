@@ -1,6 +1,8 @@
 import { PutCommand, QueryCommand } from "../lib/dynamo";
 import { DEFAULT_LABOR_RUBRO, DEFAULT_NON_LABOR_RUBRO } from "./rubros-taxonomy";
 import { logError } from "../utils/logging";
+import { requireCanonicalRubro } from "./requireCanonical";
+import { extractBaselineEstimates, hasEstimates } from "./extractBaselineEstimates";
 
 type BaselineDealInputs = {
   project_name?: string;
@@ -81,7 +83,10 @@ export const buildSeedLineItems = (
   const items: SeededLineItem[] = [];
   const currency = baseline.currency || "USD";
 
-  (baseline.labor_estimates || []).forEach((estimate, index) => {
+  // Extract estimates using helper (supports multiple baseline shapes)
+  const { labor, nonLabor } = extractBaselineEstimates(baseline);
+
+  labor.forEach((estimate, index) => {
     const hoursPerMonth = Number(estimate.hours_per_month || 0);
     const fteCount = Number(estimate.fte_count || 0);
     const hourlyRate = Number(estimate.hourly_rate || estimate.rate || 0);
@@ -94,14 +99,17 @@ export const buildSeedLineItems = (
     const months = endMonth - startMonth + 1;
     const totalCost = monthlyCost * months;
 
-    const canonicalRubroId = estimate.rubroId || DEFAULT_LABOR_RUBRO;
+    // CRITICAL: Enforce canonical rubro ID from taxonomy - no exceptions
+    const rawRubro = estimate.rubroId || DEFAULT_LABOR_RUBRO;
+    const canonicalRubro = requireCanonicalRubro(rawRubro);
+    
     const rubroSK = baselineId
-      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
-      : `${canonicalRubroId}#baseline#${index + 1}`;
+      ? `${canonicalRubro}#${baselineId}#${index + 1}`
+      : `${canonicalRubro}#baseline#${index + 1}`;
 
     items.push({
       rubroId: rubroSK,
-      nombre: estimate.role || canonicalRubroId,
+      nombre: estimate.role || canonicalRubro,
       descripcion: estimate.level ? `${estimate.role ?? "Role"} (${estimate.level})` : estimate.role,
       category: "Labor",
       qty: 1,
@@ -117,12 +125,12 @@ export const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         role: estimate.role,
-        linea_codigo: canonicalRubroId,
+        linea_codigo: canonicalRubro,
       },
     });
   });
 
-  (baseline.non_labor_estimates || []).forEach((estimate, index) => {
+  nonLabor.forEach((estimate, index) => {
     const amount = Number(estimate.amount || 0);
     const recurring = !estimate.one_time;
     const startMonth = Math.max(Number(estimate.start_month || 1), 1);
@@ -132,14 +140,17 @@ export const buildSeedLineItems = (
     const months = recurring ? endMonth - startMonth + 1 : 1;
     const totalCost = recurring ? amount * months : amount;
 
-    const canonicalRubroId = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
+    // CRITICAL: Enforce canonical rubro ID from taxonomy - no exceptions
+    const rawRubro = estimate.rubroId || DEFAULT_NON_LABOR_RUBRO;
+    const canonicalRubro = requireCanonicalRubro(rawRubro);
+    
     const rubroSK = baselineId
-      ? `${canonicalRubroId}#${baselineId}#${index + 1}`
-      : `${canonicalRubroId}#baseline#${index + 1}`;
+      ? `${canonicalRubro}#${baselineId}#${index + 1}`
+      : `${canonicalRubro}#baseline#${index + 1}`;
 
     items.push({
       rubroId: rubroSK,
-      nombre: estimate.description || estimate.category || canonicalRubroId,
+      nombre: estimate.description || estimate.category || canonicalRubro,
       descripcion: estimate.description,
       category: estimate.category || "Non-labor",
       qty: 1,
@@ -155,7 +166,7 @@ export const buildSeedLineItems = (
         baseline_id: baselineId,
         project_id: projectId,
         vendor: estimate.vendor,
-        linea_codigo: canonicalRubroId,
+        linea_codigo: canonicalRubro,
       },
     });
   });
@@ -173,14 +184,19 @@ export const seedLineItemsFromBaseline = async (
   }
 ) => {
   try {
-    // VALIDATION: Check if baseline has any estimates
-    const { labor_estimates = [], non_labor_estimates = [] } = baseline;
-    if (!labor_estimates.length && !non_labor_estimates.length) {
-      console.error("[seedLineItems] No estimates found in baseline; cannot seed rubros", {
+    // VALIDATION: Check if baseline has any estimates using helper
+    if (!hasEstimates(baseline)) {
+      console.warn("[seedLineItems] No estimates found in baseline; skipping seed operation", {
         projectId,
         baselineId,
+        reason: "no_estimates",
       });
-      return { seeded: 0, skipped: true, error: "no_estimates" as const };
+      
+      return {
+        seeded: 0,
+        skipped: true,
+        reason: "no_estimates",
+      };
     }
 
     // Check if this baseline has already been seeded
@@ -230,11 +246,12 @@ export const seedLineItemsFromBaseline = async (
     const seedItems = buildSeedLineItems(baseline, projectId, baselineId);
 
     if (!seedItems.length) {
+      const { labor, nonLabor } = extractBaselineEstimates(baseline);
       console.warn("[seedLineItems] No line items generated from baseline", {
         projectId,
         baselineId,
-        laborEstimatesCount: labor_estimates.length,
-        nonLaborEstimatesCount: non_labor_estimates.length,
+        laborEstimatesCount: labor.length,
+        nonLaborEstimatesCount: nonLabor.length,
       });
       return { seeded: 0, skipped: true };
     }

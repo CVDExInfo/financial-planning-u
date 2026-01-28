@@ -336,7 +336,7 @@ describe("Baseline → Rubros Materialization with Canonical Taxonomy", () => {
     it("should materialize one-time non-labor estimate", () => {
       const nonLaborEstimates: NonLaborEstimate[] = [
         {
-          rubroId: "SOI-AWS",
+          rubroId: "INF-CLOUD",
           category: "Soporte e Infraestructura",
           description: "AWS Infrastructure Setup",
           amount: 5000,
@@ -379,7 +379,7 @@ describe("Baseline → Rubros Materialization with Canonical Taxonomy", () => {
           end_month: 12,
         },
         {
-          rubroId: "SOI-AWS",
+          rubroId: "INF-CLOUD",
           category: "Soporte e Infraestructura",
           description: "One-time setup",
           amount: 3000,
@@ -409,7 +409,7 @@ describe("Baseline → Rubros Materialization with Canonical Taxonomy", () => {
 
       // Check canonical codes
       expect(rubros[0].metadata.linea_codigo).toBe("GSV-REU");
-      expect(rubros[1].metadata.linea_codigo).toBe("SOI-AWS");
+      expect(rubros[1].metadata.linea_codigo).toBe("INF-CLOUD");
       expect(rubros[2].metadata.linea_codigo).toBe("SEC-AUDIT");
 
       // Check recurring vs one-time
@@ -464,7 +464,7 @@ describe("Baseline → Rubros Materialization with Canonical Taxonomy", () => {
           end_month: 12,
         },
         {
-          rubroId: "SOI-AWS",
+          rubroId: "INF-CLOUD",
           category: "Soporte e Infraestructura",
           description: "AWS Cloud Services",
           amount: 2000,

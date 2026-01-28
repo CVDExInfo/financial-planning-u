@@ -107,14 +107,14 @@ describe("AcceptBaseline Materialization Integration", () => {
       labor_estimates: [
         {
           id: "labor-lt-1",
-          rubroId: "MOD-DEV",
+          rubroId: "MOD-ING",
           role: "Developer",
           periodic: "recurring",
           total_cost: 360000,
         },
         {
           id: "labor-lt-2",
-          rubroId: "MOD-QA",
+          rubroId: "MOD-SDM",
           role: "QA Engineer",
           periodic: "recurring",
           total_cost: 180000,
@@ -160,7 +160,7 @@ describe("AcceptBaseline Materialization Integration", () => {
       labor_estimates: [
         {
           id: "labor-f-1",
-          rubroId: "MOD-ARCH",
+          rubroId: "MOD-LEAD",
           role: "Architect",
           periodic: "recurring",
           total_cost: 240000, // $10k/month

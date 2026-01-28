@@ -8,7 +8,8 @@ import {
 } from '../monthlySnapshotTypes';
 import { isLabor } from '@/lib/rubros-category-utils';
 import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
-import { canonicalizeRubroId, getTaxonomyById } from '@/lib/rubros';
+import { canonicalizeRubroId, getTaxonomyEntry } from '@/lib/rubros';
+import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 interface UseMonthlySnapshotDataParams {
   forecastData: ForecastCell[];
@@ -162,40 +163,43 @@ export function useMonthlySnapshotData({
   // Build improved meta maps with canonical taxonomy support
   const lineItemMetaMap = useMemo(() => {
     const m = new Map<string, { description?: string; category?: string; canonicalId?: string }>();
-    lineItems.forEach(li => {
+
+    (lineItems || []).forEach((li) => {
+      const rawId = String(li?.id || li?.line_item_id || '').trim();
+      if (!rawId) return;
+
+      // Normalize to a predictable key
       const normalized = normalizeKey(rawId);
 
-      // canonicalize first
-      const canonical = canonicalizeRubroId(normalized);
+      // Canonicalize (if available) but keep normalized as fallback
+      const canonical = (typeof canonicalizeRubroId === 'function')
+        ? canonicalizeRubroId(normalized) || normalized
+        : normalized;
 
-      if (canonical) {
-        const taxonomy = getTaxonomyById(canonical);
-        const existing = canonicalMap.get(canonical);
-        // merge/populate
-      } else {
-        // fallback handling
-        console.warn("Unknown rubro id:", normalized);
-        // optionally: use normalized uppercased key as fallback or skip
+      // taxonomy lookup using canonical id
+      let taxonomy;
+      try {
+        taxonomy = getTaxonomyEntry ? getTaxonomyEntry(canonical) : undefined;
+      } catch (err) {
+        taxonomy = undefined;
       }
 
-      // Prefer taxonomy description if available, otherwise use line item description
-      const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li.description || '';
-      const category = taxonomy?.categoria || li.category || '';
-      
-      // Add entries for normalized ID, canonical ID, and any taxonomy ID
-      if (normalized) {
-        m.set(normalized, { description: desc, category, canonicalId: canonical });
-      }
+      const desc = taxonomy?.linea_gasto || taxonomy?.descripcion || li?.description || '';
+      const category = taxonomy?.categoria || li?.category || '';
+
+      // index by normalized and canonical for flexible lookups
+      m.set(normalized, { description: desc, category, canonicalId: canonical });
       if (canonical && canonical !== normalized) {
         m.set(canonical, { description: desc, category, canonicalId: canonical });
       }
-      // Also index by taxonomyId if present (check for potential taxonomy ID properties)
-      const potentialTaxonomyId = (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).taxonomyId || 
-                                   (li as { taxonomyId?: string; rubro_taxonomy_id?: string }).rubro_taxonomy_id;
+
+      // also index by any explicit taxonomy field present on the line item
+      const potentialTaxonomyId = (li as any).taxonomyId || (li as any).rubro_taxonomy_id;
       if (potentialTaxonomyId && !m.has(potentialTaxonomyId)) {
         m.set(potentialTaxonomyId, { description: desc, category, canonicalId: canonical });
       }
     });
+
     return m;
   }, [lineItems]);
 

@@ -448,7 +448,7 @@ describe("Handoff Handler", () => {
           ],
           non_labor_estimates: [
             {
-              rubroId: "SOI-AWS",
+              rubroId: "INF-CLOUD",
               category: "Infrastructure",
               description: "AWS Cloud Services",
               amount: 5000,
@@ -552,7 +552,7 @@ describe("Handoff Handler", () => {
       // Verify canonical rubroId format: {CANONICAL_ID}#{baselineId}#{index}
       expect(laborRubros[0].rubroId).toMatch(/^MOD-ING#base_summary_test_1#\d+$/);
       expect(laborRubros[1].rubroId).toMatch(/^MOD-LEAD#base_summary_test_1#\d+$/);
-      expect(nonLaborRubros[0].rubroId).toMatch(/^SOI-AWS#base_summary_test_1#\d+$/);
+      expect(nonLaborRubros[0].rubroId).toMatch(/^INF-CLOUD#base_summary_test_1#\d+$/);
     });
 
     it("should materialize rubros from PROJECT-scoped baseline when METADATA has no estimates", async () => {
