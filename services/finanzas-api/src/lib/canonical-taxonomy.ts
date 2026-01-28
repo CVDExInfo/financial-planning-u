@@ -246,6 +246,10 @@ export const LEGACY_RUBRO_ID_MAP: Record<string, string> = {
   'RB0075': 'INF-RACK',   // Racks y espacio de co-location
   'RB0080': 'INF-BCK',    // Backup y disaster recovery
   
+  // Legacy service/infrastructure identifiers
+  'SOI-AWS': 'INF-CLOUD',  // Services Infrastructure - AWS → Infrastructure - Cloud
+  'MOD-ARCH': 'MOD-LEAD',  // Architect → Lead Engineer
+  
   // Old seed format
   'RUBRO-SENIOR-DEV': 'MOD-LEAD',
   'RUBRO-AWS-INFRA': 'INF-CLOUD',
