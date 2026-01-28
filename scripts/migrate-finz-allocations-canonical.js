@@ -108,6 +108,7 @@ async function run(apply = false) {
   let failed = 0;
   let skipped = 0;
   const failures = [];
+  const changedItems = []; // Track all changes for report
   
   console.log("\n[process] Processing items...\n");
   
@@ -141,7 +142,7 @@ async function run(apply = false) {
       continue;
     }
     
-    // Check if update is needed
+    // Check if update is needed (idempotent check)
     if (item.line_item_id === canonical && item.rubro_canonical === canonical) {
       // Already canonical, skip
       skipped++;
@@ -151,6 +152,21 @@ async function run(apply = false) {
     console.log(`[update] pk=${item.pk}, sk=${item.sk}`);
     console.log(`         "${raw}" → "${canonical}"`);
     
+    // Record the change
+    const changeRecord = {
+      pk: item.pk,
+      sk: item.sk,
+      before: {
+        line_item_id: item.line_item_id,
+        rubro_canonical: item.rubro_canonical,
+      },
+      after: {
+        line_item_id: canonical,
+        rubro_canonical: canonical,
+      },
+      raw_identifier: raw,
+    };
+    
     if (apply) {
       try {
         await ddb.send(
@@ -158,7 +174,7 @@ async function run(apply = false) {
             TableName: TABLE,
             Key: { pk: item.pk, sk: item.sk },
             UpdateExpression:
-              "SET line_item_id = :c, rubro_canonical = :c, line_item_id_original = if_not_exists(line_item_id_original, :raw)",
+              "SET line_item_id = :c, rubro_canonical = :c, line_item_id_original = if_not_exists(line_item_id_original, :raw), canonical_rubro_id = :c",
             ExpressionAttributeValues: {
               ":c": canonical,
               ":raw": raw,
@@ -166,6 +182,7 @@ async function run(apply = false) {
           })
         );
         updated++;
+        changedItems.push({ ...changeRecord, applied: true });
       } catch (updateErr) {
         console.error(`[error] Failed to update: ${updateErr.message}`);
         failures.push({
@@ -175,12 +192,36 @@ async function run(apply = false) {
           reason: updateErr.message,
         });
         failed++;
+        changedItems.push({ ...changeRecord, applied: false, error: updateErr.message });
       }
     } else {
-      // Dry run - just count it
+      // Dry run - just count and record it
       updated++;
+      changedItems.push({ ...changeRecord, applied: false, dryRun: true });
     }
   }
+  
+  // Generate migration report
+  const report = {
+    timestamp: new Date().toISOString(),
+    table: TABLE,
+    region: REGION,
+    mode: apply ? "apply" : "dry-run",
+    summary: {
+      totalScanned: items.length,
+      toUpdate: updated,
+      alreadyCanonical: skipped,
+      failed: failed,
+    },
+    changes: changedItems,
+    failures: failures,
+  };
+  
+  // Write report to file
+  const fs = await import('fs/promises');
+  const reportPath = 'migration-report.json';
+  await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
+  console.log(`\n📄 Migration report written to: ${reportPath}`);
   
   // Print summary
   console.log("\n===========================================");
@@ -193,9 +234,12 @@ async function run(apply = false) {
   
   if (failures.length > 0) {
     console.log("\n⚠️  Failures:");
-    failures.forEach((f, idx) => {
+    failures.slice(0, 50).forEach((f, idx) => {
       console.log(`  ${idx + 1}. pk=${f.pk}, sk=${f.sk}, raw="${f.raw}", reason=${f.reason}`);
     });
+    if (failures.length > 50) {
+      console.log(`  ... and ${failures.length - 50} more (see migration-report.json)`);
+    }
   }
   
   if (!apply && updated > 0) {
@@ -205,6 +249,11 @@ async function run(apply = false) {
   }
   
   console.log("\n");
+  
+  // Exit with error code if there were failures
+  if (failed > 0) {
+    process.exit(1);
+  }
 }
 
 // Parse command line arguments

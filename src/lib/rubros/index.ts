@@ -38,6 +38,9 @@ import { getRubroById as _getRubroById } from "./taxonomyHelpers";
 // Export normalizeKey from canonical implementation
 export { normalizeKey } from './normalize-key';
 
+// Export stable line item ID generator
+export { stableLineItemId, stableIdFromParts } from '../stableLineItemId';
+
 export type { CanonicalRubroTaxonomy, TipoCosto, TipoEjecucion } from "./canonical-taxonomy";
 
 // Export strict enforcement helper

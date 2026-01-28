@@ -13,6 +13,7 @@ import {
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
 import { requireCanonicalRubro } from "./requireCanonical";
+import { stableIdFromParts } from "./stableLineItemId";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -592,22 +593,6 @@ const deriveMonthlyAllocationAmount = (
     reason: `no numeric fields found: checked ${missingFields.join(', ')}`,
   };
 };
-
-const stableIdFromParts = (
-  ...parts: Array<string | number | undefined | null>
-) =>
-  parts
-    .filter(
-      (part) => part !== undefined && part !== null && `${part}`.length > 0
-    )
-    .map((part) =>
-      `${part}`
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
-    )
-    .join("-");
 
 const resolveTaxonomyLinea = async (
   category?: string,
