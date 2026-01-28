@@ -123,8 +123,6 @@ async function run() {
 
     // Check if line_item_id matches canonical
     if (it.line_item_id) {
-      const lineItemUpper = String(it.line_item_id).trim().toUpperCase();
-      
       // For allocations, line_item_id might be a descriptive name, not necessarily the canonical ID
       // So we only check if canonical_rubro_id is valid, not if line_item_id matches exactly
       validCount++;
