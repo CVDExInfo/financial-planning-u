@@ -14,7 +14,7 @@
  * 
  * Environment Variables:
  *   TABLE_PREFIX - Prefix for DynamoDB tables (e.g., 'finz_')
- *   AWS_REGION - AWS region (default: us-east-1)
+ *   AWS_REGION - AWS region (default: us-east-2)
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const TABLE_PREFIX = process.env.TABLE_PREFIX || '';
-const REGION = process.env.AWS_REGION || 'us-east-1';
+const REGION = process.env.AWS_REGION || 'us-east-2';
 const FAIL_ON_MISMATCH = process.argv.includes('--fail-on-mismatch');
 
 // Path to canonical taxonomy
