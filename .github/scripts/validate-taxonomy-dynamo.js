@@ -10,7 +10,7 @@
  * 
  * Environment Variables:
  *   DYNAMODB_TABLE - Name of the allocations table (default: finz_allocations)
- *   AWS_REGION - AWS region (default: us-east-1)
+ *   AWS_REGION - AWS region (default: us-east-2)
  */
 
 import fs from "fs";
@@ -19,7 +19,7 @@ import { ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 
 const TABLE = process.env.DYNAMODB_TABLE ?? "finz_allocations";
-const REGION = process.env.AWS_REGION ?? "us-east-1";
+const REGION = process.env.AWS_REGION ?? "us-east-2";
 
 // Load taxonomy from repo
 const taxonomyPath = "data/rubros.taxonomy.json";
