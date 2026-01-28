@@ -2877,7 +2877,7 @@ export function SDMTForecast() {
 
   // Render content
   const renderContent = () => (
-    <div className="space-y-3">
+    <div className="col-span-12 space-y-3">
       {/* Compact Header Row with Title, Subtitle, and Actions */}
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
