@@ -16,7 +16,6 @@
 import fs from "fs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { unmarshall } from "@aws-sdk/util-dynamodb";
 
 const TABLE = process.env.DYNAMODB_TABLE ?? "finz_allocations";
 const REGION = process.env.AWS_REGION ?? "us-east-2";
