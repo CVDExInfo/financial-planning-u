@@ -182,12 +182,43 @@ export const seedLineItemsFromBaseline = async (
   try {
     // VALIDATION: Check if baseline has any estimates
     const { labor_estimates = [], non_labor_estimates = [] } = baseline;
-    if (!labor_estimates.length && !non_labor_estimates.length) {
-      console.error("[seedLineItems] No estimates found in baseline; cannot seed rubros", {
+    const hasEstimates = labor_estimates.length > 0 || non_labor_estimates.length > 0;
+    
+    // If no estimates, seed minimal rubros from taxonomy (MOD rubros at minimum)
+    if (!hasEstimates) {
+      console.info("[seedLineItems] No estimates found; seeding minimal rubros from taxonomy", {
         projectId,
         baselineId,
       });
-      return { seeded: 0, skipped: true, error: "no_estimates" as const };
+      
+      // Import taxonomy to get canonical MOD rubros
+      const { CANONICAL_RUBROS_TAXONOMY } = require("./canonical-taxonomy");
+      const { ensureTaxonomyLoaded } = require("./canonical-taxonomy");
+      
+      // Ensure taxonomy is loaded
+      await ensureTaxonomyLoaded();
+      
+      // Get key MOD rubros (labor) to seed - these are required for basic project setup
+      const modRubros = CANONICAL_RUBROS_TAXONOMY.filter((r: any) => 
+        r.categoria_codigo === 'MOD' || r.linea_codigo?.startsWith('MOD-')
+      );
+      
+      // Create minimal baseline with default MOD rubros
+      const minimalBaseline: BaselinePayload = {
+        ...baseline,
+        labor_estimates: modRubros.slice(0, 3).map((r: any, index: number) => ({
+          rubroId: r.linea_codigo,
+          role: r.linea_gasto || r.descripcion || r.linea_codigo,
+          hours_per_month: 0, // Zero cost - just structure
+          fte_count: 0,
+          hourly_rate: 0,
+          start_month: 1,
+          end_month: baseline.duration_months || 12,
+        })),
+      };
+      
+      // Continue with minimal baseline
+      baseline = minimalBaseline;
     }
 
     // Check if this baseline has already been seeded
@@ -240,8 +271,8 @@ export const seedLineItemsFromBaseline = async (
       console.warn("[seedLineItems] No line items generated from baseline", {
         projectId,
         baselineId,
-        laborEstimatesCount: labor_estimates.length,
-        nonLaborEstimatesCount: non_labor_estimates.length,
+        laborEstimatesCount: (baseline.labor_estimates || []).length,
+        nonLaborEstimatesCount: (baseline.non_labor_estimates || []).length,
       });
       return { seeded: 0, skipped: true };
     }

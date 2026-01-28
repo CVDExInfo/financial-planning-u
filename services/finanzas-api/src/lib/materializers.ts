@@ -1043,13 +1043,20 @@ export const materializeAllocationsForBaseline = async (
 ) => {
   const {
     baselineId,
-    projectId,
+    projectId: rawProjectId,
     durationMonths,
     startDate,
     currency,
     laborEstimates,
     nonLaborEstimates,
   } = normalizeBaseline(baseline);
+
+  // Normalize projectId to avoid double PROJECT# prefix
+  const projectId = String(rawProjectId || '').replace(/^PROJECT#/, '');
+  
+  if (!projectId) {
+    throw new Error("[materializers] projectId is required");
+  }
 
   console.info("[materializers] materializeAllocationsForBaseline starting", {
     baseline: baselineId,
