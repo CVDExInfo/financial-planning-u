@@ -99,19 +99,23 @@ async function run() {
       process.exit(0);
     }
     
-    if (error.name === 'AccessDeniedException' || error.message?.includes('AccessDenied')) {
-      console.warn(`⚠️  AWS access denied - skipping validation`);
+    if (error.name === 'AccessDeniedException' || 
+        error.name === 'CredentialsProviderError' ||
+        error.message?.includes('AccessDenied') ||
+        error.message?.includes('credentials')) {
+      console.warn(`⚠️  AWS access/credentials issue - skipping validation`);
       console.log("   This is expected for PRs from forks or environments without AWS credentials");
       
       // Write report indicating access denied
       fs.writeFileSync(reportPath, JSON.stringify({
         status: "access_denied",
-        message: "AWS access denied - credentials not available",
+        message: error.message || "AWS credentials not available",
         validCount: 0,
         totalItems: 0,
         mismatches: []
       }, null, 2));
       
+      console.log(`\nReport written to: ${reportPath}`);
       process.exit(2);
     }
     
