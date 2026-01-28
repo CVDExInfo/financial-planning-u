@@ -73,6 +73,72 @@ jobs:
           VITE_API_BASE_URL: http://localhost
         run: pnpm -s test:unit || echo "⚠️ Some unit tests failed (check logs)"
 
+      - name: Build Finanzas (verify dist artifacts)
+        env:
+          VITE_API_BASE_URL: https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
+          VITE_CLOUDFRONT_URL: https://d7t9x3j66yd8k.cloudfront.net
+          VITE_COGNITO_DOMAIN: us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
+        run: |
+          BUILD_TARGET=finanzas pnpm run build:finanzas
+          # Ensure artifacts were created
+          if ! ls dist-finanzas/assets/*.css >/dev/null 2>&1; then
+            echo "ERROR: dist-finanzas assets not found"
+            ls -la dist-finanzas || true
+            exit 1
+          fi
+          # Print a short list of hashed assets for debugging
+          sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
+
+      - name: Serve the build and smoke test
+        run: |
+          set -euo pipefail
+
+          # quick guard: make sure build produced the expected directory
+          if [ ! -d "dist-finanzas" ]; then
+            echo "❌ dist-finanzas missing - build step likely failed or output moved"
+            ls -la || true
+            exit 1
+          fi
+
+          # start a static server in background using npx so we don't rely on local install
+          # tee the log so we can inspect it on failure
+          npx --yes serve -s dist-finanzas -l 4173 &> serve.log &
+          SERVER_PID=$!
+
+          # Wait for the server to be ready (wait-on will fail if server never binds)
+          npx --yes wait-on http://127.0.0.1:4173/finanzas/ || {
+            echo "❌ serve failed to start within timeout, dumping serve.log"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          # basic smoke checks
+          RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast) || {
+            echo "❌ Forecast page failed to return HTML"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          echo "$RESPONSE" | grep -q "<div id=\"root\">" || {
+            echo "Forecast page didn't return valid HTML structure (missing root div)"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          echo "$RESPONSE" | grep -q -E "(\.js|\.css)" || {
+            echo "Forecast page didn't include JS/CSS assets"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          # stop server
+          kill $SERVER_PID || true
+        shell: bash
+
       - name: Test summary
         if: always()
         run: |

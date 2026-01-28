@@ -35,16 +35,14 @@ env:
   # Frontend feature flags
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
-  # Forecast UI feature flags - optimized for "Desglose only" Portfolio view
-  VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'true' }}
-  VITE_FINZ_NEW_DESIGN_SYSTEM: ${{ vars.VITE_FINZ_NEW_DESIGN_SYSTEM || 'true' }}
-  # Legacy Key Trends variable (kept for backwards compatibility)
-  VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'true' }}
-  # V2-specific Key Trends variable (takes precedence in V2 code)
-  VITE_FINZ_V2_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_V2_SHOW_KEYTRENDS || 'true' }}
-  VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'true' }}
-  VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ vars.VITE_FINZ_HIDE_PROJECT_SUMMARY || 'false' }}
+  # Forecast UI feature flags - ensure deterministic builds with explicit defaults
+  VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'false' }}
+  VITE_FINZ_NEW_DESIGN_SYSTEM: ${{ vars.VITE_FINZ_NEW_DESIGN_SYSTEM || 'false' }}
+  VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'false' }}
+  VITE_FINZ_V2_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_V2_SHOW_KEYTRENDS || 'false' }}
   VITE_FINZ_HIDE_KEY_TRENDS: ${{ vars.VITE_FINZ_HIDE_KEY_TRENDS || 'false' }}
+  VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ vars.VITE_FINZ_HIDE_PROJECT_SUMMARY || 'false' }}
+  VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'false' }}
   VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED: ${{ vars.VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED || 'true' }}
   VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'true' }}
   VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'true' }}

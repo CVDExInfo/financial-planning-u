@@ -35,6 +35,9 @@ import {
 
 import { getRubroById as _getRubroById } from "./taxonomyHelpers";
 
+// Export normalizeKey from canonical implementation
+export { normalizeKey } from './normalize-key';
+
 export type { CanonicalRubroTaxonomy, TipoCosto, TipoEjecucion } from "./canonical-taxonomy";
 
 /* ===========================================================================
