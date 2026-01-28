@@ -1117,6 +1117,10 @@ export const materializeAllocationsForBaseline = async (
 
   const now = new Date().toISOString();
   const allocations: any[] = [];
+  
+  // Metrics for tracking processed/skipped items
+  let processedItems = 0;
+  let skippedItems = 0;
 
   // STEP 2: If we have rubros, use them; otherwise fall back to estimates
   if (rubros.length > 0) {
@@ -1128,6 +1132,7 @@ export const materializeAllocationsForBaseline = async (
         // Use validated canonical ID to ensure consistency with fallback path
         canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
       } catch (err) {
+        skippedItems++;
         console.warn(
           "[materializers] skipping rubro: cannot resolve canonical rubro id",
           {
@@ -1143,6 +1148,8 @@ export const materializeAllocationsForBaseline = async (
         // skip this rubro safely
         continue;
       }
+      
+      processedItems++;
 
       // Extract unit_cost (monthly cost)
       let unitCost = coerceNumber(rubro.unit_cost);
@@ -1208,10 +1215,11 @@ export const materializeAllocationsForBaseline = async (
           rubro_id: canonicalRubroId,
           rubroId: canonicalRubroId,
           canonical_rubro_id: canonicalRubroId,
-          line_item_id:
-            rubro.metadata?.role ||
-            rubro.nombre ||
-            String(rubro.sk || "").replace("RUBRO#", ""),
+          line_item_id: stableIdFromParts(
+            canonicalRubroId,
+            rubro.metadata?.role || rubro.nombre,
+            rubro.metadata?.category
+          ),
           calendar_month: calendarMonthKey,
           calendarMonthKey,
           month_index: monthIndex,
@@ -1250,7 +1258,9 @@ export const materializeAllocationsForBaseline = async (
         try {
           // Use validated canonical ID to ensure consistency with primary path
           canonical = getValidatedCanonicalRubroId(item, "fallback-path");
+          processedItems++;
         } catch (err) {
+          skippedItems++;
           console.warn(
             "[materializers] skipping item: cannot resolve canonical rubro id",
             {
@@ -1417,6 +1427,8 @@ export const materializeAllocationsForBaseline = async (
       written: allocationsWritten,
       skipped: allocationsSkipped,
       overwritten: allocationsOverwritten,
+      processedItems,
+      skippedItems,
     });
 
     if (allocationsAttempted > 0 && allocationsWritten === 0) {
