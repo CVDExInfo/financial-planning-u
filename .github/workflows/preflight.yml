@@ -77,6 +77,7 @@ jobs:
         env:
           VITE_API_BASE_URL: https://pyorjw6lbe.execute-api.us-east-2.amazonaws.com/dev
           VITE_CLOUDFRONT_URL: https://d7t9x3j66yd8k.cloudfront.net
+          VITE_COGNITO_DOMAIN: us-east-2fyhltohiy.auth.us-east-2.amazoncognito.com
         run: |
           BUILD_TARGET=finanzas pnpm run build:finanzas
           # Ensure artifacts were created
