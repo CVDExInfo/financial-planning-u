@@ -37,7 +37,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-2' }}
         continue-on-error: true # Allow to continue if AWS credentials are not configured
       
       - name: Run canonical line items validation
@@ -45,7 +45,7 @@ jobs:
         run: |
           # Run validation script with fail-on-mismatch flag
           TABLE_PREFIX=${{ secrets.TABLE_PREFIX || 'finz_' }} \
-          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }} \
+          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-2' }} \
           npx tsx scripts/migrations/validate-canonical-lineitems.ts --fail-on-mismatch
         continue-on-error: true
       
@@ -63,7 +63,7 @@ jobs:
           echo "::error::Canonical line items validation failed!"
           echo "Non-canonical line_item_id values were found in the allocations table."
           echo "Please run the migration script to fix them:"
-          echo "  TABLE_PREFIX=finz_ AWS_REGION=us-east-1 node scripts/migrations/migrate-finz-allocations-canonical.js --apply"
+          echo "  TABLE_PREFIX=finz_ AWS_REGION=us-east-2 node scripts/migrations/migrate-finz-allocations-canonical.js --apply"
           exit 1
       
       - name: Validation passed
@@ -95,14 +95,14 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-2' }}
         continue-on-error: true
       
       - name: Run taxonomy → DynamoDB validation
         id: validate-dynamo
         run: |
           DYNAMODB_TABLE=${{ secrets.TABLE_PREFIX || 'finz_' }}allocations \
-          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }} \
+          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-2' }} \
           node .github/scripts/validate-taxonomy-dynamo.js
         continue-on-error: true
       
