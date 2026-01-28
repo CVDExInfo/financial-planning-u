@@ -12,7 +12,7 @@
  * - rubro_canonical is set for tracking
  */
 
-import { canonicalizeRubroId, findRubroByLineaCodigo, requireCanonicalRubro } from "@/lib/rubros";
+import { findRubroByLineaCodigo, requireCanonicalRubro } from "@/lib/rubros";
 import type { LaborEstimate, NonLaborEstimate } from "@/types/domain";
 
 
