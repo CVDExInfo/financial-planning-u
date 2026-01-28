@@ -215,10 +215,10 @@ jobs:
           script: |
             const serviceName = '${{ matrix.service }}';
             const workflowFile = serviceName === 'ui'
-              ? 'deploy-finanzas-ui.yml'
-              : 'deploy-finanzas-api.yml';
+              ? 'deploy-ui.yml'
+              : 'deploy-api.yml';
 
-            const msg = `Triggering ${serviceName} via ${workflowFile}`;
+            const msg = `Triggering ${serviceName} deployment`;
             console.log(`${msg}...`);
 
             try {
@@ -233,9 +233,43 @@ jobs:
               const errMsg =
                 `⚠️ Failed to trigger ${serviceName} deployment`;
               console.error(`${errMsg}:`, error.message);
-              const note =
-                `This is non-fatal. Deploy ${serviceName} manually.`;
-              console.log(`   ${note}`);
+              
+              // Fail loud on main branch
+              if (context.ref === 'refs/heads/main') {
+                throw error;
+              }
+              
+              console.log(`   Deploy ${serviceName} manually if needed.`);
+            }
+
+            // Verify workflow run was created
+            try {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflowFile,
+                per_page: 5,
+              });
+
+              const recentRun = runs.data.workflow_runs.find(run => {
+                const runAge = Date.now() - new Date(run.created_at).getTime();
+                return runAge < 60000; // Within last 60 seconds
+              });
+
+              if (!recentRun) {
+                throw new Error(`No recent workflow run found for ${workflowFile}`);
+              }
+              console.log(`✅ Verified workflow run #${recentRun.run_number} started`);
+            } catch (error) {
+              console.error(`⚠️ Failed to verify ${serviceName} deployment:`, error.message);
+              
+              // Fail loud on main branch
+              if (context.ref === 'refs/heads/main') {
+                throw error;
+              }
+              
+              console.log(`   Check workflow runs manually for ${workflowFile}.`);
             }
 
   notify:

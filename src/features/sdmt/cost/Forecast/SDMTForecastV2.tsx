@@ -642,7 +642,7 @@ export function SDMTForecastV2() {
   return (
     <DashboardLayout maxWidth="full" className="py-6">
       {/* Top Bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 px-6">
+      <div className="col-span-12 mb-6 flex flex-wrap items-center justify-between gap-4 px-6">
         {/* Left side - Project selector and view mode */}
         <div className="flex items-center gap-4">
           <Select
@@ -721,7 +721,7 @@ export function SDMTForecastV2() {
       </div>
       
       {/* Main Content - 5 Positions */}
-      <div className="space-y-6 px-6">
+      <div className="col-span-12 space-y-6 px-6">
         {/* Position #1: Executive Summary Card */}
         <ExecutiveSummaryCard summaryBarKpis={summaryKpis} />
         
