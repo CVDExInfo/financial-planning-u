@@ -168,7 +168,10 @@ export function computeForecastFromAllocations(
     if (monthNum >= 1 && monthNum <= 60) { // Support up to 60 months
       // Canonicalize rubro ID to linea_codigo (single source of truth)
       const rawId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || 'UNKNOWN';
-      const rubroId = lookupTaxonomyCanonical(taxonomyMap, { rubroId: rawId, line_item_id: rawId }, localCache)?.rubroId || rawId;
+      // Only use taxonomy lookup if taxonomyMap is available, otherwise use rawId
+      const rubroId = taxonomyMap
+        ? (lookupTaxonomyCanonical(taxonomyMap, { rubroId: rawId, line_item_id: rawId }, localCache)?.rubroId || rawId)
+        : rawId;
       
       const key = `${rubroId}-${monthNum}`;
       
