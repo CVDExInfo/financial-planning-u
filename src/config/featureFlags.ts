@@ -36,7 +36,7 @@ export const FEATURE_FLAGS = {
    * Enable Forecast V2 (Pronóstico V2)
    * 
    * When enabled, shows the Pronóstico V2 navigation item and enables
-   * the /sdmt/forecast/v2 route with the new SDMTForecastV2 component.
+   * the /sdmt/cost/forecast-v2 route with the new SDMTForecastV2 component.
    * 
    * Default: controlled by VITE_FINZ_NEW_FORECAST_LAYOUT environment variable
    * 

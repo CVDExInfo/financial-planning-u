@@ -75,8 +75,8 @@ if ! echo "$RESPONSE_V2" | grep -q "<div id=\"root\">"; then
   exit 1
 fi
 
-# Check the main page to verify navigation includes Pronóstico V2
-echo "🎯 Checking for Pronóstico V2 navigation..."
+# Check the main page to verify it loads correctly
+echo "🎯 Checking home page loads correctly..."
 if ! HOME_RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/); then
   echo "❌ Home page failed to return HTML"
   echo "📄 Server log:"
@@ -84,8 +84,8 @@ if ! HOME_RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/); then
   exit 1
 fi
 
-# Note: This is checking the HTML structure. The actual navigation is rendered by React,
-# but we can verify the route path is in the bundled JS or that the page loads correctly
+# The actual navigation is rendered by React at runtime, so we verify
+# the HTML structure is correct and the app can bootstrap
 if ! echo "$HOME_RESPONSE" | grep -q "<div id=\"root\">"; then
   echo "❌ Home page didn't return valid HTML structure"
   echo "📄 Server log:"
