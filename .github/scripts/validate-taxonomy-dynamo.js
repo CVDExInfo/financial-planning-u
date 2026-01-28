@@ -87,6 +87,13 @@ async function run() {
       console.log("   This is expected in test/dev environments without deployed infrastructure");
       process.exit(0);
     }
+    
+    if (error.name === 'AccessDeniedException' || error.message?.includes('AccessDenied')) {
+      console.warn(`⚠️  AWS access denied - skipping validation`);
+      console.log("   This is expected for PRs from forks or environments without AWS credentials");
+      process.exit(0);
+    }
+    
     throw error;
   }
 
