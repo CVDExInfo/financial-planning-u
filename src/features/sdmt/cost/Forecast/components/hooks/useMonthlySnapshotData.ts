@@ -8,7 +8,7 @@ import {
 } from '../monthlySnapshotTypes';
 import { isLabor } from '@/lib/rubros-category-utils';
 import { normalizeRubroId } from '@/features/sdmt/cost/utils/dataAdapters';
-import { canonicalizeRubroId, getTaxonomyById, getTaxonomyEntry } from '@/lib/rubros';
+import { canonicalizeRubroId, getTaxonomyEntry } from '@/lib/rubros';
 import { normalizeKey } from '@/lib/rubros/normalize-key';
 
 interface UseMonthlySnapshotDataParams {
