@@ -101,10 +101,13 @@ async function run() {
   let validCount = 0;
 
   for (const it of allItems) {
+    // CRITICAL: Check canonical_rubro_id, not line_item_id
+    // line_item_id can be composite (e.g., "mod-sdm-service-delivery-manager-mod")
+    // Only canonical_rubro_id must match taxonomy
     const canonical = it.canonical_rubro_id || it.rubro_id;
     
     if (!canonical) {
-      // Skip items without canonical ID
+      // Skip items without canonical ID (might be non-allocation items)
       continue;
     }
 
@@ -116,19 +119,14 @@ async function run() {
         pk: it.pk,
         sk: it.sk,
         canonical_rubro_id: canonical,
-        reason: "unknown canonical in taxonomy",
+        line_item_id: it.line_item_id,
+        reason: "canonical_rubro_id unknown in taxonomy",
       });
       continue;
     }
 
-    // Check if line_item_id matches canonical
-    if (it.line_item_id) {
-      // For allocations, line_item_id might be a descriptive name, not necessarily the canonical ID
-      // So we only check if canonical_rubro_id is valid, not if line_item_id matches exactly
-      validCount++;
-    } else {
-      validCount++;
-    }
+    // Valid canonical ID found
+    validCount++;
   }
 
   // Report results

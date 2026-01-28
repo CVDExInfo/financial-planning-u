@@ -44,7 +44,8 @@ interface ValidationResult {
   mismatches: Array<{
     pk: string;
     sk: string;
-    line_item_id: string;
+    line_item_id?: string;
+    canonical_rubro_id?: string;
     reason: string;
   }>;
 }
@@ -117,32 +118,37 @@ async function validateAllocations(
     for (const item of items) {
       result.totalItems++;
       
-      const lineItemId = item.line_item_id || item.rubroId || item.rubro_id;
+      // CRITICAL: Check canonical_rubro_id, NOT line_item_id
+      // line_item_id can be a composite display ID (e.g., "mod-sdm-service-delivery-manager-mod")
+      // Only canonical_rubro_id must match taxonomy linea_codigo
+      const canonicalRubroId = item.canonical_rubro_id || item.rubro_id;
       
-      if (!lineItemId) {
+      if (!canonicalRubroId) {
         result.invalidItems++;
         result.mismatches.push({
           pk: item.pk || 'UNKNOWN',
           sk: item.sk || 'UNKNOWN',
-          line_item_id: 'NULL',
-          reason: 'Missing line_item_id field',
+          line_item_id: item.line_item_id || 'NULL',
+          canonical_rubro_id: 'NULL',
+          reason: 'Missing canonical_rubro_id field',
         });
         continue;
       }
       
       // Normalize to uppercase for comparison
-      const normalizedId = String(lineItemId).trim().toUpperCase();
+      const normalizedCanonical = String(canonicalRubroId).trim().toUpperCase();
       
-      // Check if it's a canonical ID
-      if (canonicalIds.has(normalizedId)) {
+      // Check if canonical_rubro_id is in taxonomy
+      if (canonicalIds.has(normalizedCanonical)) {
         result.validItems++;
       } else {
         result.invalidItems++;
         result.mismatches.push({
           pk: item.pk || 'UNKNOWN',
           sk: item.sk || 'UNKNOWN',
-          line_item_id: lineItemId,
-          reason: 'Not a canonical linea_codigo',
+          line_item_id: item.line_item_id || 'UNKNOWN',
+          canonical_rubro_id: canonicalRubroId,
+          reason: 'canonical_rubro_id not found in taxonomy',
         });
       }
     }
