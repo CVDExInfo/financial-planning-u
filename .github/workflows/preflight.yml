@@ -89,31 +89,55 @@ jobs:
           # Print a short list of hashed assets for debugging
           sha256sum dist-finanzas/assets/* | sort > ./dist_hash_after.txt
 
-      - name: Quick forecast smoke test (serve + curl)
+      - name: Serve the build and smoke test
         run: |
-          # serve the build on local port and check main page and forecast route
-          pnpm exec serve -s dist-finanzas -l 4173 &> serve.log &
+          set -euo pipefail
+
+          # quick guard: make sure build produced the expected directory
+          if [ ! -d "dist-finanzas" ]; then
+            echo "❌ dist-finanzas missing - build step likely failed or output moved"
+            ls -la || true
+            exit 1
+          fi
+
+          # start a static server in background using npx so we don't rely on local install
+          # tee the log so we can inspect it on failure
+          npx --yes serve -s dist-finanzas -l 4173 &> serve.log &
           SERVER_PID=$!
-          # wait for server up
-          for i in {1..20}; do
-            curl -sSf http://127.0.0.1:4173/finanzas/ && break || sleep 1
-          done
-          # check forecast route returns valid HTML (basic smoke - doesn't check React-rendered content)
-          RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast)
-          if ! echo "$RESPONSE" | grep -q "<div id=\"root\">"; then
+
+          # Wait for the server to be ready (wait-on will fail if server never binds)
+          npx --yes wait-on http://127.0.0.1:4173/finanzas/ || {
+            echo "❌ serve failed to start within timeout, dumping serve.log"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          # basic smoke checks
+          RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast) || {
+            echo "❌ Forecast page failed to return HTML"
+            tail -n 200 serve.log || true
+            kill $SERVER_PID || true
+            exit 1
+          }
+
+          echo "$RESPONSE" | grep -q "<div id=\"root\">" || {
             echo "Forecast page didn't return valid HTML structure (missing root div)"
             tail -n 200 serve.log || true
             kill $SERVER_PID || true
             exit 1
-          fi
-          # check that assets are loaded properly
-          if ! echo "$RESPONSE" | grep -q -E "(\.js|\.css)"; then
+          }
+
+          echo "$RESPONSE" | grep -q -E "(\.js|\.css)" || {
             echo "Forecast page didn't include JS/CSS assets"
             tail -n 200 serve.log || true
             kill $SERVER_PID || true
             exit 1
-          fi
+          }
+
+          # stop server
           kill $SERVER_PID || true
+        shell: bash
 
       - name: Test summary
         if: always()

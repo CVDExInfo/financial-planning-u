@@ -6,9 +6,16 @@ set -euo pipefail
 
 echo "🔍 Starting Forecast Smoke Test..."
 
-# Serve the build on local port
+# Quick guard: make sure build produced the expected directory
+if [ ! -d "dist-finanzas" ]; then
+  echo "❌ dist-finanzas missing - build step likely failed or output moved"
+  ls -la || true
+  exit 1
+fi
+
+# Serve the build on local port using npx (auto-installs if needed)
 echo "📦 Starting server on port 4173..."
-pnpm exec serve -s dist-finanzas -l 4173 &> serve.log &
+npx --yes serve -s dist-finanzas -l 4173 &> serve.log &
 SERVER_PID=$!
 
 # Function to cleanup on exit
@@ -18,24 +25,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Wait for server to start
+# Wait for server to be ready using wait-on
 echo "⏳ Waiting for server to be ready..."
-for i in {1..20}; do
-  if curl -sSf http://127.0.0.1:4173/finanzas/ > /dev/null 2>&1; then
-    echo "✅ Server is ready"
-    break
-  fi
-  sleep 1
-  if [ $i -eq 20 ]; then
-    echo "❌ Server failed to start within 20 seconds"
-    tail -n 50 serve.log || true
-    exit 1
-  fi
-done
+if ! npx --yes wait-on http://127.0.0.1:4173/finanzas/; then
+  echo "❌ Server failed to start within timeout"
+  echo "📄 Server log:"
+  tail -n 200 serve.log || true
+  exit 1
+fi
+echo "✅ Server is ready"
 
 # Check forecast route returns valid HTML (basic smoke - doesn't check React-rendered content)
 echo "🎯 Checking forecast route..."
-RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast)
+if ! RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast); then
+  echo "❌ Forecast page failed to return HTML"
+  echo "📄 Server log:"
+  tail -n 200 serve.log || true
+  exit 1
+fi
+
 if ! echo "$RESPONSE" | grep -q "<div id=\"root\">"; then
   echo "❌ Forecast page didn't return valid HTML structure (missing root div)"
   echo "📄 Server log:"
