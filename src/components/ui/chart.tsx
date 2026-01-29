@@ -1,5 +1,6 @@
 import { ComponentProps, ComponentType, createContext, CSSProperties, ReactNode, useContext, useId, useMemo } from "react"
 import * as RechartsPrimitive from "recharts"
+import type { Payload } from "recharts/types/component/DefaultTooltipContent"
 
 import { cn } from "@/lib/utils"
 
@@ -103,7 +104,7 @@ function ChartContainer({
 const ChartTooltip = RechartsPrimitive.Tooltip
 
 type ChartTooltipProps = ComponentProps<typeof RechartsPrimitive.Tooltip> & {
-  payload?: Array<Record<string, unknown>>
+  payload?: Payload<any, any>[]
   label?: string | number
 }
 
@@ -130,7 +131,8 @@ function ChartTooltipContent({
     labelKey?: string
   }) & Record<string, unknown>) {
   const { config } = useChart()
-  const tooltipPayload = Array.isArray(payload) ? payload : []
+  // Defensively cast payload to proper Payload array type
+  const tooltipPayload = (Array.isArray(payload) ? payload : []) as Payload<any, any>[]
 
   const tooltipLabel = useMemo(() => {
     if (hideLabel || !tooltipPayload.length) {
@@ -268,14 +270,15 @@ function ChartLegendContent({
   verticalAlign = "bottom",
   nameKey,
 }: ComponentProps<"div"> & {
-  payload?: Array<Record<string, unknown>>
+  payload?: Payload<any, any>[]
   verticalAlign?: "top" | "bottom"
   hideIcon?: boolean
   nameKey?: string
 }) {
   const { config } = useChart()
 
-  const legendPayload = payload as ChartLegendPayload[] | undefined
+  // Defensively cast payload to proper Payload array type
+  const legendPayload = (Array.isArray(payload) ? payload : []) as Payload<any, any>[]
 
   if (!legendPayload?.length) {
     return null

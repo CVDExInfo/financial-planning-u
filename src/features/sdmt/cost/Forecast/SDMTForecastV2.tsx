@@ -53,7 +53,7 @@ import { getProjectRubros } from '@/api/finanzas';
 import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
 import { transformLineItemsToForecast } from './transformLineItemsToForecast';
 import { computeForecastFromAllocations, type Allocation } from './computeForecastFromAllocations';
-import { buildCanonicalMatrix, deriveKpisFromMatrix, type CanonicalMatrixRow } from './utils/canonicalMatrix';
+import { buildCanonicalMatrix, deriveKpisFromMatrix, type CanonicalMatrixRow } from '../utils/canonicalMatrix';
 import { ExcelExporter } from '@/lib/excel-export';
 import { PDFExporter } from '@/lib/pdf-export';
 
