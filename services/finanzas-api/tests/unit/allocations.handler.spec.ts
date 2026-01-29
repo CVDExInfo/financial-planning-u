@@ -8,10 +8,10 @@ jest.mock("../../src/lib/dynamo", () => ({
     send: jest.fn(),
   },
   tableName: jest.fn((name: string) => `test_${name}`),
-  QueryCommand: jest.fn(),
-  ScanCommand: jest.fn(),
-  PutCommand: jest.fn(),
-  GetCommand: jest.fn(),
+  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+  ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
 }));
 
 // Mock auth
@@ -61,16 +61,18 @@ function setupDdbRoutingMock() {
   (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
     const input = cmd?.input ?? {};
     const table = String(input?.TableName || "").toLowerCase();
+    const pk = input?.Key?.pk;
+    const sk = input?.Key?.sk;
 
     // PROJECT metadata lookup (METADATA | META)
-    if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
-      if (input?.Key?.sk === "METADATA" || input?.Key?.sk === "META") {
+    if (table.includes("test_projects") && pk === "PROJECT#P-123") {
+      if (sk === "METADATA" || sk === "META") {
         return { Item: mockProjectWithStartDate("2025-01-01") };
       }
     }
 
     // Allocation existence check (ALLOCATION#...)
-    if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+    if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
       return { Item: undefined };
     }
 
