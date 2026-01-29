@@ -99,24 +99,56 @@ jobs:
           CF_DOMAIN="${CF_DOMAIN:-${{ vars.CF_DOMAIN || 'd7t9x3j66yd8k.cloudfront.net' }}}"
           VITE_CLOUDFRONT_URL="https://${CF_DOMAIN}"
 
-          # Set VITE_FINZ_USE_FORECAST_V2 default: true for non-prod, but allow override via repo var
+          # Set V2/Executive Dashboard flags: true for non-prod, false for prod
+          # Allows override via repo vars, defaults to environment-specific safe values
           if [[ "${DEPLOYMENT_ENV}" == "prod" ]]; then
+            # Production: disabled by default, enable only via explicit repo vars
             VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'false' }}"
+            VITE_FINZ_V2_SHOW_KEYTRENDS="${{ vars.VITE_FINZ_V2_SHOW_KEYTRENDS || 'false' }}"
+            VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS="${{ vars.VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS || 'false' }}"
+            VITE_FINZ_V2_ALLOW_BUDGET_EDIT="${{ vars.VITE_FINZ_V2_ALLOW_BUDGET_EDIT || 'false' }}"
+            VITE_FINZ_V2_MONTHS_DEFAULT="${{ vars.VITE_FINZ_V2_MONTHS_DEFAULT || '60' }}"
+            VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY="${{ vars.VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY || 'false' }}"
+            VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY="${{ vars.VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY || 'false' }}"
+            VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID="${{ vars.VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID || 'false' }}"
+            VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR="${{ vars.VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR || 'false' }}"
+            VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL="${{ vars.VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL || 'false' }}"
           else
-            # In dev or other branches default to true to enable Executive Dashboard for dev
+            # Development/non-prod: enabled by default, disable via repo vars if needed
             VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'true' }}"
+            VITE_FINZ_V2_SHOW_KEYTRENDS="${{ vars.VITE_FINZ_V2_SHOW_KEYTRENDS || 'true' }}"
+            VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS="${{ vars.VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS || 'true' }}"
+            VITE_FINZ_V2_ALLOW_BUDGET_EDIT="${{ vars.VITE_FINZ_V2_ALLOW_BUDGET_EDIT || 'true' }}"
+            VITE_FINZ_V2_MONTHS_DEFAULT="${{ vars.VITE_FINZ_V2_MONTHS_DEFAULT || '60' }}"
+            VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY="${{ vars.VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY || 'true' }}"
+            VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY="${{ vars.VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY || 'true' }}"
+            VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID="${{ vars.VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID || 'true' }}"
+            VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR="${{ vars.VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR || 'true' }}"
+            VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL="${{ vars.VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL || 'true' }}"
           fi
 
+          # Export to GITHUB_ENV for use in subsequent steps
           echo "DEPLOYMENT_ENV=${DEPLOYMENT_ENV}" >> "$GITHUB_ENV"
           echo "FINZ_API_STAGE=${FINZ_API_STAGE}" >> "$GITHUB_ENV"
           echo "VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}" >> "$GITHUB_ENV"
           echo "VITE_FINZ_USE_FORECAST_V2=${VITE_FINZ_USE_FORECAST_V2}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_KEYTRENDS=${VITE_FINZ_V2_SHOW_KEYTRENDS}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS=${VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_ALLOW_BUDGET_EDIT=${VITE_FINZ_V2_ALLOW_BUDGET_EDIT}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_MONTHS_DEFAULT=${VITE_FINZ_V2_MONTHS_DEFAULT}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY=${VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY=${VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID=${VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR=${VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR}" >> "$GITHUB_ENV"
+          echo "VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL=${VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL}" >> "$GITHUB_ENV"
 
           echo "Computed values:"
           echo "  DEPLOYMENT_ENV=${DEPLOYMENT_ENV}"
           echo "  FINZ_API_STAGE=${FINZ_API_STAGE}"
           echo "  VITE_CLOUDFRONT_URL=${VITE_CLOUDFRONT_URL}"
           echo "  VITE_FINZ_USE_FORECAST_V2=${VITE_FINZ_USE_FORECAST_V2}"
+          echo "  VITE_FINZ_V2_SHOW_KEYTRENDS=${VITE_FINZ_V2_SHOW_KEYTRENDS}"
+          echo "  VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS=${VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS}"
 
       # ---- Preflight env (same strategy as before) ----
       - name: Preflight env
@@ -254,7 +286,7 @@ jobs:
           VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'false' }}
           VITE_FINZ_NEW_DESIGN_SYSTEM: ${{ vars.VITE_FINZ_NEW_DESIGN_SYSTEM || 'false' }}
           VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'true' }}
-          VITE_FINZ_V2_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_V2_SHOW_KEYTRENDS || 'false' }}
+          VITE_FINZ_V2_SHOW_KEYTRENDS: ${{ env.VITE_FINZ_V2_SHOW_KEYTRENDS }}
           VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'false' }}
           VITE_FINZ_HIDE_PROJECT_SUMMARY: ${{ vars.VITE_FINZ_HIDE_PROJECT_SUMMARY || 'false' }}
           VITE_FINZ_HIDE_KEY_TRENDS: ${{ vars.VITE_FINZ_HIDE_KEY_TRENDS || 'false' }}
@@ -262,16 +294,16 @@ jobs:
           VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'false' }}
           VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'false' }}
           VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
-          # V2 Position Flags (Executive Dashboard)
-          VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY || 'false' }}
-          VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY || 'false' }}
-          VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID || 'false' }}
-          VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR || 'false' }}
-          VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL || 'false' }}
-          # V2 Executive-Specific Flags
-          VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS || 'false' }}
-          VITE_FINZ_V2_ALLOW_BUDGET_EDIT: ${{ vars.VITE_FINZ_V2_ALLOW_BUDGET_EDIT || 'false' }}
-          VITE_FINZ_V2_MONTHS_DEFAULT: ${{ vars.VITE_FINZ_V2_MONTHS_DEFAULT || '60' }}
+          # V2 Position Flags (Executive Dashboard) - using computed env values
+          VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY: ${{ env.VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY }}
+          VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY: ${{ env.VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY }}
+          VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID: ${{ env.VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID }}
+          VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR: ${{ env.VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR }}
+          VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL: ${{ env.VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL }}
+          # V2 Executive-Specific Flags - using computed env values
+          VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS: ${{ env.VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS }}
+          VITE_FINZ_V2_ALLOW_BUDGET_EDIT: ${{ env.VITE_FINZ_V2_ALLOW_BUDGET_EDIT }}
+          VITE_FINZ_V2_MONTHS_DEFAULT: ${{ env.VITE_FINZ_V2_MONTHS_DEFAULT }}
           # Incremental migration flags
           VITE_ENABLE_RUBROS_ADAPTER: ${{ env.VITE_ENABLE_RUBROS_ADAPTER }}
         run: |

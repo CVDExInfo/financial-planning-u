@@ -19,22 +19,32 @@ This document provides a comprehensive guide to the Forecast V2 feature flags an
 ## Environment-Aware Defaults
 
 ### Development Branches (Non-Prod)
-The GitHub workflow automatically sets `VITE_FINZ_USE_FORECAST_V2=true` for all branches except `main`:
+The GitHub workflow automatically sets **ALL V2 flags to `true`** for all branches except `main`. This includes:
 
+**Computed in `.github/workflows/deploy-ui.yml` compute_env step:**
 ```yaml
-# In .github/workflows/deploy-ui.yml
-if [[ "${DEPLOYMENT_ENV}" == "prod" ]]; then
-  VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'false' }}"
-else
-  # In dev or other branches default to true to enable Exec for dev
-  VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'true' }}"
+if [[ "${DEPLOYMENT_ENV}" != "prod" ]]; then
+  # Development/non-prod: enabled by default
+  VITE_FINZ_USE_FORECAST_V2=true
+  VITE_FINZ_V2_SHOW_KEYTRENDS=true
+  VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS=true
+  VITE_FINZ_V2_ALLOW_BUDGET_EDIT=true
+  VITE_FINZ_V2_MONTHS_DEFAULT=60
+  VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY=true
+  VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY=true
+  VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID=true
+  VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR=true
+  VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL=true
 fi
 ```
 
-**Result**: Developers can test and view the Executive Dashboard in dev without manual configuration.
+**Result**: Developers can test and view the **fully-enabled Executive Dashboard** in dev without any manual configuration or repository variables.
 
 ### Production Branch (Main)
-The workflow defaults to `VITE_FINZ_USE_FORECAST_V2=false` for the `main` branch, keeping production safe until explicitly enabled via repository variables.
+The workflow defaults **ALL V2 flags to `false`** for the `main` branch, keeping production safe until explicitly enabled via repository variables.
+
+### Local Development
+The `.env.development` file contains the same dev-friendly defaults, so local development with `pnpm dev` will show the complete Executive Dashboard without additional configuration.
 
 ## How It Works
 
@@ -73,22 +83,22 @@ if (item.id === "forecastV2" && !FEATURE_FLAGS.USE_FORECAST_V2) {
 
 Control visibility of individual positions in the Executive Dashboard:
 
-| Flag | Position | Description | Default |
-|------|----------|-------------|---------|
-| `VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY` | 1 | Executive summary card | `false` |
-| `VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY` | 2 | Monthly payroll budget | `false` |
-| `VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID` | 3 | Main forecast grid/table | `false` |
-| `VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR` | 4 | Matrix monthly bar chart | `false` |
-| `VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL` | 5 | Charts panel with trends | `false` |
+| Flag | Position | Description | Default (Prod) | Default (Dev) |
+|------|----------|-------------|----------------|---------------|
+| `VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY` | 1 | Executive summary card | `false` | `true` |
+| `VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY` | 2 | Monthly payroll budget | `false` | `true` |
+| `VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID` | 3 | Main forecast grid/table | `false` | `true` |
+| `VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR` | 4 | Matrix monthly bar chart | `false` | `true` |
+| `VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL` | 5 | Charts panel with trends | `false` | `true` |
 
 ### Executive-Specific Flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `VITE_FINZ_V2_SHOW_KEYTRENDS` | Shows key trends section | `false` |
-| `VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS` | Shows portfolio-level KPIs | `false` |
-| `VITE_FINZ_V2_ALLOW_BUDGET_EDIT` | Allows budget editing (typically disabled for exec view) | `false` |
-| `VITE_FINZ_V2_MONTHS_DEFAULT` | Default months to display (number) | `60` |
+| Flag | Description | Default (Prod) | Default (Dev) |
+|------|-------------|----------------|---------------|
+| `VITE_FINZ_V2_SHOW_KEYTRENDS` | Shows key trends section | `false` | `true` |
+| `VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS` | Shows portfolio-level KPIs | `false` | `true` |
+| `VITE_FINZ_V2_ALLOW_BUDGET_EDIT` | Allows budget editing (typically disabled for exec view) | `false` | `true` |
+| `VITE_FINZ_V2_MONTHS_DEFAULT` | Default months to display (number) | `60` | `60` |
 
 ### BAU (Business-As-Usual) Flags
 
