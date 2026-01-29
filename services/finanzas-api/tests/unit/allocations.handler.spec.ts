@@ -475,7 +475,7 @@ describe("allocations handler", () => {
               monto_proyectado: 55000,
             },
             {
-              rubro_id: "rubro_test456",
+              rubro_id: "MOD-LEAD",
               mes: "2025-01",
               monto_proyectado: 35000,
             },
@@ -526,12 +526,15 @@ describe("allocations handler", () => {
       (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
         const input = cmd?.input ?? {};
         const table = String(input?.TableName || "").toLowerCase();
+        const sk = input?.Key?.sk;
 
         if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
-          return { Item: mockProjectWithStartDate("2025-05-01") };
+          if (sk === "METADATA" || sk === "META") {
+            return { Item: mockProjectWithStartDate("2025-05-01") };
+          }
         }
 
-        if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+        if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
           return { Item: undefined };
         }
 
@@ -573,12 +576,15 @@ describe("allocations handler", () => {
       (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
         const input = cmd?.input ?? {};
         const table = String(input?.TableName || "").toLowerCase();
+        const sk = input?.Key?.sk;
 
         if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
-          return { Item: mockProjectWithStartDate("2025-06-15") };
+          if (sk === "METADATA" || sk === "META") {
+            return { Item: mockProjectWithStartDate("2025-06-15") };
+          }
         }
 
-        if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+        if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
           return { Item: undefined };
         }
 
