@@ -637,7 +637,7 @@ export function SDMTForecastV2() {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
           <p className="text-gray-600">
-            {error instanceof Error ? error.message : String(error || lineItemsError || '')}
+            {String(error || lineItemsError || '')}
           </p>
         </div>
       </div>

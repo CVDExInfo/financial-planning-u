@@ -341,6 +341,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: new Date().toISOString(),
+        updated_by: 'test',
       };
 
       // In DEV mode, this would log diagnostics
