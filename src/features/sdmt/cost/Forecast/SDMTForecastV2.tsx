@@ -841,15 +841,6 @@ export function SDMTForecastV2() {
       setSavingBudget(false);
     }
   };
-      
-      // Rollback to previous data
-      setForecastData(previousData);
-      
-      toast.error('Error al guardar pronóstico. Los cambios se han revertido.');
-    } finally {
-      setSavingBudget(false);
-    }
-  };
   
   /**
    * Handle matriz action buttons
