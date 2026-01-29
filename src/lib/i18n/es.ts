@@ -11,7 +11,7 @@ export const ES_TEXTS = {
     portfolio: "Portafolio Financiero",
     costStructure: "Estructura de Costos",
     forecast: "Gestión de Pronóstico",
-    forecastV2: "Pronóstico SDMT — Vista Ejecutiva",
+    forecastV2: "Resumen Ejecutivo (SMO)",
     reconciliation: "Conciliación de Facturas",
     changes: "Cambios y Ajustes",
     rubros: "Catálogo de Rubros",
