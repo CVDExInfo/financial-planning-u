@@ -7,7 +7,7 @@ This document provides a comprehensive guide to the Forecast V2 feature flags an
 ### Primary Flag (Preferred)
 - **Name**: `VITE_FINZ_USE_FORECAST_V2`
 - **Type**: Boolean
-- **Default**: `false`
+- **Default**: `true` (dev/non-prod branches), `false` (production/main branch)
 - **Purpose**: Master control for Forecast V2 (Executive Dashboard)
 
 ### Legacy Flag (Backward Compatibility)
@@ -16,6 +16,26 @@ This document provides a comprehensive guide to the Forecast V2 feature flags an
 - **Default**: `false`
 - **Purpose**: Maintained for backward compatibility with existing deployments
 
+## Environment-Aware Defaults
+
+### Development Branches (Non-Prod)
+The GitHub workflow automatically sets `VITE_FINZ_USE_FORECAST_V2=true` for all branches except `main`:
+
+```yaml
+# In .github/workflows/deploy-ui.yml
+if [[ "${DEPLOYMENT_ENV}" == "prod" ]]; then
+  VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'false' }}"
+else
+  # In dev or other branches default to true to enable Exec for dev
+  VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'true' }}"
+fi
+```
+
+**Result**: Developers can test and view the Executive Dashboard in dev without manual configuration.
+
+### Production Branch (Main)
+The workflow defaults to `VITE_FINZ_USE_FORECAST_V2=false` for the `main` branch, keeping production safe until explicitly enabled via repository variables.
+
 ## How It Works
 
 ### Feature Flag Logic
@@ -23,8 +43,8 @@ This document provides a comprehensive guide to the Forecast V2 feature flags an
 The `FEATURE_FLAGS.USE_FORECAST_V2` flag in `src/config/featureFlags.ts` uses OR logic:
 
 ```typescript
-USE_FORECAST_V2: import.meta.env.VITE_FINZ_USE_FORECAST_V2 === 'true' ||
-                 import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true'
+USE_FORECAST_V2: (import.meta.env.VITE_FINZ_USE_FORECAST_V2 === 'true') ||
+                 (import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true')
 ```
 
 **Either flag being `'true'` will enable Forecast V2.**
@@ -46,6 +66,41 @@ if (item.id === "forecastV2" && !FEATURE_FLAGS.USE_FORECAST_V2) {
   <Route path="/sdmt/cost/forecast-v2" element={<SDMTForecastV2 />} />
 )}
 ```
+
+## Comprehensive Flag Reference
+
+### Forecast V2 Position Flags
+
+Control visibility of individual positions in the Executive Dashboard:
+
+| Flag | Position | Description | Default |
+|------|----------|-------------|---------|
+| `VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY` | 1 | Executive summary card | `false` |
+| `VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY` | 2 | Monthly payroll budget | `false` |
+| `VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID` | 3 | Main forecast grid/table | `false` |
+| `VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR` | 4 | Matrix monthly bar chart | `false` |
+| `VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL` | 5 | Charts panel with trends | `false` |
+
+### Executive-Specific Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `VITE_FINZ_V2_SHOW_KEYTRENDS` | Shows key trends section | `false` |
+| `VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS` | Shows portfolio-level KPIs | `false` |
+| `VITE_FINZ_V2_ALLOW_BUDGET_EDIT` | Allows budget editing (typically disabled for exec view) | `false` |
+| `VITE_FINZ_V2_MONTHS_DEFAULT` | Default months to display (number) | `60` |
+
+### BAU (Business-As-Usual) Flags
+
+Preserve existing forecast behavior:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `VITE_FINZ_NEW_FORECAST_LAYOUT` | Legacy layout flag (also activates V2 via fallback) | `false` |
+| `VITE_FINZ_SHOW_KEYTRENDS` | Shows key trends in BAU | `true` |
+| `VITE_FINZ_HIDE_KEY_TRENDS` | Hides key trends section | `false` |
+| `VITE_FINZ_HIDE_PROJECT_SUMMARY` | Hides project summary section | `false` |
+| `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` | Hides real/actual annual KPIs | `false` |
 
 ## Usage Scenarios
 
