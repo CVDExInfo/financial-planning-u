@@ -1,6 +1,6 @@
 import { ComponentProps, ComponentType, createContext, CSSProperties, ReactNode, useContext, useId, useMemo } from "react"
 import * as RechartsPrimitive from "recharts"
-import type { Payload } from "recharts/types/component/DefaultTooltipContent"
+import type { Payload, ValueType, NameType } from "recharts/types/component/DefaultTooltipContent"
 
 import { cn } from "@/lib/utils"
 
@@ -104,7 +104,7 @@ function ChartContainer({
 const ChartTooltip = RechartsPrimitive.Tooltip
 
 type ChartTooltipProps = ComponentProps<typeof RechartsPrimitive.Tooltip> & {
-  payload?: Payload<any, any>[]
+  payload?: ReadonlyArray<Payload<ValueType, NameType>>
   label?: string | number
 }
 
@@ -131,8 +131,9 @@ function ChartTooltipContent({
     labelKey?: string
   }) & Record<string, unknown>) {
   const { config } = useChart()
-  // Defensively cast payload to proper Payload array type
-  const tooltipPayload = (Array.isArray(payload) ? payload : []) as Payload<any, any>[]
+  const tooltipPayload: ReadonlyArray<Payload<ValueType, NameType>> = Array.isArray(payload) 
+    ? (payload as ReadonlyArray<Payload<ValueType, NameType>>) 
+    : []
 
   const tooltipLabel = useMemo(() => {
     if (hideLabel || !tooltipPayload.length) {
@@ -199,7 +200,7 @@ function ChartTooltipContent({
               )}
             >
               {formatter && item?.value !== undefined && item.name ? (
-                formatter(item.value, item.name, item, index, item.payload)
+                formatter(item.value, item.name, item, index, tooltipPayload)
               ) : (
                 <>
                   {itemConfig?.icon ? (
@@ -235,7 +236,7 @@ function ChartTooltipContent({
                     <div className="grid gap-1.5">
                       {nestLabel ? tooltipLabel : null}
                       <span className="text-muted-foreground">
-                        {itemConfig?.label || item.name}
+                        {itemConfig?.label || String(item.name || '')}
                       </span>
                     </div>
                     {item.value && (
