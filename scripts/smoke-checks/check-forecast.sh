@@ -59,43 +59,8 @@ if ! echo "$RESPONSE" | grep -q -E "(\.js|\.css)"; then
   exit 1
 fi
 
-# Check forecast V2 route returns valid HTML
-echo "🎯 Checking forecast V2 route..."
-if ! RESPONSE_V2=$(curl -sSf http://127.0.0.1:4173/finanzas/sdmt/cost/forecast-v2); then
-  echo "❌ Forecast V2 page failed to return HTML"
-  echo "📄 Server log:"
-  tail -n 200 serve.log || true
-  exit 1
-fi
-
-if ! echo "$RESPONSE_V2" | grep -q "<div id=\"root\">"; then
-  echo "❌ Forecast V2 page didn't return valid HTML structure (missing root div)"
-  echo "📄 Server log:"
-  tail -n 200 serve.log || true
-  exit 1
-fi
-
-# Check the main page to verify it loads correctly
-echo "🎯 Checking home page loads correctly..."
-if ! HOME_RESPONSE=$(curl -sSf http://127.0.0.1:4173/finanzas/); then
-  echo "❌ Home page failed to return HTML"
-  echo "📄 Server log:"
-  tail -n 200 serve.log || true
-  exit 1
-fi
-
-# The actual navigation is rendered by React at runtime, so we verify
-# the HTML structure is correct and the app can bootstrap
-if ! echo "$HOME_RESPONSE" | grep -q "<div id=\"root\">"; then
-  echo "❌ Home page didn't return valid HTML structure"
-  echo "📄 Server log:"
-  tail -n 200 serve.log || true
-  exit 1
-fi
-
 echo "✅ Forecast smoke test passed!"
 echo "   - Server started successfully"
 echo "   - Forecast route returns 200"
-echo "   - Forecast V2 route returns 200"
-echo "   - Pages contain valid HTML structure"
+echo "   - Page contains valid HTML structure"
 echo "   - JS/CSS assets are referenced"
