@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   FolderKanban,
   Waypoints,
@@ -56,8 +56,6 @@ const tiles = [
 ];
 
 export default function FinanzasHomeSMO() {
-  const navigate = useNavigate();
-
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <PageHeader

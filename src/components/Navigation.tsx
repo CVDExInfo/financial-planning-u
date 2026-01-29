@@ -31,7 +31,6 @@ import {
   User,
   UserRound,
   BookOpen,
-  FolderKanban,
   FileCheck,
   GitPullRequest,
   TrendingUp,
