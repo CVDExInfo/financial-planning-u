@@ -1,5 +1,6 @@
 import { ComponentProps, ComponentType, createContext, CSSProperties, ReactNode, useContext, useId, useMemo } from "react"
 import * as RechartsPrimitive from "recharts"
+import type { Payload, ValueType, NameType } from "recharts/types/component/DefaultTooltipContent"
 
 import { cn } from "@/lib/utils"
 
@@ -103,7 +104,7 @@ function ChartContainer({
 const ChartTooltip = RechartsPrimitive.Tooltip
 
 type ChartTooltipProps = ComponentProps<typeof RechartsPrimitive.Tooltip> & {
-  payload?: Array<Record<string, unknown>>
+  payload?: ReadonlyArray<Payload<ValueType, NameType>>
   label?: string | number
 }
 
@@ -130,7 +131,9 @@ function ChartTooltipContent({
     labelKey?: string
   }) & Record<string, unknown>) {
   const { config } = useChart()
-  const tooltipPayload = Array.isArray(payload) ? payload : []
+  const tooltipPayload: ReadonlyArray<Payload<ValueType, NameType>> = Array.isArray(payload) 
+    ? (payload as ReadonlyArray<Payload<ValueType, NameType>>) 
+    : []
 
   const tooltipLabel = useMemo(() => {
     if (hideLabel || !tooltipPayload.length) {
@@ -197,7 +200,7 @@ function ChartTooltipContent({
               )}
             >
               {formatter && item?.value !== undefined && item.name ? (
-                formatter(item.value as any, item.name as string, item, index, item.payload as any)
+                formatter(item.value, item.name, item, index, tooltipPayload)
               ) : (
                 <>
                   {itemConfig?.icon ? (
