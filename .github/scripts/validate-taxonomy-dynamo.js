@@ -81,17 +81,53 @@ async function run() {
     console.log(`\n✓ Scan complete. Total items scanned: ${allItems.length}\n`);
 
   } catch (error) {
+    const reportPath = "taxonomy-validation-report.json";
+    
     if (error.name === 'ResourceNotFoundException') {
       console.warn(`⚠️  Table '${TABLE}' not found - skipping validation`);
       console.log("   This is expected in test/dev environments without deployed infrastructure");
+      
+      // Write report indicating table not found
+      fs.writeFileSync(reportPath, JSON.stringify({
+        status: "table_not_found",
+        message: `Table '${TABLE}' not found`,
+        validCount: 0,
+        totalItems: 0,
+        mismatches: []
+      }, null, 2));
+      
       process.exit(0);
     }
     
-    if (error.name === 'AccessDeniedException' || error.message?.includes('AccessDenied')) {
-      console.warn(`⚠️  AWS access denied - skipping validation`);
+    if (error.name === 'AccessDeniedException' || 
+        error.name === 'CredentialsProviderError' ||
+        error.message?.includes('AccessDenied') ||
+        error.message?.includes('credentials')) {
+      console.warn(`⚠️  AWS access/credentials issue - skipping validation`);
       console.log("   This is expected for PRs from forks or environments without AWS credentials");
-      process.exit(0);
+      
+      // Write report indicating access denied
+      fs.writeFileSync(reportPath, JSON.stringify({
+        status: "access_denied",
+        message: error.message || "AWS credentials not available",
+        validCount: 0,
+        totalItems: 0,
+        mismatches: []
+      }, null, 2));
+      
+      console.log(`\nReport written to: ${reportPath}`);
+      process.exit(2);
     }
+    
+    // Unknown error - write error report and fail
+    fs.writeFileSync(reportPath, JSON.stringify({
+      status: "error",
+      message: error.message || String(error),
+      error: error.stack || String(error),
+      validCount: 0,
+      totalItems: 0,
+      mismatches: []
+    }, null, 2));
     
     throw error;
   }
@@ -165,8 +201,19 @@ async function run() {
     
     process.exit(2);
   } else {
+    // Write success report
+    const reportPath = "taxonomy-validation-report.json";
+    fs.writeFileSync(reportPath, JSON.stringify({
+      status: "success",
+      message: "All canonical rubros in DynamoDB exist in taxonomy",
+      validCount,
+      totalItems: allItems.length,
+      mismatches: []
+    }, null, 2));
+    
     console.log("✅ taxonomy <=> dynamo validation OK");
     console.log("   All canonical rubros in DynamoDB exist in taxonomy");
+    console.log(`\nReport written to: ${reportPath}`);
     process.exit(0);
   }
 }

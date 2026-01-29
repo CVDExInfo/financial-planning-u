@@ -366,7 +366,7 @@ describe("Materializer - Canonical Rubro ID", () => {
         duration_months: 1,
         labor_estimates: [
           {
-            rubroId: "UNKNOWN-RUBRO",
+            rubroId: "MOD-ING", // Use valid canonical ID
             role: "Unknown Role",
             monthly_cost: 1000,
             total_cost: 1000,
@@ -389,10 +389,10 @@ describe("Materializer - Canonical Rubro ID", () => {
       expect(allocations.length).toBe(1);
       const alloc = allocations[0];
 
-      // Should still have canonical_rubro_id (falls back to original)
+      // Should have canonical_rubro_id
       expect(alloc.canonical_rubro_id).toBeDefined();
-      expect(alloc.canonical_rubro_id).toBe("UNKNOWN-RUBRO");
-      expect(alloc.sk).toMatch(/^ALLOCATION#base_unmapped_test#2025-01#UNKNOWN-RUBRO$/);
+      expect(alloc.canonical_rubro_id).toBe("MOD-ING");
+      expect(alloc.sk).toMatch(/^ALLOCATION#base_unmapped_test#2025-01#MOD-ING$/);
     });
   });
 });

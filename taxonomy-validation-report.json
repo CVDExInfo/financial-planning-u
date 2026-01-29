@@ -1,0 +1,7 @@
+{
+  "status": "access_denied",
+  "message": "Could not load credentials from any providers",
+  "validCount": 0,
+  "totalItems": 0,
+  "mismatches": []
+}

@@ -118,6 +118,19 @@ async function validateAllocations(
     for (const item of items) {
       result.totalItems++;
       
+      // Skip budget summary/aggregation rows - these don't have rubros
+      // Examples: pk=ORG#FINANZAS, pk=BUDGET#ANNUAL, sk=BUDGET#...
+      const pk = String(item.pk || '');
+      const sk = String(item.sk || '');
+      if (
+        pk === 'ORG#FINANZAS' ||
+        pk.startsWith('BUDGET#') ||
+        sk.startsWith('BUDGET#')
+      ) {
+        result.validItems++; // Count as valid (they're intentionally without rubros)
+        continue;
+      }
+      
       // CRITICAL: Check canonical_rubro_id, NOT line_item_id
       // line_item_id can be a composite display ID (e.g., "mod-sdm-service-delivery-manager-mod")
       // Only canonical_rubro_id must match taxonomy linea_codigo

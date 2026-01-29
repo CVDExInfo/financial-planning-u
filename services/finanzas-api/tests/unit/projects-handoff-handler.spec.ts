@@ -135,6 +135,18 @@ describe("projects handler handoff collision prevention", () => {
         currency: "USD",
         duration_months: 12,
         start_date: "2025-01-01",
+        labor_estimates: [
+          {
+            rubroId: "MOD-ING",
+            description: "Ingeniero",
+            qty: 1,
+            unit_cost: 10000,
+            currency: "USD",
+            recurring: true,
+            start_month: 1,
+            end_month: 12,
+          }
+        ],
       }
     );
     store.set(
@@ -148,6 +160,18 @@ describe("projects handler handoff collision prevention", () => {
         currency: "USD",
         duration_months: 12,
         start_date: "2025-02-01",
+        labor_estimates: [
+          {
+            rubroId: "MOD-LEAD",
+            description: "Lead",
+            qty: 1,
+            unit_cost: 12000,
+            currency: "USD",
+            recurring: true,
+            start_month: 1,
+            end_month: 12,
+          }
+        ],
       }
     );
   });
