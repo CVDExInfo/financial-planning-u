@@ -72,6 +72,13 @@ jobs:
         env:
           VITE_API_BASE_URL: http://localhost
         run: pnpm -s test:unit || echo "⚠️ Some unit tests failed (check logs)"
+      
+      - name: Run V2 smoke tests (conditional)
+        if: env.VITE_FINZ_NEW_FORECAST_LAYOUT == 'true'
+        env:
+          VITE_API_BASE_URL: http://localhost
+          VITE_FINZ_NEW_FORECAST_LAYOUT: 'true'
+        run: npx playwright test tests/e2e/smoke/forecast-v2.spec.ts || echo "⚠️ V2 smoke tests failed (check logs)"
 
       - name: Build Finanzas (verify dist artifacts)
         env:
