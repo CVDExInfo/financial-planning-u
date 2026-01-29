@@ -103,7 +103,7 @@ jobs:
           if [[ "${DEPLOYMENT_ENV}" == "prod" ]]; then
             VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'false' }}"
           else
-            # In dev or other branches default to true to enable Exec for your dev region
+            # In dev or other branches default to true to enable Executive Dashboard for dev
             VITE_FINZ_USE_FORECAST_V2="${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'true' }}"
           fi
 
@@ -262,6 +262,16 @@ jobs:
           VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST: ${{ vars.VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST || 'false' }}
           VITE_FINZ_HIDE_RUNWAY_METRICS: ${{ vars.VITE_FINZ_HIDE_RUNWAY_METRICS || 'false' }}
           VITE_FINZ_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_SHOW_PORTFOLIO_KPIS || 'false' }}
+          # V2 Position Flags (Executive Dashboard)
+          VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_1_EXEC_SUMMARY || 'false' }}
+          VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_2_PAYROLL_MONTHLY || 'false' }}
+          VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_3_FORECAST_GRID || 'false' }}
+          VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_4_MATRIZ_MONTH_BAR || 'false' }}
+          VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL: ${{ vars.VITE_FINZ_V2_SHOW_POSITION_5_CHARTS_PANEL || 'false' }}
+          # V2 Executive-Specific Flags
+          VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS: ${{ vars.VITE_FINZ_V2_SHOW_PORTFOLIO_KPIS || 'false' }}
+          VITE_FINZ_V2_ALLOW_BUDGET_EDIT: ${{ vars.VITE_FINZ_V2_ALLOW_BUDGET_EDIT || 'false' }}
+          VITE_FINZ_V2_MONTHS_DEFAULT: ${{ vars.VITE_FINZ_V2_MONTHS_DEFAULT || '60' }}
           # Incremental migration flags
           VITE_ENABLE_RUBROS_ADAPTER: ${{ env.VITE_ENABLE_RUBROS_ADAPTER }}
         run: |
