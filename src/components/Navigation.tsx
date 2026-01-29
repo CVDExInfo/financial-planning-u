@@ -453,6 +453,7 @@ export function Navigation() {
                           <Link
                             key={item.id}
                             to={normalizedItemPath}
+                            aria-label={item.id === "forecastV2" ? "Resumen Ejecutivo (SMO)" : undefined}
                             className={`
                               inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
                               ${
