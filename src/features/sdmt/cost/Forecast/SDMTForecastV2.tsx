@@ -53,6 +53,9 @@ import { getProjectRubros } from '@/api/finanzas';
 import { isBudgetNotFoundError, resolveAnnualBudgetState } from './budgetState';
 import { transformLineItemsToForecast } from './transformLineItemsToForecast';
 import { computeForecastFromAllocations, type Allocation } from './computeForecastFromAllocations';
+import { buildCanonicalMatrix, deriveKpisFromMatrix, type CanonicalMatrixRow } from './utils/canonicalMatrix';
+import { ExcelExporter } from '@/lib/excel-export';
+import { PDFExporter } from '@/lib/pdf-export';
 
 // Types
 type ForecastRow = ForecastCell & {
@@ -76,6 +79,7 @@ export function SDMTForecastV2() {
   
   // Core data state
   const [forecastData, setForecastData] = useState<ForecastRow[]>([]);
+  const [canonicalMatrix, setCanonicalMatrix] = useState<CanonicalMatrixRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -172,81 +176,55 @@ export function SDMTForecastV2() {
   // ==================== COMPUTED KPIs ====================
   
   /**
-   * Compute summary KPIs from forecast data
+   * Compute summary KPIs from canonical matrix
    */
   const summaryKpis = useMemo(() => {
-    if (!forecastData || forecastData.length === 0) {
+    if (!canonicalMatrix || canonicalMatrix.length === 0) {
       return null;
     }
     
-    // Aggregate forecast data across all months
-    let presupuesto = 0;
-    let pronostico = 0;
-    let real = 0;
-    
-    forecastData.forEach((row) => {
-      for (let month = 1; month <= 12; month++) {
-        const planned = Number(row[`month_${month}_planned`] || 0);
-        const forecast = Number(row[`month_${month}_forecast`] || 0);
-        const actual = Number(row[`month_${month}_actual`] || 0);
-        
-        presupuesto += planned;
-        pronostico += forecast;
-        real += actual;
-      }
-    });
-    
-    const consumo = presupuesto > 0 ? (real / presupuesto) * 100 : 0;
-    const varianza = pronostico - presupuesto;
-    
-    return {
-      presupuesto,
-      pronostico,
-      real,
-      consumo,
-      varianza,
-    };
-  }, [forecastData]);
+    return deriveKpisFromMatrix(canonicalMatrix, monthsToShow);
+  }, [canonicalMatrix, monthsToShow]);
   
   /**
-   * Compute monthly trends for charts
+   * Compute monthly trends for charts from canonical matrix
    */
   const monthlyTrends = useMemo(() => {
-    if (!forecastData || forecastData.length === 0) {
+    if (!canonicalMatrix || canonicalMatrix.length === 0) {
       return [];
     }
     
     const trends = [];
-    for (let month = 1; month <= 12; month++) {
+    for (let month = 1; month <= Math.min(12, monthsToShow); month++) {
       let value = 0;
-      forecastData.forEach((row) => {
-        value += Number(row[`month_${month}_forecast`] || 0);
+      canonicalMatrix.forEach((row) => {
+        value += (row as any)[`month_${month}_forecast`] || 0;
       });
       trends.push({ month, value });
     }
     return trends;
-  }, [forecastData]);
+  }, [canonicalMatrix, monthsToShow]);
   
   /**
-   * Compute variance series for charts
+   * Compute variance series for charts from canonical matrix
    */
   const varianceSeries = useMemo(() => {
-    if (!forecastData || forecastData.length === 0) {
+    if (!canonicalMatrix || canonicalMatrix.length === 0) {
       return [];
     }
     
     const series = [];
-    for (let month = 1; month <= 12; month++) {
+    for (let month = 1; month <= Math.min(12, monthsToShow); month++) {
       let planned = 0;
       let forecast = 0;
-      forecastData.forEach((row) => {
-        planned += Number(row[`month_${month}_planned`] || 0);
-        forecast += Number(row[`month_${month}_forecast`] || 0);
+      canonicalMatrix.forEach((row) => {
+        planned += (row as any)[`month_${month}_planned`] || 0;
+        forecast += (row as any)[`month_${month}_forecast`] || 0;
       });
       series.push({ month, value: forecast - planned });
     }
     return series;
-  }, [forecastData]);
+  }, [canonicalMatrix, monthsToShow]);
   
   // ==================== DATA LOADING FUNCTIONS ====================
   
@@ -448,6 +426,78 @@ export function SDMTForecastV2() {
   }, [selectedProjectId, monthsToShow, isPortfolioView, projects]);
   
   /**
+   * Rebuild canonical matrix whenever forecast data changes
+   */
+  useEffect(() => {
+    if (!forecastData || forecastData.length === 0) {
+      setCanonicalMatrix([]);
+      return;
+    }
+    
+    try {
+      // Build canonical matrix from current forecast data
+      // Group forecast data by project
+      const forecastsByProject: Record<string, ForecastCell[]> = {};
+      forecastData.forEach(row => {
+        const projectId = row.projectId || selectedProjectId || 'unknown';
+        if (!forecastsByProject[projectId]) {
+          forecastsByProject[projectId] = [];
+        }
+        
+        // Convert row to ForecastCell format
+        const cells: ForecastCell[] = [];
+        for (let month = 1; month <= monthsToShow; month++) {
+          const plannedKey = `month_${month}_planned`;
+          const forecastKey = `month_${month}_forecast`;
+          const actualKey = `month_${month}_actual`;
+          
+          if ((row as any)[plannedKey] !== undefined || (row as any)[forecastKey] !== undefined) {
+            cells.push({
+              line_item_id: row.line_item_id,
+              month,
+              planned: (row as any)[plannedKey] || 0,
+              forecast: (row as any)[forecastKey] || 0,
+              actual: (row as any)[actualKey] || 0,
+              variance: ((row as any)[forecastKey] || 0) - ((row as any)[plannedKey] || 0),
+              last_updated: row.last_updated || new Date().toISOString(),
+              updated_by: row.updated_by || 'system',
+            });
+          }
+        }
+        
+        forecastsByProject[projectId].push(...cells);
+      });
+      
+      // Build forecastPayloads array
+      const forecastPayloads = Object.entries(forecastsByProject).map(([projectId, data]) => ({
+        projectId,
+        data,
+      }));
+      
+      // Get unique project IDs and build projects array
+      const projectIds = Array.from(new Set(forecastData.map(row => row.projectId || selectedProjectId).filter(Boolean)));
+      const projectsList = projectIds.map(id => {
+        const project = projects.find(p => p.id === id);
+        return {
+          id: id as string,
+          name: project?.name || (forecastData.find(row => row.projectId === id)?.projectName) || id as string,
+        };
+      });
+      
+      // Build canonical matrix
+      const result = buildCanonicalMatrix({
+        projects: projectsList,
+        forecastPayloads,
+        monthsToShow,
+      });
+      
+      setCanonicalMatrix(result.matrixRows);
+    } catch (err) {
+      console.error('[SDMTForecastV2] Error building canonical matrix:', err);
+    }
+  }, [forecastData, monthsToShow, selectedProjectId, projects]);
+  
+  /**
    * Persist budget year to sessionStorage
    */
   useEffect(() => {
@@ -514,15 +564,18 @@ export function SDMTForecastV2() {
           setMonthlyBudgets(Array(12).fill(0));
         }
       } catch (error: any) {
-        // If 404, no budgets are set for this year - that's okay
+        // If 404, no budgets are set for this year - that's okay, no toast needed
         if (isBudgetNotFoundError(error)) {
           if (import.meta.env.DEV) {
-            console.warn(`[SDMTForecastV2] Monthly budget not found for ${budgetYear}`);
+            console.warn(`[SDMTForecastV2] Monthly budget not found for ${budgetYear} (404 - No hay presupuesto)`);
           }
           setMonthlyBudgets(Array(12).fill(0));
           setUseMonthlyBudget(false);
+          // No toast for 404 - this is expected when no budget is set
         } else {
           console.error('[SDMTForecastV2] Error loading monthly budget:', error);
+          // Only toast for actual errors, not 404
+          toast.error('Error al cargar presupuesto mensual');
         }
       }
     };
@@ -590,22 +643,178 @@ export function SDMTForecastV2() {
   /**
    * Handle export to Excel
    */
-  const handleExportExcel = () => {
-    toast.info('Exportar a Excel - Próximamente');
+  const handleExportExcel = async () => {
+    try {
+      if (!canonicalMatrix || canonicalMatrix.length === 0) {
+        toast.warning('No hay datos para exportar');
+        return;
+      }
+      
+      toast.info('Generando archivo Excel...');
+      
+      const exporter = new ExcelExporter();
+      
+      // Convert canonical matrix rows to ForecastCell format for export
+      const exportCells: ForecastCell[] = [];
+      canonicalMatrix.forEach(row => {
+        for (let month = 1; month <= monthsToShow; month++) {
+          exportCells.push({
+            line_item_id: row.lineItemId,
+            month,
+            planned: (row as any)[`month_${month}_planned`] || 0,
+            forecast: (row as any)[`month_${month}_forecast`] || 0,
+            actual: (row as any)[`month_${month}_actual`] || 0,
+            variance: ((row as any)[`month_${month}_forecast`] || 0) - ((row as any)[`month_${month}_planned`] || 0),
+            last_updated: row.lastUpdated || new Date().toISOString(),
+            updated_by: row.updatedBy || 'system',
+          });
+        }
+      });
+      
+      const buffer = await exporter.exportForecastGrid(exportCells, safeLineItems);
+      
+      // Download the file
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `forecast-${isPortfolioView ? 'portfolio' : selectedProjectId}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Archivo Excel generado correctamente');
+    } catch (err) {
+      console.error('[SDMTForecastV2] Error exporting to Excel:', err);
+      toast.error('Error al exportar a Excel');
+    }
   };
   
   /**
    * Handle export to PDF
    */
-  const handleExportPDF = () => {
-    toast.info('Exportar a PDF - Próximamente');
+  const handleExportPDF = async () => {
+    try {
+      if (!summaryKpis || !canonicalMatrix || canonicalMatrix.length === 0) {
+        toast.warning('No hay datos para exportar');
+        return;
+      }
+      
+      toast.info('Generando PDF...');
+      
+      const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('es-MX', {
+          style: 'currency',
+          currency: 'MXN',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(value);
+      };
+      
+      const reportData = {
+        title: 'Pronóstico SDMT - Vista Ejecutiva',
+        subtitle: isPortfolioView ? 'Vista Portafolio' : currentProject?.name || selectedProjectId,
+        generated: new Date().toISOString(),
+        metrics: [
+          {
+            label: 'Presupuesto',
+            value: formatCurrency(summaryKpis.presupuesto),
+            color: '#3b82f6',
+          },
+          {
+            label: 'Pronóstico',
+            value: formatCurrency(summaryKpis.pronostico),
+            color: '#8b5cf6',
+          },
+          {
+            label: 'Real',
+            value: formatCurrency(summaryKpis.real),
+            color: '#10b981',
+          },
+          {
+            label: 'Consumo',
+            value: `${summaryKpis.consumo.toFixed(1)}%`,
+            color: '#f59e0b',
+          },
+          {
+            label: 'Varianza',
+            value: formatCurrency(summaryKpis.varianza),
+            changeType: summaryKpis.varianza >= 0 ? 'positive' : 'negative',
+            color: summaryKpis.varianza >= 0 ? '#10b981' : '#ef4444',
+          },
+        ],
+        summary: [
+          `Total de líneas de costos: ${canonicalMatrix.length}`,
+          `Período: ${monthsToShow} meses`,
+          `Generado: ${new Date().toLocaleDateString('es-MX')}`,
+        ],
+      };
+      
+      const htmlContent = PDFExporter.generateHTMLReport(reportData);
+      
+      // Open in new window for printing/PDF save
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+      
+      toast.success('PDF abierto para imprimir/guardar');
+    } catch (err) {
+      console.error('[SDMTForecastV2] Error exporting to PDF:', err);
+      toast.error('Error al exportar a PDF');
+    }
   };
   
   /**
-   * Handle save forecast data
+   * Handle save forecast data with optimistic UI and rollback
    */
-  const handleSaveForecast = () => {
-    toast.info('Guardar pronóstico - Próximamente');
+  const handleSaveForecast = async () => {
+    if (!user) {
+      toast.error('Debe iniciar sesión para guardar');
+      return;
+    }
+    
+    if (!forecastData || forecastData.length === 0) {
+      toast.warning('No hay datos para guardar');
+      return;
+    }
+    
+    // Save current state for potential rollback
+    const previousData = [...forecastData];
+    
+    try {
+      setSavingBudget(true);
+      
+      // Optimistic UI update - show saving state
+      toast.info('Guardando pronóstico...');
+      
+      // Normalize forecast data for server
+      const normalizedData = forecastData.map(row => {
+        return normalizeForecastRowForServer(row as any);
+      });
+      
+      // Call bulk upsert API (reusing V1 API client)
+      // Note: Using finanzasClient which should have the forecast save endpoint
+      await finanzasClient.saveForecastBulk(selectedProjectId, normalizedData);
+      
+      toast.success('Pronóstico guardado correctamente');
+      
+    } catch (err) {
+      console.error('[SDMTForecastV2] Error saving forecast:', err);
+      
+      // Rollback to previous data
+      setForecastData(previousData);
+      
+      toast.error('Error al guardar pronóstico. Los cambios se han revertido.');
+    } finally {
+      setSavingBudget(false);
+    }
   };
   
   /**
