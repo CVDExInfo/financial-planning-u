@@ -69,17 +69,12 @@ type NavigationItem = {
 
 type FinanzasNavItem = {
   id:
-    | "hubDesempeno"
     | "forecast"
     | "forecastV2"
     | "reconciliation"
     | "changes"
-    | "projects"
     | "catalogoCostos"
     | "catalogoRubros"
-    | "reglas"
-    | "ajustes"
-    | "proveedores"
     | "flujoCaja"
     | "escenarios";
   label: string;
@@ -127,20 +122,14 @@ export function Navigation() {
       window.location.pathname.startsWith("/finanzas"));
 
   const FINANZAS_NAV_ITEMS: FinanzasNavItem[] = [
-    {
-      id: "hubDesempeno",
-      label: ES_TEXTS.nav.hubDesempeno,
-      path: "/hub",
-      icon: TrendingUp,
-      visibleFor: ["SDMT", "EXEC_RO"],
-      startGroup: true,
-    },
+    // Hidden per SMO requirement: Hub de Desempeño, Portafolio Financiero, Reglas de Asignación, Ajustes, Proveedores
     {
       id: "forecast",
       label: ES_TEXTS.nav.forecast,
       path: "/sdmt/cost/forecast",
       icon: TrendingUp,
       visibleFor: ["SDMT", "EXEC_RO"],
+      startGroup: true,
     },
     {
       id: "forecastV2",
@@ -164,13 +153,6 @@ export function Navigation() {
       visibleFor: ["SDMT", "EXEC_RO"],
     },
     {
-      id: "projects",
-      label: ES_TEXTS.nav.portfolio,
-      path: "/projects",
-      icon: FolderKanban,
-      visibleFor: ["SDMT", "PMO", "EXEC_RO"],
-    },
-    {
       id: "catalogoCostos",
       label: ES_TEXTS.nav.costStructure,
       path: "/sdmt/cost/catalog",
@@ -183,27 +165,6 @@ export function Navigation() {
       path: "/catalog/rubros",
       icon: BookOpen,
       visibleFor: ["SDMT", "PMO", "VENDOR", "EXEC_RO"],
-    },
-    {
-      id: "reglas",
-      label: ES_TEXTS.nav.rules,
-      path: "/rules",
-      icon: BookOpen,
-      visibleFor: ["SDMT", "PMO", "EXEC_RO"],
-    },
-    {
-      id: "ajustes",
-      label: ES_TEXTS.nav.adjustments,
-      path: "/adjustments",
-      icon: Shield,
-      visibleFor: ["SDMT", "EXEC_RO"],
-    },
-    {
-      id: "proveedores",
-      label: ES_TEXTS.nav.providers,
-      path: "/providers",
-      icon: Layers,
-      visibleFor: ["SDMT", "EXEC_RO"],
     },
     {
       id: "flujoCaja",
