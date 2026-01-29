@@ -666,8 +666,8 @@ export function SDMTForecastV2() {
               </SelectItem>
               {projects.map((project) => (
                 <SelectItem 
-                  key={project.projectId || (project as any).project_id || project.id} 
-                  value={project.projectId || (project as any).project_id || project.id}
+                  key={project.id || (project as any).project_id} 
+                  value={project.id || (project as any).project_id}
                 >
                   {project.name}
                 </SelectItem>
