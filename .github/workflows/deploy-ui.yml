@@ -36,6 +36,7 @@ env:
   VITE_FINZ_ENABLED: ${{ vars.VITE_FINZ_ENABLED || 'true' }}
   VITE_USE_MOCKS: "false"
   # Forecast UI feature flags - ensure deterministic builds with explicit defaults
+  VITE_FINZ_FORECAST_V2_ENABLED: ${{ vars.VITE_FINZ_FORECAST_V2_ENABLED || 'false' }}
   VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'false' }}
   VITE_FINZ_NEW_DESIGN_SYSTEM: ${{ vars.VITE_FINZ_NEW_DESIGN_SYSTEM || 'false' }}
   VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'false' }}
