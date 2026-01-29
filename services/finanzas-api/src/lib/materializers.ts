@@ -12,6 +12,9 @@ import {
   mapModRoleToRubroId,
   mapNonLaborCategoryToRubroId,
 } from "./rubros-taxonomy";
+import { requireCanonicalRubro } from "./requireCanonical";
+import { stableIdFromParts } from "./stableLineItemId";
+import { extractBaselineEstimates } from "./extractBaselineEstimates";
 
 interface BaselineLike {
   baseline_id?: string;
@@ -87,6 +90,8 @@ const getCanonicalRubroPrefix = (rubroIdOrSk: string | undefined): string => {
  * This function ensures consistent canonical ID resolution across all code paths
  * to prevent duplicate allocations from being created.
  * 
+ * CRITICAL: Uses strict enforcement - throws if canonical ID cannot be resolved.
+ * 
  * Priority order:
  * 1. linea_codigo (most reliable for canonical IDs like "MOD-ING")
  * 2. rubro_id or id (may be legacy RB#### format)
@@ -104,15 +109,7 @@ const getValidatedCanonicalRubroId = (
   // Handle string input
   if (typeof rubroOrId === "string") {
     const prefix = getCanonicalRubroPrefix(rubroOrId);
-    const canonical = getCanonicalRubroId(prefix) || prefix;
-    
-    if (!canonical || canonical === "") {
-      throw new Error(
-        `[materializers/${context}] Cannot determine canonical ID from string: ${rubroOrId}`
-      );
-    }
-    
-    return canonical;
+    return requireCanonicalRubro(prefix);
   }
   
   // Handle object input - try multiple fields in priority order
@@ -122,36 +119,19 @@ const getValidatedCanonicalRubroId = (
   
   // Priority 1: linea_codigo (most reliable)
   if (linea_codigo) {
-    const canonical = getCanonicalRubroId(linea_codigo);
-    if (canonical) {
-      return canonical;
-    }
+    return requireCanonicalRubro(linea_codigo);
   }
   
   // Priority 2: rubro_id/id
   if (rubroId) {
     const prefix = getCanonicalRubroPrefix(rubroId);
-    const canonical = getCanonicalRubroId(prefix);
-    if (canonical) {
-      return canonical;
-    }
-    
-    // If getCanonicalRubroId returned undefined, use prefix as fallback
-    if (prefix) {
-      console.warn(
-        `[materializers/${context}] Using unvalidated prefix as canonical ID: ${prefix}`
-      );
-      return prefix;
-    }
+    return requireCanonicalRubro(prefix);
   }
   
   // Priority 3: Extract from SK
   if (sk) {
     const prefix = getCanonicalRubroPrefix(sk);
-    const canonical = getCanonicalRubroId(prefix);
-    if (canonical) {
-      return canonical;
-    }
+    return requireCanonicalRubro(prefix);
   }
   
   // Failed to resolve
@@ -414,8 +394,9 @@ const normalizeBaseline = (baseline: BaselineLike) => {
   const payloadNonLabor = asArray(
     (payload as { non_labor_estimates?: any[] }).non_labor_estimates
   );
-  const labor = asArray(baseline.labor_estimates);
-  const nonLabor = asArray(baseline.non_labor_estimates);
+  
+  // Use extractBaselineEstimates helper for consistent baseline reading
+  const { labor, nonLabor } = extractBaselineEstimates(baseline);
 
   return {
     baselineId:
@@ -614,22 +595,6 @@ const deriveMonthlyAllocationAmount = (
     reason: `no numeric fields found: checked ${missingFields.join(', ')}`,
   };
 };
-
-const stableIdFromParts = (
-  ...parts: Array<string | number | undefined | null>
-) =>
-  parts
-    .filter(
-      (part) => part !== undefined && part !== null && `${part}`.length > 0
-    )
-    .map((part) =>
-      `${part}`
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
-    )
-    .join("-");
 
 const resolveTaxonomyLinea = async (
   category?: string,
@@ -1065,13 +1030,20 @@ export const materializeAllocationsForBaseline = async (
 ) => {
   const {
     baselineId,
-    projectId,
+    projectId: rawProjectId,
     durationMonths,
     startDate,
     currency,
     laborEstimates,
     nonLaborEstimates,
   } = normalizeBaseline(baseline);
+
+  // Normalize projectId to avoid double PROJECT# prefix
+  const projectId = String(rawProjectId || '').replace(/^PROJECT#/, '');
+  
+  if (!projectId) {
+    throw new Error("[materializers] projectId is required");
+  }
 
   console.info("[materializers] materializeAllocationsForBaseline starting", {
     baseline: baselineId,
@@ -1132,13 +1104,39 @@ export const materializeAllocationsForBaseline = async (
 
   const now = new Date().toISOString();
   const allocations: any[] = [];
+  
+  // Metrics for tracking processed/skipped items
+  let processedItems = 0;
+  let skippedItems = 0;
 
   // STEP 2: If we have rubros, use them; otherwise fall back to estimates
   if (rubros.length > 0) {
     // PRIMARY PATH: Generate allocations from seeded rubros
     for (const rubro of rubros) {
-      // Use validated canonical ID to ensure consistency with fallback path
-      const canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
+      let canonicalRubroId: string;
+      
+      try {
+        // Use validated canonical ID to ensure consistency with fallback path
+        canonicalRubroId = getValidatedCanonicalRubroId(rubro, "primary-path");
+      } catch (err) {
+        skippedItems++;
+        console.warn(
+          "[materializers] skipping rubro: cannot resolve canonical rubro id",
+          {
+            context: "primary-path",
+            error: err instanceof Error ? err.message : String(err),
+            rubroPreview: {
+              rubroId: rubro.rubroId || rubro.sk,
+              linea_codigo: rubro?.linea_codigo,
+              nombre: rubro?.nombre,
+            },
+          }
+        );
+        // skip this rubro safely
+        continue;
+      }
+      
+      processedItems++;
 
       // Extract unit_cost (monthly cost)
       let unitCost = coerceNumber(rubro.unit_cost);
@@ -1204,10 +1202,11 @@ export const materializeAllocationsForBaseline = async (
           rubro_id: canonicalRubroId,
           rubroId: canonicalRubroId,
           canonical_rubro_id: canonicalRubroId,
-          line_item_id:
-            rubro.metadata?.role ||
-            rubro.nombre ||
-            String(rubro.sk || "").replace("RUBRO#", ""),
+          line_item_id: stableIdFromParts(
+            canonicalRubroId,
+            rubro.metadata?.role || rubro.nombre,
+            rubro.metadata?.category
+          ),
           calendar_month: calendarMonthKey,
           calendarMonthKey,
           month_index: monthIndex,
@@ -1241,8 +1240,32 @@ export const materializeAllocationsForBaseline = async (
 
     allocations.push(
       ...lineItems.flatMap((item) => {
-        // Use validated canonical ID to ensure consistency with primary path
-        const canonical = getValidatedCanonicalRubroId(item, "fallback-path");
+        let canonical: string;
+
+        try {
+          // Use validated canonical ID to ensure consistency with primary path
+          canonical = getValidatedCanonicalRubroId(item, "fallback-path");
+          processedItems++;
+        } catch (err) {
+          skippedItems++;
+          console.warn(
+            "[materializers] skipping item: cannot resolve canonical rubro id",
+            {
+              context: "fallback-path",
+              error: err instanceof Error ? err.message : String(err),
+              itemPreview: {
+                linea_codigo: item?.linea_codigo,
+                rubro_id: item?.rubro_id ?? item?.rubroId ?? item?.id,
+                sk: item?.sk,
+                role: item?.role,
+                category: item?.category,
+              },
+            }
+          );
+          // skip this item safely
+          return [];
+        }
+
         const lineItemId =
           item.id ||
           item.line_item_id ||
@@ -1391,6 +1414,8 @@ export const materializeAllocationsForBaseline = async (
       written: allocationsWritten,
       skipped: allocationsSkipped,
       overwritten: allocationsOverwritten,
+      processedItems,
+      skippedItems,
     });
 
     if (allocationsAttempted > 0 && allocationsWritten === 0) {

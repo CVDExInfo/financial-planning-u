@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ForecastRubrosTable } from '../ForecastRubrosTable';
-import type { PortfolioTotals } from '../../categoryGrouping';
+import type { PortfolioTotals } from '../categoryGrouping';
 
 // Mock dependencies
 jest.mock('@/contexts/ProjectContext', () => ({

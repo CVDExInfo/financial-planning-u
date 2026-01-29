@@ -239,7 +239,7 @@ describe("Baseline Allocations - P/F/A Model & Contract Month Alignment", () => 
         labor_estimates: [
           {
             id: "labor-m60",
-            rubroId: "MOD-LONG",
+            rubroId: "MOD-ING",
             role: "Long-term Engineer",
             periodic: "recurring",
             total_cost: 600000,
@@ -339,7 +339,7 @@ describe("Baseline Allocations - P/F/A Model & Contract Month Alignment", () => 
         labor_estimates: [
           {
             id: "labor-a",
-            rubroId: "MOD-A",
+            rubroId: "MOD-ING",
             role: "Role A",
             periodic: "recurring",
             total_cost: 120000,
@@ -377,7 +377,7 @@ describe("Baseline Allocations - P/F/A Model & Contract Month Alignment", () => 
         labor_estimates: [
           {
             id: "labor-b",
-            rubroId: "MOD-A", // SAME rubroId
+            rubroId: "MOD-ING", // SAME rubroId
             role: "Role A",
             periodic: "recurring",
             total_cost: 120000,

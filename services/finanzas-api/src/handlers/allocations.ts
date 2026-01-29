@@ -4,6 +4,8 @@ import { bad, ok, noContent, serverError } from "../lib/http";
 import { ddb, tableName, QueryCommand, ScanCommand, PutCommand, GetCommand } from "../lib/dynamo";
 import { logError, logInfo } from "../utils/logging";
 import { parseForecastBulkUpdate } from "../validation/allocations";
+import { requireCanonicalRubro } from "../lib/requireCanonical";
+import { ensureTaxonomyLoaded } from "../lib/canonical-taxonomy";
 
 /**
  * Regex pattern to identify baseline-like IDs
@@ -625,6 +627,9 @@ async function getAllocations(event: APIGatewayProxyEventV2) {
 async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
   const requestId = event.requestContext?.requestId || 'unknown';
   
+  // CRITICAL: Ensure taxonomy is loaded before processing
+  await ensureTaxonomyLoaded();
+  
   // Get allocation type from query parameter (default to 'planned')
   // Declare outside try block so it's accessible in catch block for logging
   const allocationType = event.queryStringParameters?.type || "planned";
@@ -695,21 +700,24 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
       );
     }
 
-    // Return 400 (Bad Request) instead of generic error if project not found
+    // Require project metadata - no graceful fallback
     if (!projectResult.Item) {
-      console.error(`[allocations] Project ${projectId} metadata not found in projects table`);
-      return bad(event, `Project metadata not found for project ${projectId}. Ensure the project exists and has been properly initialized.`);
+      return bad(event, "Project metadata not found");
     }
-
+    
     const project = projectResult.Item;
-    const baselineId = project.baseline_id || project.baselineId || "default";
+    const baselineId = project.baseline_id || project.baselineId;
+    if (!baselineId) {
+      return bad(event, "Project baseline_id not found");
+    }
+    
     const projectStartDate = 
       project.start_date || 
       project.fecha_inicio || 
       project.startDate;
 
     console.log(
-      `[allocations] ${requestId} - Project metadata: baselineId=${baselineId}, startDate=${projectStartDate}`
+      `[allocations] ${requestId} - Project metadata: baselineId=${baselineId}, startDate=${projectStartDate || 'not set'}`
     );
 
     // Normalize allocation items to handle both formats and compute calendar months
@@ -724,12 +732,15 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         // Support both formats:
         // - Legacy: {rubro_id, mes, monto_planeado/monto_proyectado}
         // - New: {rubroId, month, forecast/planned}
-        const rubroId = item.rubro_id || item.rubroId;
+        const rawRubroId = item.rubro_id || item.rubroId;
         const monthInput = item.mes || item.month;
         
-        if (!rubroId) {
+        if (!rawRubroId) {
           throw new Error(`Allocation at index ${index}: missing rubro_id/rubroId`);
         }
+        
+        // CRITICAL: Enforce canonical rubro ID - throws if not in taxonomy
+        const canonicalRubroId = requireCanonicalRubro(rawRubroId);
         
         if (monthInput === undefined || monthInput === null) {
           throw new Error(`Allocation at index ${index}: missing mes/month`);
@@ -751,7 +762,7 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         const { monthIndex, calendarMonthKey } = normalizeMonth(monthInput, projectStartDate);
         
         return {
-          rubro_id: rubroId,
+          rubro_id: canonicalRubroId,
           monthIndex,
           calendarMonthKey,
           amount,
@@ -782,11 +793,12 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         })
       );
 
-      const existing = existingResult.Item || {};
+      const existingItem = existingResult.Item;
+      const existed = Boolean(existingItem);
 
       // Merge with existing data to preserve other fields
       const item = {
-        ...existing,
+        ...(existingItem || {}),
         pk,
         sk,
         projectId,
@@ -810,8 +822,8 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
         lastUpdated: timestamp,
         updatedBy,
         // Preserve other fields if they exist
-        actual: existing.actual,
-        monto_real: existing.monto_real,
+        actual: existingItem?.actual,
+        monto_real: existingItem?.monto_real,
       };
 
       // Write to DynamoDB (idempotent)
@@ -832,11 +844,11 @@ async function bulkUpdateAllocations(event: APIGatewayProxyEventV2) {
           ? { monto_proyectado: amount, forecast: amount }
           : { monto_planeado: amount, planned: amount }
         ),
-        status: existing.pk ? "updated" : "created",
+        status: existed ? "updated" : "created",
       });
 
       console.log(
-        `[allocations] ${allocationType} ${existing.pk ? "updated" : "created"}: ${projectId} / ${rubro_id} / M${monthIndex} (${calendarMonthKey}) = ${amount}`
+        `[allocations] ${allocationType} ${existed ? "updated" : "created"}: ${projectId} / ${rubro_id} / M${monthIndex} (${calendarMonthKey}) = ${amount}`
       );
     }
 

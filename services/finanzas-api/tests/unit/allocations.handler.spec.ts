@@ -8,10 +8,10 @@ jest.mock("../../src/lib/dynamo", () => ({
     send: jest.fn(),
   },
   tableName: jest.fn((name: string) => `test_${name}`),
-  QueryCommand: jest.fn(),
-  ScanCommand: jest.fn(),
-  PutCommand: jest.fn(),
-  GetCommand: jest.fn(),
+  QueryCommand: jest.fn().mockImplementation((input) => ({ input })),
+  ScanCommand: jest.fn().mockImplementation((input) => ({ input })),
+  PutCommand: jest.fn().mockImplementation((input) => ({ input })),
+  GetCommand: jest.fn().mockImplementation((input) => ({ input })),
 }));
 
 // Mock auth
@@ -52,6 +52,44 @@ const mockProjectWithStartDate = (startDate: string) => ({
   start_date: startDate,
   fecha_inicio: startDate, // Legacy field for backward compatibility
 });
+
+/**
+ * Setup DynamoDB routing mock for deterministic test behavior
+ * Routes mock responses based on command input rather than call order
+ */
+function setupDdbRoutingMock() {
+  (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+    const input = cmd?.input ?? {};
+    const table = String(input?.TableName || "").toLowerCase();
+    const pk = input?.Key?.pk;
+    const sk = input?.Key?.sk;
+
+    // PROJECT metadata lookup (METADATA | META)
+    if (table.includes("test_projects") && pk === "PROJECT#P-123") {
+      if (sk === "METADATA" || sk === "META") {
+        return { Item: mockProjectWithStartDate("2025-01-01") };
+      }
+    }
+
+    // Allocation existence check (ALLOCATION#...)
+    if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
+      return { Item: undefined };
+    }
+
+    // Query for rubros/seed lookups: return Items: []
+    if (cmd?.constructor?.name?.includes("Query") || cmd?.constructor?.name?.includes("Scan")) {
+      return { Items: [], Count: 0 };
+    }
+
+    // Put / Update / Transact
+    if (cmd?.constructor?.name?.includes("Put") || cmd?.constructor?.name?.includes("Update") || cmd?.constructor?.name?.includes("Transact")) {
+      return {};
+    }
+
+    // Default safe response
+    return {};
+  });
+}
 
 describe("allocations handler", () => {
   beforeEach(() => {
@@ -257,16 +295,12 @@ describe("allocations handler", () => {
   });
 
   describe("bulk allocations update", () => {
+    beforeEach(() => {
+      // Set up routing mock for all tests in this describe block
+      setupDdbRoutingMock();
+    });
+
     it("creates planned allocations with type=planned", async () => {
-      // Mock project lookup with start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-01-01"),
-        })
-        // Mock existing allocation check (not found)
-        .mockResolvedValueOnce({ Item: undefined })
-        // Mock put command
-        .mockResolvedValueOnce({});
 
       const event: any = {
         headers: baseHeaders,
@@ -276,7 +310,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_planeado: 50000,
             },
@@ -296,15 +330,7 @@ describe("allocations handler", () => {
     });
 
     it("creates forecast allocations with type=forecast", async () => {
-      // Mock project lookup with start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-01-01"),
-        })
-        // Mock existing allocation check (not found)
-        .mockResolvedValueOnce({ Item: undefined })
-        // Mock put command
-        .mockResolvedValueOnce({});
+      setupDdbRoutingMock();
 
       const event: any = {
         headers: baseHeaders,
@@ -314,7 +340,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },
@@ -336,25 +362,39 @@ describe("allocations handler", () => {
     it("updates existing allocation with forecast value", async () => {
       const existingAllocation = {
         pk: "PROJECT#P-123",
-        sk: "ALLOCATION#base_001#2025-01#rubro_test123",
+        sk: "ALLOCATION#base_001#2025-01#MOD-ING",
         projectId: "P-123",
         baselineId: "base_001",
-        rubroId: "rubro_test123",
+        rubroId: "MOD-ING",
         month: "2025-01",
         mes: "2025-01",
         monto_planeado: 50000,
         planned: 50000,
       };
 
-      // Mock project lookup with start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-01-01"),
-        })
-        // Mock existing allocation check (found)
-        .mockResolvedValueOnce({ Item: existingAllocation })
-        // Mock put command
-        .mockResolvedValueOnce({});
+      // Use routing mock but override for existing allocation check
+      setupDdbRoutingMock();
+      (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+        const input = cmd?.input ?? {};
+        const table = String(input?.TableName || "").toLowerCase();
+
+        // PROJECT metadata lookup
+        if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
+          return { Item: mockProjectWithStartDate("2025-01-01") };
+        }
+
+        // Allocation existence check - return existing allocation
+        if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+          return { Item: existingAllocation };
+        }
+
+        // Put / Update / Transact
+        if (cmd?.constructor?.name?.includes("Put") || cmd?.constructor?.name?.includes("Update") || cmd?.constructor?.name?.includes("Transact")) {
+          return {};
+        }
+
+        return {};
+      });
 
       const event: any = {
         headers: baseHeaders,
@@ -364,7 +404,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },
@@ -390,7 +430,7 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_planeado: 50000,
             },
@@ -422,16 +462,7 @@ describe("allocations handler", () => {
     });
 
     it("processes multiple allocations in bulk", async () => {
-      // Mock project lookup with start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-01-01"),
-        })
-        // Mock existing allocation checks (not found for both)
-        .mockResolvedValueOnce({ Item: undefined })
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ Item: undefined })
-        .mockResolvedValueOnce({});
+      setupDdbRoutingMock();
 
       const event: any = {
         headers: baseHeaders,
@@ -441,12 +472,12 @@ describe("allocations handler", () => {
         body: JSON.stringify({
           allocations: [
             {
-              rubro_id: "rubro_test123",
+              rubro_id: "MOD-ING",
               mes: "2025-01",
               monto_proyectado: 55000,
             },
             {
-              rubro_id: "rubro_test456",
+              rubro_id: "MOD-LEAD",
               mes: "2025-01",
               monto_proyectado: 35000,
             },
@@ -464,15 +495,7 @@ describe("allocations handler", () => {
     });
 
     it("accepts new items format for forecast updates", async () => {
-      // Mock project lookup with start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-01-01"),
-        })
-        // Mock existing allocation check (not found)
-        .mockResolvedValueOnce({ Item: undefined })
-        // Mock put command
-        .mockResolvedValueOnce({});
+      setupDdbRoutingMock();
 
       const event: any = {
         headers: baseHeaders,
@@ -501,15 +524,28 @@ describe("allocations handler", () => {
     });
 
     it("accepts numeric monthIndex (1-12) and computes calendar month", async () => {
-      // Mock project lookup with May start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-05-01"),
-        })
-        // Mock existing allocation check (not found)
-        .mockResolvedValueOnce({ Item: undefined })
-        // Mock put command
-        .mockResolvedValueOnce({});
+      // Override routing mock for this test to use May start date
+      (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+        const input = cmd?.input ?? {};
+        const table = String(input?.TableName || "").toLowerCase();
+        const sk = input?.Key?.sk;
+
+        if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
+          if (sk === "METADATA" || sk === "META") {
+            return { Item: mockProjectWithStartDate("2025-05-01") };
+          }
+        }
+
+        if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
+          return { Item: undefined };
+        }
+
+        if (cmd?.constructor?.name?.includes("Put")) {
+          return {};
+        }
+
+        return {};
+      });
 
       const event: any = {
         headers: baseHeaders,
@@ -538,15 +574,28 @@ describe("allocations handler", () => {
     });
 
     it("handles M-notation (M1, M2, etc.)", async () => {
-      // Mock project lookup with June start date
-      (dynamo.ddb.send as jest.Mock)
-        .mockResolvedValueOnce({
-          Item: mockProjectWithStartDate("2025-06-15"),
-        })
-        // Mock existing allocation check (not found)
-        .mockResolvedValueOnce({ Item: undefined })
-        // Mock put command
-        .mockResolvedValueOnce({});
+      // Override routing mock for this test to use June start date
+      (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+        const input = cmd?.input ?? {};
+        const table = String(input?.TableName || "").toLowerCase();
+        const sk = input?.Key?.sk;
+
+        if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
+          if (sk === "METADATA" || sk === "META") {
+            return { Item: mockProjectWithStartDate("2025-06-15") };
+          }
+        }
+
+        if (table.includes("test_allocations") && typeof sk === "string" && sk.startsWith("ALLOCATION#")) {
+          return { Item: undefined };
+        }
+
+        if (cmd?.constructor?.name?.includes("Put")) {
+          return {};
+        }
+
+        return {};
+      });
 
       const event: any = {
         headers: baseHeaders,
@@ -574,10 +623,7 @@ describe("allocations handler", () => {
     });
 
     it("rejects invalid month values", async () => {
-      // Mock project lookup
-      (dynamo.ddb.send as jest.Mock).mockResolvedValueOnce({
-        Item: mockProjectWithStartDate("2025-01-01"),
-      });
+      setupDdbRoutingMock();
 
       const event: any = {
         headers: baseHeaders,
@@ -772,12 +818,27 @@ describe("allocations handler", () => {
           start_date: "2025-01-01",
         };
 
-        (dynamo.ddb.send as jest.Mock)
-          .mockResolvedValueOnce({
-            Item: mockProject,
-          })
-          .mockResolvedValueOnce({ Item: undefined })
-          .mockResolvedValueOnce({});
+        // Override routing mock to return METADATA record
+        (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+          const input = cmd?.input ?? {};
+          const table = String(input?.TableName || "").toLowerCase();
+
+          if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
+            if (input?.Key?.sk === "METADATA") {
+              return { Item: mockProject };
+            }
+          }
+
+          if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+            return { Item: undefined };
+          }
+
+          if (cmd?.constructor?.name?.includes("Put")) {
+            return {};
+          }
+
+          return {};
+        });
 
         const event: any = {
           headers: baseHeaders,
@@ -811,13 +872,30 @@ describe("allocations handler", () => {
           start_date: "2025-01-01",
         };
 
-        // First call returns nothing (METADATA not found)
-        // Second call returns legacy META record
-        (dynamo.ddb.send as jest.Mock)
-          .mockResolvedValueOnce({ Item: undefined })
-          .mockResolvedValueOnce({ Item: mockLegacyProject })
-          .mockResolvedValueOnce({ Item: undefined })
-          .mockResolvedValueOnce({});
+        // Override routing mock to simulate METADATA not found, META found
+        (dynamo.ddb.send as jest.Mock).mockImplementation(async (cmd: any) => {
+          const input = cmd?.input ?? {};
+          const table = String(input?.TableName || "").toLowerCase();
+
+          if (table.includes("test_projects") && input?.Key?.pk === "PROJECT#P-123") {
+            if (input?.Key?.sk === "METADATA") {
+              return { Item: undefined }; // METADATA not found
+            }
+            if (input?.Key?.sk === "META") {
+              return { Item: mockLegacyProject }; // META found
+            }
+          }
+
+          if (table.includes("test_allocations") && typeof input?.Key?.sk === "string" && input.Key.sk.startsWith("ALLOCATION#")) {
+            return { Item: undefined };
+          }
+
+          if (cmd?.constructor?.name?.includes("Put")) {
+            return {};
+          }
+
+          return {};
+        });
 
         const event: any = {
           headers: baseHeaders,
@@ -844,15 +922,12 @@ describe("allocations handler", () => {
       });
 
       it("returns 400 when project metadata not found", async () => {
-        // Both METADATA and META lookups return nothing
-        (dynamo.ddb.send as jest.Mock)
-          .mockResolvedValueOnce({ Item: undefined })
-          .mockResolvedValueOnce({ Item: undefined });
+        setupDdbRoutingMock(); // Set up routing mock, but P-NONEXISTENT won't match
 
         const event: any = {
           headers: baseHeaders,
           requestContext: { http: { method: "PUT" } },
-          pathParameters: { id: "P-NONEXISTENT" },
+          pathParameters: { id: "P-NONEXISTENT" }, // Will not match routing mock
           queryStringParameters: { type: "planned" },
           body: JSON.stringify({
             allocations: [

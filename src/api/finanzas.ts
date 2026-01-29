@@ -15,7 +15,7 @@ import {
 import { taxonomyByRubroId } from "@/modules/rubros.catalog.enriched";
 import { toast } from "sonner";
 import { normalizeKey } from "@/lib/rubros/normalize-key";
-import { canonicalizeRubroId } from "@/lib/rubros";
+import { requireCanonicalRubro, canonicalizeRubroId } from "@/lib/rubros";
 
 // ---------- Environment ----------
 const envSource =
@@ -299,7 +299,25 @@ export async function getAllocations(projectId?: string, baselineId?: string): P
   const url = `${requireApiBase()}/allocations${params.toString() ? `?${params.toString()}` : ''}`;
 
   try {
-    return await fetchArraySource(url, "getAllocations");
+    const allocations = await fetchArraySource(url, "getAllocations");
+    
+    // Normalize allocations to use canonical rubro IDs
+    return allocations.map((alloc: any) => {
+      const rawId = alloc.rubroId || alloc.rubro_id || alloc.line_item_id || alloc.canonical_rubro_id;
+      if (!rawId) return alloc; // No ID to canonicalize
+      
+      const canonical = canonicalizeRubroId(rawId) || rawId;
+      
+      return {
+        ...alloc,
+        rubroId: canonical,
+        rubro_id: canonical,
+        canonical_rubro_id: canonical,
+        line_item_id: canonical,
+        // Preserve original for diagnostics
+        raw_rubro_id: rawId !== canonical ? rawId : undefined,
+      };
+    });
   } catch (err) {
     throw toFinanzasError(err, "Unable to load allocations rows");
   }
@@ -756,9 +774,9 @@ export async function uploadInvoice(
     throw new FinanzasApiError("line_item_id is required and must be a non-empty string");
   }
 
-  // Normalize and canonicalize the line_item_id
-  const normalizedLineItemId = normalizeKey(payload.line_item_id);
-  const canonicalRubroId = canonicalizeRubroId(payload.line_item_id);
+  // CRITICAL: Enforce canonical rubro ID - throws if not in taxonomy
+  const canonicalRubroId = requireCanonicalRubro(payload.line_item_id);
+  const normalizedLineItemId = normalizeKey(canonicalRubroId);
 
   const parsedInvoiceDate = payload.invoice_date
     ? Date.parse(payload.invoice_date)

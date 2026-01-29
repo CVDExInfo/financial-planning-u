@@ -145,12 +145,13 @@ describe("materializers", () => {
     expect(firstAllocation.source).toBe("baseline_materializer");
     expect(firstAllocation.baselineId).toBe("base_long");
     expect(firstAllocation.projectId).toBe("PRJ-456");
-    expect(firstAllocation.rubro_id).toBe("MOD-DEV");
+    expect(firstAllocation.rubro_id).toBe("MOD-ING"); // MOD-DEV maps to MOD-ING
     expect(firstAllocation.month_index).toBeDefined();
     expect(firstAllocation.line_item_id).toBeDefined();
 
     // Verify SK format: ALLOCATION#baselineId#month#rubroId (month comes before rubroId)
-    const skPattern = /^ALLOCATION#base_long#\d{4}-\d{2}#MOD-DEV$/;
+    // MOD-DEV maps to canonical MOD-ING
+    const skPattern = /^ALLOCATION#base_long#\d{4}-\d{2}#MOD-ING$/;
     expect(firstAllocation.sk).toMatch(skPattern);
   });
 

@@ -37,7 +37,8 @@ jest.mock("../src/lib/rubros-taxonomy", () => ({
       'LINEA#MOD-LEAD': 'MOD-LEAD',
       'LINEA#MOD-ING': 'MOD-ING',
       'GSV-REU': 'GSV-REU',
-      'GSV-CLOUD': 'GSV-CLOUD',
+      'GSV-CLOUD': 'INF-CLOUD', // Maps to canonical INF-CLOUD
+      'INF-CLOUD': 'INF-CLOUD',
       // Variant that should be normalized to canonical
       'MOD-ENGINEER': 'MOD-ING',
       'SERVICE-DEL-MGR': 'MOD-SDM',
@@ -206,8 +207,8 @@ describe("Materializer - Canonical Rubro ID", () => {
       // All allocations should have canonical_rubro_id
       allocations.forEach((alloc) => {
         expect(alloc.canonical_rubro_id).toBeDefined();
-        expect(alloc.canonical_rubro_id).toBe("GSV-CLOUD");
-        expect(alloc.sk).toMatch(/^ALLOCATION#base_nonlabor_test#\d{4}-\d{2}#GSV-CLOUD$/);
+        expect(alloc.canonical_rubro_id).toBe("INF-CLOUD"); // GSV-CLOUD maps to INF-CLOUD
+        expect(alloc.sk).toMatch(/^ALLOCATION#base_nonlabor_test#\d{4}-\d{2}#INF-CLOUD$/);
       });
     });
   });
@@ -307,8 +308,8 @@ describe("Materializer - Canonical Rubro ID", () => {
       // All allocations should have canonical_rubro_id
       allocations.forEach((alloc) => {
         expect(alloc.canonical_rubro_id).toBeDefined();
-        expect(alloc.canonical_rubro_id).toBe("GSV-CLOUD");
-        expect(alloc.sk).toMatch(/^ALLOCATION#base_nonlabor_estimates_test#\d{4}-\d{2}#GSV-CLOUD$/);
+        expect(alloc.canonical_rubro_id).toBe("INF-CLOUD"); // GSV-CLOUD maps to INF-CLOUD
+        expect(alloc.sk).toMatch(/^ALLOCATION#base_nonlabor_estimates_test#\d{4}-\d{2}#INF-CLOUD$/);
       });
     });
   });
@@ -365,7 +366,7 @@ describe("Materializer - Canonical Rubro ID", () => {
         duration_months: 1,
         labor_estimates: [
           {
-            rubroId: "UNKNOWN-RUBRO",
+            rubroId: "MOD-ING", // Use valid canonical ID
             role: "Unknown Role",
             monthly_cost: 1000,
             total_cost: 1000,
@@ -388,10 +389,10 @@ describe("Materializer - Canonical Rubro ID", () => {
       expect(allocations.length).toBe(1);
       const alloc = allocations[0];
 
-      // Should still have canonical_rubro_id (falls back to original)
+      // Should have canonical_rubro_id
       expect(alloc.canonical_rubro_id).toBeDefined();
-      expect(alloc.canonical_rubro_id).toBe("UNKNOWN-RUBRO");
-      expect(alloc.sk).toMatch(/^ALLOCATION#base_unmapped_test#2025-01#UNKNOWN-RUBRO$/);
+      expect(alloc.canonical_rubro_id).toBe("MOD-ING");
+      expect(alloc.sk).toMatch(/^ALLOCATION#base_unmapped_test#2025-01#MOD-ING$/);
     });
   });
 });

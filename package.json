@@ -115,6 +115,7 @@
     "@playwright/test": "^1.57.0",
     "@stoplight/spectral-cli": "^6.15.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/jest": "^29.5.14",
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.0.4",
