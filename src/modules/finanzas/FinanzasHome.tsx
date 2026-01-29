@@ -1,88 +1,67 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  BarChart3,
-  Building2,
-  Gauge,
   FolderKanban,
-  Layers,
-  Settings2,
-  ShieldCheck,
-  TrendingUp,
   Waypoints,
+  TrendingUp,
+  ShieldCheck,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PageHeader from "@/components/PageHeader";
-import usePermissions from "@/hooks/usePermissions";
 
 const tiles = [
   {
-    title: "Proyectos",
-    description: "Crear y gestionar proyectos financieros con presupuestos y asignaciones.",
-    href: "/projects",
+    title: "Resumen Ejecutivo",
+    description: "Visión consolidada de KPIs y resúmenes financieros por portafolio.",
+    href: "/sdmt/cost/forecast-v2",
     icon: <FolderKanban className="h-5 w-5" />,
   },
   {
-    title: "Catálogo de Rubros",
-    description:
-      "Lista enriquecida de rubros con taxonomía, línea contable y tipo de costo.",
-    href: "/catalog/rubros",
-    icon: <Waypoints className="h-5 w-5" />,
+    title: "Gestión de Pronóstico",
+    description: "Visualiza y ajusta forecast mensual por proyecto.",
+    href: "/sdmt/cost/forecast",
+    icon: <TrendingUp className="h-5 w-5" />,
   },
   {
-    title: "Reglas de Asignación",
-    description: "Vista previa de reglas MVP (driver percent, fixed, tickets, hours).",
-    href: "/rules",
-    icon: <Settings2 className="h-5 w-5" />,
+    title: "Conciliación de Facturas",
+    description: "Conciliación y control de invoices por proyecto y periodo.",
+    href: "/sdmt/cost/reconciliation",
+    icon: <BarChart3 className="h-5 w-5" />,
   },
   {
-    title: "Ajustes Presupuestarios",
+    title: "Cambios y Ajustes",
     description: "Gestionar excesos, reducciones y reasignaciones de presupuesto.",
     href: "/adjustments",
     icon: <ShieldCheck className="h-5 w-5" />,
   },
   {
-    title: "Payroll Actual",
-    description: "Carga manual o masiva para actualizar dashboards de nómina.",
-    href: "/payroll/actuals",
-    icon: <BarChart3 className="h-5 w-5" />,
+    title: "Estructura de Costos",
+    description: "Catálogo y taxonomía de rubros y líneas contables.",
+    href: "/sdmt/cost/catalog",
+    icon: <Waypoints className="h-5 w-5" />,
   },
   {
-    title: "Flujo de Caja",
-    description: "Monitorea ingresos, egresos y margen mensual usando datos existentes.",
-    href: "/cashflow",
-    icon: <BarChart3 className="h-5 w-5" />,
-  },
-  {
-    title: "Forecast SDMT",
-    description: "Visualiza y ajusta forecast mensual por proyecto, conectado con conciliación e invoices.",
-    href: "/sdmt/cost/forecast",
-    icon: <TrendingUp className="h-5 w-5" />,
-  },
-  {
-    title: "Escenarios",
-    description: "Compara escenarios frente al baseline con gráficos reutilizados.",
-    href: "/scenarios",
+    title: "Planificador",
+    description: "Herramientas de planificación para alinear timeline y recursos.",
+    href: "/pmo/prefactura/estimator",
     icon: <Layers className="h-5 w-5" />,
   },
   {
-    title: "Proveedores",
-    description: "Registrar y administrar proveedores y vendors del sistema.",
-    href: "/providers",
-    icon: <Building2 className="h-5 w-5" />,
+    title: "Linea Bases Proyectos de Servicio",
+    description: "Rastrea la entrega y aceptación de las líneas base de proyectos.",
+    href: "/pmo/baselines",
+    icon: <FolderKanban className="h-5 w-5" />,
   },
 ];
 
-export default function FinanzasHome() {
-  const navigate = useNavigate();
-  const { isSDMT, isExecRO } = usePermissions();
-  const canAccessHub = isSDMT || isExecRO;
-
+export default function FinanzasHomeSMO() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <PageHeader
-        title="Finanzas · Gestión Presupuesto"
-        badge="R1"
-        description="Consolida costos de proyectos, rubros y facturación en un solo lugar, con trazabilidad completa para Finanzas y Service Delivery de Ikusi."
+        title="Gestión Presupuesto - SMO"
+        badge="SMO"
+        description="Consolida costos de proyectos, rubros y facturación con trazabilidad para SMO."
         icon={<FolderKanban className="h-5 w-5 text-white" />}
       />
 
@@ -111,69 +90,39 @@ export default function FinanzasHome() {
             </Card>
           </Link>
         ))}
-
-        {canAccessHub && (
-          <Card
-            className="h-full cursor-pointer border-border/80 hover:border-primary/60 transition-colors shadow-sm"
-            onClick={() => navigate("/hub")}
-          >
-            <CardHeader className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Gauge className="h-5 w-5" />
-                </div>
-                <CardTitle className="text-sm font-semibold transition-colors">Hub de Desempeño</CardTitle>
-              </div>
-              <CardDescription className="text-xs leading-relaxed">
-                Tablero ejecutivo con KPIs de desempeño financiero, cashflow y riesgos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Accede al hub para ver la salud financiera consolidada del portafolio.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <Card className="border-dashed border-border/80 bg-muted/30">
         <CardHeader>
-          <CardTitle className="text-sm">¿Qué puedes hacer en Finanzas SD?</CardTitle>
+          <CardTitle className="text-sm">¿Qué puedes hacer en Gestión Presupuesto - SMO?</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
-            Accede a lo esencial para gestión financiera y Service Delivery.
+            Accede a lo esencial para la gestión de presupuestos y control de costos.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 text-xs text-muted-foreground">
             <ul className="list-disc space-y-1 pl-4">
               <li>Consultar y gestionar proyectos con su MOD autorizado.</li>
-              <li>Revisar el catálogo de rubros y las reglas de asignación de costos.</li>
-              <li>Cargar y conciliar facturas por proyecto y periodo.</li>
-              <li>Visualizar escenarios de flujo de caja y forecast a nivel portafolio.</li>
+              <li>Revisar la estructura de costos y catálogo de rubros.</li>
+              <li>Conciliar facturas e integrar con el forecast por proyecto.</li>
             </ul>
 
             <div className="rounded-md border border-dashed border-border/60 bg-background/40 p-3">
               <p className="mb-2 font-medium text-foreground">Recorrido sugerido</p>
               <ol className="space-y-1 pl-4">
                 <li>
-                  <Link to="/projects" className="text-foreground hover:text-primary">
-                    1. Selecciona un proyecto
+                  <Link to="/sdmt/cost/forecast-v2" className="text-foreground hover:text-primary">
+                    1. Revisión ejecutiva
                   </Link>
                 </li>
                 <li>
                   <Link to="/sdmt/cost/catalog" className="text-foreground hover:text-primary">
-                    2. Revisa el catálogo de costos
+                    2. Estructura de costos
                   </Link>
                 </li>
                 <li>
                   <Link to="/sdmt/cost/forecast" className="text-foreground hover:text-primary">
-                    3. Administra forecast y conciliación
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/sdmt/cost/reconciliation" className="text-foreground hover:text-primary">
-                    4. Ajusta facturas y conciliación por periodo
+                    3. Gestión de pronóstico y conciliación
                   </Link>
                 </li>
               </ol>
