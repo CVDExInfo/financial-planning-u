@@ -112,6 +112,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       const matched = matchInvoiceToCell(
@@ -146,6 +148,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       const matched = matchInvoiceToCell(
@@ -179,6 +183,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-002', // Different project
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       const matched = matchInvoiceToCell(
@@ -212,6 +218,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       const matched = matchInvoiceToCell(
@@ -246,6 +254,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       // Verify canonicalizeRubroId works for this case
@@ -331,6 +341,8 @@ describe('Invoice → Forecast Join Integration', () => {
         actual: 0,
         variance: 0,
         projectId: 'PROJ-001',
+        last_updated: '2025-01-01T00:00:00.000Z',
+        updated_by: 'test',
       };
 
       // In DEV mode, this would log diagnostics

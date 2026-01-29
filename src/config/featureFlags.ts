@@ -31,6 +31,18 @@ export const FEATURE_FLAGS = {
    */
   ENABLE_RUBROS_ADAPTER: import.meta.env.VITE_ENABLE_RUBROS_ADAPTER === 'true' ||
                          process.env.REACT_APP_ENABLE_RUBROS_ADAPTER === 'true',
+  
+  /**
+   * Enable Forecast V2 Layout
+   * 
+   * When enabled, uses the new forecast V2 layout and components.
+   * 
+   * Default: false (legacy forecast is default)
+   * 
+   * To enable in development:
+   *   Set environment variable: VITE_FINZ_NEW_FORECAST_LAYOUT=true
+   */
+  USE_FORECAST_V2: import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true',
 } as const;
 
 // Development-only logging

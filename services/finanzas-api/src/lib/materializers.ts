@@ -680,7 +680,7 @@ export const buildRubrosFromBaselinePayload = async (
     const stableId =
       estimate.id ||
       estimate.line_item_id ||
-      stableIdFromParts(estimate.role, estimate.level, index + 1) ||
+      stableIdFromParts(estimate.role, estimate.level, String(index + 1)) ||
       `labor-${index + 1}`;
 
     const instanceId = `${baselineId}#labor#${stableId}`;
@@ -759,7 +759,7 @@ export const buildRubrosFromBaselinePayload = async (
     const stableId =
       estimate.id ||
       estimate.line_item_id ||
-      stableIdFromParts(description, category, index + 1) ||
+      stableIdFromParts(description, category, String(index + 1)) ||
       `nonlabor-${index + 1}`;
 
     const instanceId = `${baselineId}#nonlabor#${stableId}`;

@@ -135,7 +135,10 @@ export function SDMTForecastV2() {
   const isPortfolioView = selectedProjectId === ALL_PROJECTS_ID;
   
   const safeLineItems = useMemo(
-    () => (Array.isArray(lineItems) ? lineItems : []),
+    () => (Array.isArray(lineItems) ? lineItems : []).map(li => ({
+      ...li,
+      line_item_id: (li as any).line_item_id || (li as any).id || (li as any).lineItemId || '',
+    })),
     [lineItems]
   );
   
@@ -633,7 +636,9 @@ export function SDMTForecastV2() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-2">Error</h2>
-          <p className="text-gray-600">{error || lineItemsError}</p>
+          <p className="text-gray-600">
+            {String(error || lineItemsError || '')}
+          </p>
         </div>
       </div>
     );
@@ -660,7 +665,10 @@ export function SDMTForecastV2() {
                 </div>
               </SelectItem>
               {projects.map((project) => (
-                <SelectItem key={project.project_id} value={project.project_id}>
+                <SelectItem 
+                  key={project.id || (project as any).project_id} 
+                  value={project.id || (project as any).project_id}
+                >
                   {project.name}
                 </SelectItem>
               ))}
