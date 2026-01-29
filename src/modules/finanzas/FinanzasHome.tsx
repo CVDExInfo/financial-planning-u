@@ -14,7 +14,7 @@ const tiles = [
   {
     title: "Resumen Ejecutivo",
     description: "Visión consolidada de KPIs y resúmenes financieros por portafolio.",
-    href: "/summary",
+    href: "/sdmt/cost/forecast-v2",
     icon: <FolderKanban className="h-5 w-5" />,
   },
   {
@@ -44,13 +44,13 @@ const tiles = [
   {
     title: "Planificador",
     description: "Herramientas de planificación para alinear timeline y recursos.",
-    href: "/planner",
+    href: "/pmo/prefactura/estimator",
     icon: <Layers className="h-5 w-5" />,
   },
   {
     title: "Linea Bases Proyectos de Servicio",
     description: "Rastrea la entrega y aceptación de las líneas base de proyectos.",
-    href: "/finanzas/pmo/baselines",
+    href: "/pmo/baselines",
     icon: <FolderKanban className="h-5 w-5" />,
   },
 ];
@@ -113,7 +113,7 @@ export default function FinanzasHomeSMO() {
               <p className="mb-2 font-medium text-foreground">Recorrido sugerido</p>
               <ol className="space-y-1 pl-4">
                 <li>
-                  <Link to="/summary" className="text-foreground hover:text-primary">
+                  <Link to="/sdmt/cost/forecast-v2" className="text-foreground hover:text-primary">
                     1. Revisión ejecutiva
                   </Link>
                 </li>
