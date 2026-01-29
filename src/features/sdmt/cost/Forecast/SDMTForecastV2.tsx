@@ -143,14 +143,35 @@ export function SDMTForecastV2() {
     [lineItems]
   );
   
-  const baselineDetail: BaselineDetail | null = useMemo(() => {
-    if (!currentProject?.baselineId) return null;
-    // In a real implementation, fetch this from API
-    // For now, return mock data
-    return {
-      baseline_id: currentProject.baselineId,
-      payload: { duration_months: 60 },
-    } as BaselineDetail;
+  // Baseline detail state
+  const [baselineDetail, setBaselineDetail] = useState<BaselineDetail | null>(null);
+  
+  /**
+   * Load baseline detail from API
+   */
+  useEffect(() => {
+    const loadBaselineDetail = async () => {
+      if (!currentProject?.baselineId) {
+        setBaselineDetail(null);
+        return;
+      }
+      
+      try {
+        // Import getBaselineById from finanzas API
+        const { getBaselineById } = await import('@/api/finanzas');
+        const detail = await getBaselineById(currentProject.baselineId);
+        setBaselineDetail(detail);
+      } catch (err) {
+        console.error('[SDMTForecastV2] Error loading baseline detail:', err);
+        // Fallback to default duration if baseline fetch fails
+        setBaselineDetail({
+          baseline_id: currentProject.baselineId,
+          payload: { duration_months: 60 },
+        } as BaselineDetail);
+      }
+    };
+    
+    loadBaselineDetail();
   }, [currentProject?.baselineId]);
   
   const monthsToShow = useMemo(() => {
@@ -785,6 +806,11 @@ export function SDMTForecastV2() {
       return;
     }
     
+    if (!selectedProjectId || selectedProjectId === ALL_PROJECTS_ID) {
+      toast.error('Seleccione un proyecto específico para guardar');
+      return;
+    }
+    
     // Save current state for potential rollback
     const previousData = [...forecastData];
     
@@ -799,23 +825,22 @@ export function SDMTForecastV2() {
         return normalizeForecastRowForServer(row as any);
       });
       
-      // TODO: Call bulk upsert API (reusing V1 API client)
-      // Note: This endpoint may need to be implemented
-      // For now, log the intent and show success
-      if (import.meta.env.DEV) {
-        console.log('[SDMTForecastV2] Save forecast called with data:', {
-          projectId: selectedProjectId,
-          rowCount: normalizedData.length,
-        });
-      }
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call bulk upsert API using finanzasClient
+      await finanzasClient.bulkUpsertForecast(selectedProjectId, normalizedData);
       
       toast.success('Pronóstico guardado correctamente');
       
     } catch (err) {
       console.error('[SDMTForecastV2] Error saving forecast:', err);
+      
+      // Rollback to previous data
+      setForecastData(previousData);
+      
+      toast.error('Error al guardar pronóstico. Los cambios se han revertido.');
+    } finally {
+      setSavingBudget(false);
+    }
+  };
       
       // Rollback to previous data
       setForecastData(previousData);
