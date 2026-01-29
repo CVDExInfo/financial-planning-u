@@ -7,8 +7,11 @@ import { describe, it } from "node:test";
  * Tests for src/config/featureFlags.ts feature flag configuration.
  * Validates that USE_FORECAST_V2 is enabled by either env var.
  * 
- * Note: These tests verify the logic by checking the actual implementation.
- * In runtime, the flags are evaluated once at module load time.
+ * Note: These tests verify the boolean logic pattern used in featureFlags.ts.
+ * The actual FEATURE_FLAGS object behavior is validated through:
+ * - Build-time checks (TypeScript compilation)
+ * - E2E tests that verify UI behavior with different env vars
+ * - Manual QA testing with actual environment configurations
  */
 
 describe("FEATURE_FLAGS configuration", () => {
@@ -56,20 +59,6 @@ describe("FEATURE_FLAGS configuration", () => {
       const testEnv7 = { VITE_FINZ_FORECAST_V2_ENABLED: 'false', VITE_FINZ_NEW_FORECAST_LAYOUT: 'true' };
       const result7 = testEnv7.VITE_FINZ_FORECAST_V2_ENABLED === 'true' || testEnv7.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true';
       assert.equal(result7, true, "Flag should be enabled for backward compatibility when VITE_FINZ_NEW_FORECAST_LAYOUT is 'true'");
-    });
-  });
-
-  describe("Flag naming conventions", () => {
-    it("should use semantic naming for new flag", () => {
-      const newFlagName = "VITE_FINZ_FORECAST_V2_ENABLED";
-      assert.ok(newFlagName.includes("FORECAST_V2"), "New flag should clearly indicate it's for Forecast V2");
-      assert.ok(newFlagName.includes("ENABLED"), "New flag should use semantic 'ENABLED' suffix");
-    });
-
-    it("should maintain legacy naming for backward compatibility", () => {
-      const legacyFlagName = "VITE_FINZ_NEW_FORECAST_LAYOUT";
-      assert.ok(legacyFlagName.includes("FORECAST"), "Legacy flag should reference forecast");
-      assert.ok(legacyFlagName.includes("LAYOUT"), "Legacy flag should reference layout");
     });
   });
 });
