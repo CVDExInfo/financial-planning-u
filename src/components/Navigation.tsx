@@ -49,7 +49,7 @@ import { toast } from "sonner";
 import { Logo } from "@/components/Logo";
 import { logoutWithHostedUI } from "@/config/aws";
 import { ES_TEXTS } from "@/lib/i18n/es";
-import { isFeatureEnabled } from "@/lib/featureFlags";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 
 // Navigation visibility summary:
 // - PMO section: only visible when the active role is PMO or when browsing a /finanzas/pmo/* route.
@@ -383,7 +383,7 @@ export function Navigation() {
     if (!allowedByRole) return false;
     
     // Filter forecastV2 based on feature flag
-    if (item.path === "/sdmt/cost/forecast-v2" && !isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT")) {
+    if (item.path === "/sdmt/cost/forecast-v2" && !FEATURE_FLAGS.USE_FORECAST_V2) {
       return false;
     }
     
@@ -398,7 +398,7 @@ export function Navigation() {
     if (item.isPremium && !hasPremiumFinanzasFeatures) return false;
     
     // Filter forecastV2 based on feature flag
-    if (item.id === "forecastV2" && !isFeatureEnabled("VITE_FINZ_NEW_FORECAST_LAYOUT")) {
+    if (item.id === "forecastV2" && !FEATURE_FLAGS.USE_FORECAST_V2) {
       return false;
     }
 
@@ -453,6 +453,7 @@ export function Navigation() {
                           <Link
                             key={item.id}
                             to={normalizedItemPath}
+                            aria-label={item.id === "forecastV2" ? "Resumen Ejecutivo (SMO)" : undefined}
                             className={`
                               inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap
                               ${

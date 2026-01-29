@@ -4,15 +4,26 @@ This document describes the environment-based feature flags used in the Finanzas
 
 ## Forecast Feature Flags
 
-### Layout Flags
+### Master Control Flags
 
-#### `VITE_FINZ_NEW_FORECAST_LAYOUT`
+#### `VITE_FINZ_USE_FORECAST_V2` (Preferred)
 - **Type:** Boolean (`'true'` / `'false'`)
 - **Default:** `false`
-- **Description:** Enables the new forecast page layout with compact KPI summary and repositioned monthly snapshot grid.
+- **Description:** Semantic master flag to enable Forecast V2 (Resumen Ejecutivo SDMT). This is the **preferred** flag for enabling the new forecast interface.
 - **Impact:** 
-  - When `true`: Shows new layout with Cuadrícula de Pronóstico at top
-  - When `false`: Shows legacy layout
+  - When `true`: Enables the Pronóstico V2 navigation item and the `/sdmt/cost/forecast-v2` route
+  - When `false`: Uses legacy forecast interface
+- **Backward Compatibility:** Works in conjunction with `VITE_FINZ_NEW_FORECAST_LAYOUT`. Either flag can enable Forecast V2.
+
+#### `VITE_FINZ_NEW_FORECAST_LAYOUT` (Legacy)
+- **Type:** Boolean (`'true'` / `'false'`)
+- **Default:** `false`
+- **Description:** Legacy flag maintained for backward compatibility. Enables the new forecast page layout.
+- **Impact:** 
+  - When `true`: Enables Forecast V2 (same as `VITE_FINZ_USE_FORECAST_V2`)
+  - When `false`: Uses legacy forecast interface
+- **Note:** This flag is maintained for backward compatibility. New deployments should use `VITE_FINZ_USE_FORECAST_V2` instead.
+- **Precedence:** Either this flag OR `VITE_FINZ_USE_FORECAST_V2` being `true` will enable Forecast V2.
 
 ---
 
@@ -137,13 +148,14 @@ This document describes the environment-based feature flags used in the Finanzas
 
 | Flag | Nombre (Español) | Vista / Componente afectado | Comportamiento | Default |
 |------|------------------|-----------------------------|----------------|---------|
+| `VITE_FINZ_USE_FORECAST_V2` | Habilitar Pronóstico V2 (Master) | `FEATURE_FLAGS.USE_FORECAST_V2` | Si `true`, habilita Forecast V2 (Resumen Ejecutivo SDMT). Flag preferido y semántico. | `false` |
+| `VITE_FINZ_NEW_FORECAST_LAYOUT` | Habilitar Pronóstico V2 (Legacy) | `FEATURE_FLAGS.USE_FORECAST_V2` | Si `true`, habilita Forecast V2. Mantenido para compatibilidad retroactiva. | `false` |
 | `VITE_FINZ_HIDE_REAL_ANNUAL_KPIS` | Ocultar KPIs Anuales Reales | `ForecastKpis.tsx` / Resumen Ejecutivo | Si `true`, devuelve `null` y oculta las 4 tarjetas de KPIs anuales en vista TODOS/Portfolio. | `false` |
 | `VITE_FINZ_HIDE_PROJECT_SUMMARY` | Ocultar Resumen de Portafolio | `PortfolioSummaryView.tsx` | Si `true`, oculta completamente la sección "Resumen de Portafolio". Solo muestra el "Desglose" cuando se requiere. | `false` |
 | `VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED` | Mostrar Desglose Mensual (Transpuesto) | `PortfolioSummaryView.tsx` - Cuadrícula mensual | Si `true`, fuerza la tabla de Desglose Mensual a mostrarse transpuesta (meses como columnas). | `false` |
 | `VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST` | Ocultar Lista Expandible de Proyectos | `PortfolioSummaryView.tsx` | Si `true`, no muestra la lista expandible de proyectos dentro del resumen de portafolio. | `false` |
 | `VITE_FINZ_HIDE_RUNWAY_METRICS` | Ocultar Runway / Control Presupuestario | `PortfolioSummaryView.tsx` | Si `true`, oculta el resumen de Runway & Control Presupuestario en Resumen de Portafolio. | `false` |
 | `VITE_FINZ_SHOW_PORTFOLIO_KPIS` | Mostrar KPIs de Portafolio | `SDMTForecast.tsx` / KPIs de presupuesto | Si `true`, muestra las 4 tarjetas de KPIs de portafolio (Presupuesto All-In, Variación, % Consumo Pronóstico, % Consumo Real). Default: `false` (vista mínima). | `false` |
-| `VITE_FINZ_NEW_FORECAST_LAYOUT` | Nuevo Layout de Pronóstico | `SDMTForecast.tsx` / layout | Controla la reorganización compacta de la página (no afecta visibilidad por sí solo). Default: `false`. | `false` |
 | `VITE_FINZ_SHOW_KEYTRENDS` | Mostrar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, muestra las tablas de Tendencias Clave (Top Variance Projects & Rubros). Default: `false`. | `false` |
 | `VITE_FINZ_HIDE_KEY_TRENDS` | Ocultar Tendencias Clave | `SDMTForecast.tsx` / Key Trends | Si `true`, oculta las Tendencias Clave incluso si `SHOW_KEY_TRENDS` es `true`. Default: `false`. | `false` |
 
@@ -153,8 +165,8 @@ This document describes the environment-based feature flags used in the Finanzas
 # Ejemplo 1: Ocultar KPIs anuales reales
 VITE_FINZ_HIDE_REAL_ANNUAL_KPIS=true
 
-# Ejemplo 2: Mostrar KPIs de portafolio en nuevo layout
-VITE_FINZ_NEW_FORECAST_LAYOUT=true
+# Ejemplo 2: Mostrar KPIs de portafolio en nuevo layout (usando flag preferido)
+VITE_FINZ_USE_FORECAST_V2=true
 VITE_FINZ_SHOW_PORTFOLIO_KPIS=true
 
 # Ejemplo 3: Vista compacta - solo tabla transpuesta
@@ -162,8 +174,8 @@ VITE_FINZ_ONLY_SHOW_MONTHLY_BREAKDOWN_TRANSPOSED=true
 VITE_FINZ_HIDE_EXPANDABLE_PROJECT_LIST=true
 VITE_FINZ_HIDE_RUNWAY_METRICS=true
 
-# Ejemplo 4: Vista mínima ejecutiva (default para nuevo layout)
-VITE_FINZ_NEW_FORECAST_LAYOUT=true
+# Ejemplo 4: Vista mínima ejecutiva (usando flag preferido)
+VITE_FINZ_USE_FORECAST_V2=true
 VITE_FINZ_SHOW_PORTFOLIO_KPIS=false
 VITE_FINZ_HIDE_PROJECT_SUMMARY=true
 ```
@@ -250,14 +262,14 @@ VITE_FINZ_HIDE_RUNWAY_METRICS=true
 
 #### Scenario 9: Show Portfolio KPIs
 ```bash
-VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_USE_FORECAST_V2=true
 VITE_FINZ_SHOW_PORTFOLIO_KPIS=true
 ```
 **Expected:** Portfolio KPI tiles (4-card grid) visible in portfolio view
 
 #### Scenario 10: Minimal Portfolio View (Default)
 ```bash
-VITE_FINZ_NEW_FORECAST_LAYOUT=true
+VITE_FINZ_USE_FORECAST_V2=true
 VITE_FINZ_SHOW_PORTFOLIO_KPIS=false
 ```
 **Expected:** Portfolio KPI tiles hidden, minimal clean view
@@ -269,8 +281,12 @@ VITE_FINZ_SHOW_PORTFOLIO_KPIS=false
 For CI/CD pipelines, these flags should be set as repository variables or in GitHub Actions secrets:
 
 ```yaml
-# .github/workflows/deploy.yml
+# .github/workflows/deploy-ui.yml
 env:
+  # Forecast V2 master flags
+  VITE_FINZ_USE_FORECAST_V2: ${{ vars.VITE_FINZ_USE_FORECAST_V2 || 'false' }}
+  VITE_FINZ_NEW_FORECAST_LAYOUT: ${{ vars.VITE_FINZ_NEW_FORECAST_LAYOUT || 'false' }}
+  # Other forecast flags
   VITE_FINZ_SHOW_KEYTRENDS: ${{ vars.VITE_FINZ_SHOW_KEYTRENDS || 'false' }}
   VITE_FINZ_HIDE_KEY_TRENDS: ${{ vars.VITE_FINZ_HIDE_KEY_TRENDS || 'false' }}
   VITE_FINZ_HIDE_REAL_ANNUAL_KPIS: ${{ vars.VITE_FINZ_HIDE_REAL_ANNUAL_KPIS || 'false' }}

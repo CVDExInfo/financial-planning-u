@@ -227,6 +227,191 @@ describe('canonicalMatrix', () => {
     });
   });
   
+  describe('Portfolio fixtures', () => {
+    it('should handle multiple projects with allocations', () => {
+      // Portfolio fixture with multiple projects and allocations
+      const forecastPayloads = [
+        {
+          projectId: 'proj1',
+          data: [
+            {
+              line_item_id: 'labor_001',
+              month: 1,
+              planned: 5000,
+              forecast: 5500,
+              actual: 5200,
+              variance: 500,
+              last_updated: '2024-01-15',
+              updated_by: 'user1',
+            },
+            {
+              line_item_id: 'labor_001',
+              month: 2,
+              planned: 5000,
+              forecast: 5300,
+              actual: 5100,
+              variance: 300,
+              last_updated: '2024-02-15',
+              updated_by: 'user1',
+            },
+          ] as ForecastCell[],
+        },
+        {
+          projectId: 'proj2',
+          data: [
+            {
+              line_item_id: 'labor_002',
+              month: 1,
+              planned: 3000,
+              forecast: 3200,
+              actual: 2900,
+              variance: 200,
+              last_updated: '2024-01-15',
+              updated_by: 'user2',
+            },
+            {
+              line_item_id: 'labor_002',
+              month: 2,
+              planned: 3000,
+              forecast: 3100,
+              actual: 2950,
+              variance: 100,
+              last_updated: '2024-02-15',
+              updated_by: 'user2',
+            },
+          ] as ForecastCell[],
+        },
+      ];
+      
+      const allocations = [
+        {
+          month: '2024-03',
+          amount: 4500,
+          rubroId: 'labor_003',
+          projectId: 'proj1',
+          rubro_type: 'Labor',
+        },
+        {
+          month: '2024-03',
+          amount: 2500,
+          rubroId: 'labor_004',
+          projectId: 'proj2',
+          rubro_type: 'Labor',
+        },
+      ];
+      
+      const result = buildCanonicalMatrix({
+        projects: [
+          { id: 'proj1', name: 'Project 1' },
+          { id: 'proj2', name: 'Project 2' },
+        ],
+        forecastPayloads,
+        allocations,
+        monthsToShow: 12,
+      });
+      
+      // Should have 4 rows (2 from proj1, 2 from proj2)
+      assert.strictEqual(result.matrixRows.length, 4);
+      
+      // Verify month_ fields are present
+      const proj1Labor001 = result.matrixRows.find(r => r.projectId === 'proj1' && r.lineItemId === 'labor_001');
+      assert.ok(proj1Labor001, 'Should have labor_001 from proj1');
+      assert.strictEqual((proj1Labor001 as any).month_1_planned, 5000, 'month_1_planned should match');
+      assert.strictEqual((proj1Labor001 as any).month_1_forecast, 5500, 'month_1_forecast should match');
+      assert.strictEqual((proj1Labor001 as any).month_1_actual, 5200, 'month_1_actual should match');
+      assert.strictEqual((proj1Labor001 as any).month_2_planned, 5000, 'month_2_planned should match');
+      assert.strictEqual((proj1Labor001 as any).month_2_forecast, 5300, 'month_2_forecast should match');
+      
+      const proj2Labor002 = result.matrixRows.find(r => r.projectId === 'proj2' && r.lineItemId === 'labor_002');
+      assert.ok(proj2Labor002, 'Should have labor_002 from proj2');
+      assert.strictEqual((proj2Labor002 as any).month_1_planned, 3000, 'month_1_planned should match');
+      assert.strictEqual((proj2Labor002 as any).month_1_forecast, 3200, 'month_1_forecast should match');
+      
+      // Verify allocation-based rows
+      const proj1Labor003 = result.matrixRows.find(r => r.projectId === 'proj1' && r.rubroId === 'labor_003');
+      assert.ok(proj1Labor003, 'Should have labor_003 from proj1 allocation');
+      assert.strictEqual((proj1Labor003 as any).month_3_planned, 4500, 'month_3_planned from allocation should match');
+      
+      const proj2Labor004 = result.matrixRows.find(r => r.projectId === 'proj2' && r.rubroId === 'labor_004');
+      assert.ok(proj2Labor004, 'Should have labor_004 from proj2 allocation');
+      assert.strictEqual((proj2Labor004 as any).month_3_planned, 2500, 'month_3_planned from allocation should match');
+      
+      // Verify project index
+      assert.ok(result.projectIndex['proj1'], 'Project index should have proj1');
+      assert.ok(result.projectIndex['proj2'], 'Project index should have proj2');
+      assert.strictEqual(result.projectIndex['proj1'].name, 'Project 1', 'Project name should match');
+      assert.strictEqual(result.projectIndex['proj2'].name, 'Project 2', 'Project name should match');
+    });
+    
+    it('should aggregate totals across multiple projects', () => {
+      const forecastPayloads = [
+        {
+          projectId: 'proj1',
+          data: [
+            {
+              line_item_id: 'labor_001',
+              month: 1,
+              planned: 1000,
+              forecast: 1100,
+              actual: 1050,
+              variance: 100,
+              last_updated: '2024-01-15',
+              updated_by: 'user1',
+            },
+          ] as ForecastCell[],
+        },
+        {
+          projectId: 'proj2',
+          data: [
+            {
+              line_item_id: 'labor_002',
+              month: 1,
+              planned: 2000,
+              forecast: 2200,
+              actual: 2100,
+              variance: 200,
+              last_updated: '2024-01-15',
+              updated_by: 'user2',
+            },
+          ] as ForecastCell[],
+        },
+        {
+          projectId: 'proj3',
+          data: [
+            {
+              line_item_id: 'labor_003',
+              month: 1,
+              planned: 3000,
+              forecast: 3300,
+              actual: 3200,
+              variance: 300,
+              last_updated: '2024-01-15',
+              updated_by: 'user3',
+            },
+          ] as ForecastCell[],
+        },
+      ];
+      
+      const result = buildCanonicalMatrix({
+        projects: [
+          { id: 'proj1', name: 'Project 1' },
+          { id: 'proj2', name: 'Project 2' },
+          { id: 'proj3', name: 'Project 3' },
+        ],
+        forecastPayloads,
+        monthsToShow: 12,
+      });
+      
+      // Verify aggregated totals across all projects
+      assert.strictEqual(result.totals.byMonth[0].planned, 6000, 'Total month 1 planned should be sum of all projects');
+      assert.strictEqual(result.totals.byMonth[0].forecast, 6600, 'Total month 1 forecast should be sum of all projects');
+      assert.strictEqual(result.totals.byMonth[0].actual, 6350, 'Total month 1 actual should be sum of all projects');
+      assert.strictEqual(result.totals.overall.planned, 6000, 'Total overall planned should match');
+      assert.strictEqual(result.totals.overall.forecast, 6600, 'Total overall forecast should match');
+      assert.strictEqual(result.totals.overall.actual, 6350, 'Total overall actual should match');
+    });
+  });
+  
   describe('deriveKpisFromMatrix', () => {
     it('should derive KPIs from matrix rows', () => {
       const matrixRows = [
