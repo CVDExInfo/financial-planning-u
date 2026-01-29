@@ -1139,16 +1139,16 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           (handoffBody.owner as string) || createdBy || "unknown@unknown";
 
         // Pre-write validation: ensure baseline contains estimates
-        const hasLaborEstimates = Array.isArray(normalizedBaseline.labor_estimates) && normalizedBaseline.labor_estimates.length > 0;
-        const hasNonLaborEstimates = Array.isArray(normalizedBaseline.non_labor_estimates) && normalizedBaseline.non_labor_estimates.length > 0;
+        const preValidationHasLabor = Array.isArray(normalizedBaseline.labor_estimates) && normalizedBaseline.labor_estimates.length > 0;
+        const preValidationHasNonLabor = Array.isArray(normalizedBaseline.non_labor_estimates) && normalizedBaseline.non_labor_estimates.length > 0;
 
-        if (!hasLaborEstimates && !hasNonLaborEstimates) {
+        if (!preValidationHasLabor && !preValidationHasNonLabor) {
           console.error("[handoff-projects] CRITICAL: No baseline estimates found for project/baseline (pre-write validation)", {
             projectId: resolvedProjectId,
             baselineId,
             baselineSource,
-            hasLaborEstimates,
-            hasNonLaborEstimates
+            hasLaborEstimates: preValidationHasLabor,
+            hasNonLaborEstimates: preValidationHasNonLabor
           });
 
           // Fail fast and do not write any DB records for incomplete baseline
