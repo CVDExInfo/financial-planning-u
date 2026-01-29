@@ -271,14 +271,15 @@ function ChartLegendContent({
   verticalAlign = "bottom",
   nameKey,
 }: ComponentProps<"div"> & {
-  payload?: Array<Record<string, unknown>>
+  payload?: Payload<any, any>[]
   verticalAlign?: "top" | "bottom"
   hideIcon?: boolean
   nameKey?: string
 }) {
   const { config } = useChart()
 
-  const legendPayload = payload as ChartLegendPayload[] | undefined
+  // Defensively cast payload to proper Payload array type
+  const legendPayload = (Array.isArray(payload) ? payload : []) as Payload<any, any>[]
 
   if (!legendPayload?.length) {
     return null
