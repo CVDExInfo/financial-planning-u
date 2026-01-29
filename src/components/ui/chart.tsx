@@ -104,7 +104,7 @@ function ChartContainer({
 const ChartTooltip = RechartsPrimitive.Tooltip
 
 type ChartTooltipProps = ComponentProps<typeof RechartsPrimitive.Tooltip> & {
-  payload?: ReadonlyArray<Payload<ValueType, NameType>>
+  payload?: unknown
   label?: string | number
 }
 

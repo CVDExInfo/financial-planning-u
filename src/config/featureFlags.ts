@@ -39,7 +39,7 @@ export const FEATURE_FLAGS = {
    * the /sdmt/cost/forecast-v2 route with the new SDMTForecastV2 component.
    * 
    * Supports two environment variables for backward compatibility:
-   *   - VITE_FINZ_FORECAST_V2_ENABLED (preferred, semantic master flag)
+   *   - VITE_FINZ_USE_FORECAST_V2 (preferred, semantic master flag)
    *   - VITE_FINZ_NEW_FORECAST_LAYOUT (legacy, maintained for backward compatibility)
    * 
    * The flag is enabled when EITHER variable is set to 'true'.
@@ -47,16 +47,16 @@ export const FEATURE_FLAGS = {
    * Default: false
    * 
    * To enable in production (preferred):
-   *   Set environment variable: VITE_FINZ_FORECAST_V2_ENABLED=true
+   *   Set environment variable: VITE_FINZ_USE_FORECAST_V2=true
    * 
    * To enable in production (legacy):
    *   Set environment variable: VITE_FINZ_NEW_FORECAST_LAYOUT=true
    * 
    * To enable in development:
-   *   Add to .env.development: VITE_FINZ_FORECAST_V2_ENABLED=true
+   *   Add to .env.development: VITE_FINZ_USE_FORECAST_V2=true
    *   OR: VITE_FINZ_NEW_FORECAST_LAYOUT=true
    */
-  USE_FORECAST_V2: import.meta.env.VITE_FINZ_FORECAST_V2_ENABLED === 'true' ||
+  USE_FORECAST_V2: import.meta.env.VITE_FINZ_USE_FORECAST_V2 === 'true' ||
                    import.meta.env.VITE_FINZ_NEW_FORECAST_LAYOUT === 'true',
 } as const;
 
